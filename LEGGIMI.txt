@@ -1,0 +1,42 @@
+ASSISTENZA IMPIANTI - APP INSTALLABILE (si usa anche senza campo)
+==================================================================
+
+COSA C'E' IN QUESTA CARTELLA
+  index.html              l'app
+  sw.js                   memorizza l'app sul dispositivo, cosi' funziona anche senza connessione
+  manifest.webmanifest    nome e icona dell'app
+  icona-192.png, icona-512.png, icona-maskable-512.png, apple-touch-icon.png    le icone
+  libs/                   le librerie per creare, leggere e modificare i PDF (incluse: non servono siti esterni)
+
+COME METTERLA ONLINE SU GITHUB (si fa una volta sola)
+  1. Crea un account gratuito su github.com.
+  2. Crea un nuovo repository (il "+" in alto a destra, poi "New repository"), per esempio con nome "assistenza",
+     impostato come Public.
+  3. Nel repository: "Add file" > "Upload files". Trascina TUTTO il contenuto di questa cartella (compresa la
+     cartella libs) e premi "Commit changes".
+     Controlla che index.html, sw.js e manifest.webmanifest stiano nella pagina principale del repository.
+  4. Settings > Pages > Source: "Deploy from a branch", ramo "main", cartella "/ (root)", poi Save.
+  5. Dopo circa un minuto l'app e' all'indirizzo  https://NOMEUTENTE.github.io/NOME-REPOSITORY/
+
+COME SI INSTALLA SUI DISPOSITIVI
+  1. Apri l'indirizzo CON LA CONNESSIONE e lascia l'app aperta qualche secondo.
+  2. In Impostazioni > "App sul dispositivo" deve comparire "Uso senza campo: pronto".
+  3. Installa:
+       Android (Chrome):    pulsante "Installa l'app" nelle Impostazioni, oppure menu del browser > Installa app
+       iPhone e iPad:       in Safari, Condividi > Aggiungi alla schermata Home
+       PC (Edge o Chrome):  icona di installazione nella barra dell'indirizzo
+  4. Da quel momento si apre dall'icona, come un'app, anche senza campo.
+
+COME SI AGGIORNA
+  - Per una versione nuova basta caricare di nuovo index.html con lo stesso nome ("Add file" > "Upload files": sostituisce
+    quello vecchio). Chi ha campo trova la versione nuova alla prima apertura; senza campo resta quella precedente.
+  - Se cambiano anche altri file (sw.js, libs, icone) ricaricali insieme. Se si aggiungono file nuovi, in sw.js si cambia
+    VERSIONE (per esempio da 'v1' a 'v2') e si aggiungono all'elenco FILE_APP.
+
+COSE DA SAPERE
+  - La prima apertura di ogni dispositivo deve avere la connessione.
+  - Bozze, foto e documenti restano sul dispositivo e sono legati all'indirizzo: non cambiare nome utente o nome del
+    repository dopo averla distribuita, altrimenti i dispositivi ripartono da zero.
+  - Serve ancora la connessione per: dettatura vocale (usa il servizio del browser) e aggiornamenti dell'app.
+  - L'app non contiene dati dei clienti: arrivano con i file dell'ufficio e restano sul dispositivo.
+  - Con un account GitHub gratuito il repository e' pubblico: il codice dell'app e' leggibile da chiunque.

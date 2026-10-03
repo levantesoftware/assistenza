@@ -1,0 +1,2728 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#0E5A6B">
+<title>Assistenza impianti</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icona-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Assistenza">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="libs/jspdf.umd.min.js"></script>
+<script>window.jspdf || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>');</script>
+<style>
+:root{
+  --carta:#EEF2F3; --foglio:#FFFFFF; --inchiostro:#14232B; --tenue:#5B6D75; --riga:#D3DCDF; --riga2:#E4EBED;
+  --petrolio:#0E5A6B; --petrolio-s:#0A4350; --petrolio-c:#E3EFF2;
+  --fiamma:#B36A00; --fiamma-c:#FFF0D3;
+  --ok:#2B7A4B; --ok-c:#DEF1E5;
+  --rosso:#AE3427; --rosso-c:#FBE3DF;
+  --acciaio:#C9D2D6; --acciaio-s:#9FAEB4;
+  --targa:"Bahnschrift","DIN Alternate","Roboto Condensed","Arial Narrow","Helvetica Neue",sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--carta);color:var(--inchiostro);
+  font:16px/1.45 "Avenir Next","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  padding-top:env(safe-area-inset-top);
+}
+button{font:inherit;color:inherit}
+a{color:var(--petrolio)}
+h1,h2,h3,p{margin:0}
+.app{max-width:640px;margin:0 auto;min-height:100vh}
+.view{display:none;padding:0 16px 120px}
+.view.attiva{display:block}
+
+/* barra superiore */
+.barra{display:flex;align-items:center;gap:10px;padding:14px 0 12px}
+.barra h1{font-size:25px;line-height:1.1;letter-spacing:-.015em;flex:1;min-width:0}
+.barra .sotto{font-size:14px;color:var(--tenue);margin-top:3px}
+.barra.fissa{position:sticky;top:0;z-index:5;background:var(--carta);border-bottom:1px solid var(--riga);margin:0 -16px 12px;padding:10px 16px}
+.barra.fissa h1{font-size:19px}
+
+/* pulsanti */
+.btn{min-height:48px;padding:0 18px;border-radius:10px;border:1.5px solid var(--petrolio);background:var(--petrolio);color:#fff;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn:active{background:var(--petrolio-s)}
+.btn.sec{background:var(--foglio);color:var(--petrolio)}
+.btn.chiaro{background:transparent;color:var(--petrolio);border-color:var(--riga)}
+.btn.piccolo{min-height:40px;padding:0 12px;font-weight:600;font-size:15px}
+.btn.pieno{display:flex;width:100%}
+.btn svg{width:20px;height:20px;flex:none}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2A8CA3;outline-offset:2px}
+
+/* schede giorno */
+.seg{display:flex;gap:8px;margin:2px 0 6px}
+.seg button{flex:1;min-height:44px;border-radius:10px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
+.giorno{font-size:15px;font-weight:700;margin:20px 0 8px}
+.giorno small{font-weight:400;color:var(--tenue);margin-left:6px}
+
+/* agenda: l'ora e' la colonna portante */
+.visita{display:grid;grid-template-columns:58px 1fr;gap:0 12px;width:100%;text-align:left;background:none;border:0;padding:0;margin:0 0 10px;cursor:pointer}
+.visita .ora{font-family:var(--targa);font-size:22px;font-weight:700;line-height:1;padding-top:14px;font-variant-numeric:tabular-nums;text-align:right}
+.visita .ora small{display:block;font-size:13px;font-weight:400;color:var(--tenue);margin-top:4px}
+.visita .corpo{background:var(--foglio);border:1px solid var(--riga);border-left:5px solid var(--acciaio-s);border-radius:10px;padding:12px 14px;min-width:0}
+.visita.bozza .corpo{border-left-color:var(--fiamma)}
+.visita.pdf .corpo{border-left-color:var(--ok)}
+.visita.urgente .corpo{border-left-color:var(--rosso)}
+.visita .nome{font-weight:700;font-size:17px;overflow-wrap:anywhere}
+.visita .dove{color:var(--tenue);font-size:14px;margin-top:2px;overflow-wrap:anywhere}
+.visita .riga{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:650;padding:2px 9px;border-radius:99px;background:var(--riga2);color:var(--inchiostro)}
+.chip.urg{background:var(--rosso-c);color:var(--rosso)}
+.chip.bozza{background:var(--fiamma-c);color:var(--fiamma)}
+.chip.pdf{background:var(--ok-c);color:var(--ok)}
+.chip.info{background:var(--petrolio-c);color:var(--petrolio)}
+.vuoto{background:var(--foglio);border:1px dashed var(--acciaio-s);border-radius:10px;padding:18px;color:var(--tenue)}
+
+/* dettaglio */
+.testata{padding:4px 0 14px}
+.testata .cliente{font-size:26px;line-height:1.15;font-weight:750;letter-spacing:-.015em;overflow-wrap:anywhere}
+.testata .quando{margin-top:6px;color:var(--tenue)}
+.azioni{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.avviso{border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--fiamma-c);border:1px solid #EACB8A}
+.avviso.info{background:var(--petrolio-c);border-color:#B7D3DB}
+.avviso.rosso{background:var(--rosso-c);border-color:#EDB4AC}
+.avviso b{display:block;margin-bottom:2px}
+.sez{margin:26px 0 0}
+.sez>h2{font-size:18px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:2px solid var(--inchiostro);margin-bottom:12px}
+.sez>h2 small{font-weight:400;font-size:14px;color:var(--tenue);margin-left:6px}
+.dati{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;font-size:15px}
+.dati dt{color:var(--tenue)}
+.dati dd{margin:0;overflow-wrap:anywhere}
+
+/* targhetta dell'apparecchio: l'elemento riconoscibile dell'app */
+.targa{position:relative;margin:0 0 12px;padding:14px 16px 12px;border-radius:8px;
+  background:linear-gradient(180deg,#E8EDEF 0%,#D6DEE1 100%);border:1.5px solid var(--acciaio-s);
+  box-shadow:inset 0 0 0 4px #E8EDEF,inset 0 0 0 5px var(--acciaio-s)}
+.targa::before,.targa::after{content:"";position:absolute;top:9px;width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff 0,#B5C0C5 55%,#8FA0A7 100%);box-shadow:0 0 0 1px #7D8E95}
+.targa::before{left:9px}.targa::after{right:9px}
+.targa.scelto{border-color:var(--petrolio);box-shadow:inset 0 0 0 4px #E8EDEF,inset 0 0 0 5px var(--petrolio)}
+.targa .tipo{font-size:13px;color:var(--tenue);text-align:center;margin:0 18px 2px}
+.targa .modello{font-family:var(--targa);font-size:22px;font-weight:700;text-align:center;line-height:1.15;margin:0 14px 10px;overflow-wrap:anywhere}
+.targa .spec{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-family:var(--targa);font-size:16px}
+.targa .spec span:nth-child(odd){color:var(--tenue)}
+.targa .spec span:nth-child(even){text-align:right;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.targa .seleziona{margin-top:10px;text-align:center}
+
+/* operazioni */
+.op{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;padding:11px 0;border-bottom:1px solid var(--riga2)}
+.op:last-child{border-bottom:0}
+.op .seg-ok{grid-row:1 / 3;width:12px;height:12px;border-radius:50%;margin-top:6px;background:var(--acciaio-s)}
+.op.dafare .seg-ok{background:var(--fiamma)}
+.op .nome{font-weight:600;overflow-wrap:anywhere}
+.op .meta{font-size:14px;color:var(--tenue)}
+details.altre{margin-top:6px}
+details.altre summary{cursor:pointer;color:var(--petrolio);font-weight:600;padding:8px 0}
+.storia{padding:12px 0;border-bottom:1px solid var(--riga2)}
+.storia:last-child{border-bottom:0}
+.storia .data{font-weight:700}
+.storia p{font-size:15px;color:var(--inchiostro);margin-top:3px;overflow-wrap:anywhere}
+
+/* scheda intervento */
+.passo{margin:24px 0 0}
+.passo>h2{font-size:18px;letter-spacing:-.01em;margin-bottom:4px}
+.passo>.aiuto{font-size:14px;color:var(--tenue);margin-bottom:10px}
+.campo{margin:0 0 14px}
+.campo>label,.etichetta{display:block;font-size:14px;font-weight:650;margin-bottom:5px}
+.campo .conta{float:right;font-weight:400;color:var(--tenue)}
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=tel],textarea,select{
+  width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid #A9B8BE;border-radius:8px;background:#fff;font:inherit;font-size:16px;color:var(--inchiostro)}
+textarea{min-height:96px;resize:vertical}
+textarea.alta{min-height:150px}
+.due{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tre{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tile{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 14px;background:#fff;border:1.5px solid var(--riga);border-radius:10px;cursor:pointer;margin-bottom:8px}
+.tile input{width:22px;height:22px;margin:0;flex:none;accent-color:var(--petrolio)}
+.tile small{display:block;color:var(--tenue);font-size:13px}
+.tile.sel{border-color:var(--petrolio);background:var(--petrolio-c)}
+.tile.ok.sel{border-color:var(--ok);background:var(--ok-c)}
+.tile.mezzo.sel{border-color:var(--fiamma);background:var(--fiamma-c)}
+.tile.no.sel{border-color:var(--rosso);background:var(--rosso-c)}
+.tile .nome{font-weight:600;overflow-wrap:anywhere}
+.tile .meta{font-size:13px;color:var(--tenue)}
+.riga-orario{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 44px;gap:8px;margin-bottom:8px;align-items:end}
+.riga-orario label{font-size:13px;color:var(--tenue);display:block;margin-bottom:3px}
+.totale{font-size:15px;color:var(--tenue);margin:2px 0 4px}
+.totale b{color:var(--inchiostro)}
+.togli{min-height:48px;border:1px solid var(--riga);border-radius:8px;background:#fff;font-size:22px;line-height:1;cursor:pointer;color:var(--rosso)}
+.mat{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) 44px;gap:8px;padding:10px;background:var(--foglio);border:1px solid var(--riga);border-radius:10px;margin-bottom:8px}
+.mat .descr{grid-column:1 / 4}
+.mat input[data-c="um"]{grid-column:3 / 5}
+.mat input{padding-left:10px;padding-right:8px}
+.mat .togli{grid-column:4;grid-row:1}
+.analisi{background:var(--foglio);border:1px solid var(--riga);border-radius:10px;padding:12px;margin-bottom:10px}
+.analisi h3{font-size:16px;margin-bottom:2px}
+.analisi .sub{font-size:13px;color:var(--tenue);margin-bottom:10px}
+.analisi .campo{margin-bottom:10px;display:flex;flex-direction:column;justify-content:flex-end}
+.analisi .campo label{font-size:13px;min-height:2.6em;display:flex;align-items:flex-end}
+.firma{background:#fff;border:1px solid #A9B8BE;border-radius:8px;position:relative}
+#firma,#firma-tec{display:block;width:100%;height:170px;touch-action:none;border-radius:8px}
+.firma .linea{position:absolute;left:14px;right:14px;bottom:38px;border-bottom:1px dashed var(--acciaio-s);pointer-events:none}
+.strumenti{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:14px;color:var(--tenue)}
+.salvato{font-size:13px;color:var(--tenue);min-height:18px}
+.barra-azione{position:fixed;left:0;right:0;bottom:0;z-index:6;background:rgba(238,242,243,.97);border-top:1px solid var(--riga);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.barra-azione .dentro{max-width:640px;margin:0 auto;display:flex;gap:8px}
+.barra-azione .btn{flex:1}
+.fatto{background:var(--ok-c);border:1px solid #A9D5B9;border-radius:10px;padding:14px;margin:16px 0}
+.fatto p{margin-bottom:10px}
+.fatto .azioni2{display:flex;gap:8px;flex-wrap:wrap}
+.aiuto{font-size:14px;color:var(--tenue)}
+@media (prefers-reduced-motion:no-preference){.visita .corpo{transition:background-color .12s}.visita:active .corpo{background:#F3F7F8}}
+
+/* ================= ADATTAMENTO A TELEFONI, TABLET E SCHERMI GRANDI ================= */
+html{-webkit-tap-highlight-color:transparent}
+button,a,label,summary,select{touch-action:manipulation}
+#destra{display:contents}
+#v-vuoto{display:none}
+.segnaposto{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--tenue);min-height:60vh;padding:24px}
+.segnaposto b{display:block;font-size:20px;color:var(--inchiostro);margin-bottom:6px}
+.visita.selezionata .corpo{box-shadow:0 0 0 2px var(--petrolio)}
+.targhe{display:block}
+/* margini: rispettano tacche e bordi arrotondati quando il telefono e' in orizzontale */
+.view{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.barra.fissa{margin-left:calc(-1 * max(16px,env(safe-area-inset-left)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right)));padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.barra-azione{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+
+/* telefoni stretti */
+@media (max-width:420px){
+  .tre{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .riga-orario{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px}
+  .riga-orario>div:first-child{grid-column:1 / 4}
+  .testata .cliente{font-size:23px}
+  .visita{grid-template-columns:52px 1fr;gap:0 10px}
+  .visita .ora{font-size:20px}
+  .dati{grid-template-columns:96px 1fr}
+  .barra h1{font-size:23px}
+}
+@media (max-width:340px){
+  .azioni{grid-template-columns:1fr}
+  .due{grid-template-columns:1fr}
+  .barra{flex-wrap:wrap}
+}
+/* telefoni in orizzontale: meno altezza sprecata */
+@media (max-height:500px) and (orientation:landscape){
+  .barra{padding:8px 0}
+  .barra.fissa{padding-top:6px;padding-bottom:6px;margin-bottom:8px}
+  .barra-azione{padding-top:6px;padding-bottom:calc(6px + env(safe-area-inset-bottom))}
+  .btn{min-height:44px}
+  .view{padding-bottom:84px}
+  .sez{margin-top:18px}
+  .testata .cliente{font-size:22px}
+}
+/* tablet in verticale e telefoni grandi in orizzontale */
+@media (min-width:640px){
+  .app{max-width:760px}
+  .view{padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}
+  .barra.fissa{margin-left:calc(-1 * max(24px,env(safe-area-inset-left)));margin-right:calc(-1 * max(24px,env(safe-area-inset-right)));padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}
+  .barra-azione{padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}
+  .tre{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .targhe{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .targhe .targa{margin:0}
+  .dati{grid-template-columns:140px 1fr}
+}
+/* tablet in orizzontale e computer: elenco a sinistra, dettaglio a destra */
+@media (min-width:900px){
+  body{overflow:hidden}
+  .app{max-width:none;height:100vh;height:100dvh;display:grid;grid-template-columns:minmax(340px,400px) minmax(0,1fr)}
+  #v-agenda{display:block;height:100%;overflow-y:auto;overflow-x:hidden;border-right:1px solid var(--riga);padding-bottom:24px}
+  #destra{display:block;height:100%;overflow-y:auto;overflow-x:hidden}
+  #destra .view{max-width:780px;margin:0 auto;padding-bottom:28px}
+  body[data-vista="agenda"] #v-vuoto{display:block}
+  .barra-azione{position:sticky;left:auto;right:auto;bottom:0;margin:24px -24px 0;max-width:none}
+  .barra-azione .dentro{max-width:none}
+  #b-indietro-det{display:none}
+}
+@media (min-width:1500px){
+  .app{grid-template-columns:minmax(380px,440px) minmax(0,1fr)}
+  body{font-size:17px}
+}
+
+/* allegato RCEE */
+.sottotit{font-size:15px;margin:18px 0 6px;color:var(--petrolio)}
+.controllo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--riga2)}
+.controllo>span:first-child{flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere}
+.tris{display:flex;gap:6px;flex:none}
+.tri{min-width:46px;min-height:44px;padding:0 10px;border-radius:8px;border:1.5px solid var(--riga);background:#fff;font-weight:600;cursor:pointer}
+.tri.sel{background:var(--petrolio);border-color:var(--petrolio);color:#fff}
+
+/* documenti allegati */
+.doc{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--foglio);border:1px solid var(--riga);border-radius:10px;padding:10px 12px;margin:0 0 8px;cursor:pointer}
+.docico{flex:none;width:44px;height:44px;border-radius:8px;background:var(--petrolio-c);color:var(--petrolio);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+.docn{flex:1;min-width:0;font-weight:600;overflow-wrap:anywhere}
+.docn small{display:block;font-weight:400;color:var(--tenue);font-size:13px}
+.docapri{flex:none;color:var(--petrolio);font-weight:700}
+
+.chip.chiuso{background:var(--riga2);color:var(--tenue)}
+.visita.chiuso .corpo{background:#F8FAFA}
+.visita.chiuso .nome,.visita.chiuso .dove{color:var(--tenue)}
+
+/* editor dei documenti */
+.ed-testata{position:sticky;top:0;z-index:7;background:var(--carta);border-bottom:1px solid var(--riga);margin:0 -16px 10px;padding:0 16px 4px}
+.ed-barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0}
+.ed-str,.ed-dim{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;border:1.5px solid var(--riga);background:#fff;font-weight:650;cursor:pointer}
+.ed-str[aria-pressed="true"],.ed-dim[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
+.ed-str:disabled{opacity:.4}
+.ed-col{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px var(--acciaio-s);cursor:pointer;padding:0}
+.ed-col[aria-pressed="true"]{box-shadow:0 0 0 3px var(--petrolio)}
+.ed-sep{width:1px;height:28px;background:var(--riga);margin:0 2px}
+.ed-pagina{position:relative;margin:0 auto 14px;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.3);max-width:1000px}
+.ed-pagina canvas{display:block;width:100%;height:auto}
+.ed-pagina canvas.ed-ov{position:absolute;left:0;top:0;width:100%;height:100%}
+.ed-sul-testo .ed-ov{touch-action:none;cursor:text}
+.ed-sul-disegno .ed-ov{touch-action:none;cursor:crosshair}
+.ed-scorri .ed-ov{pointer-events:none}
+#ed-modale{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#ed-modale[hidden]{display:none}
+.ed-fogli{background:var(--carta);width:100%;max-width:640px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));border-radius:14px 14px 0 0}
+.ed-fogli textarea{margin:8px 0 12px}
+.docbox{margin:0 0 12px}
+.docbox .doc{margin:0 0 6px}
+.docazioni{display:flex;flex-wrap:wrap;gap:6px}
+.allega{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #A9D5B9}
+.allega input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--petrolio)}
+.allega span{flex:1;min-width:0;overflow-wrap:anywhere}
+
+/* foto e dettatura */
+.fotocard{display:flex;gap:10px;background:var(--foglio);border:1px solid var(--riga);border-radius:10px;padding:10px;margin:0 0 10px}
+.fotocard img{width:96px;height:96px;object-fit:cover;border-radius:8px;flex:none;background:var(--riga2)}
+.fotodati{flex:1;min-width:0}
+.fototesta{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.fototesta .togli{min-height:40px;min-width:40px}
+.fotocard textarea{min-height:60px}
+.cbox{position:relative}
+.cbox textarea{padding-right:54px}
+.mic{position:absolute;right:6px;bottom:6px;width:42px;height:42px;border-radius:50%;border:1.5px solid var(--acciaio-s);background:#fff;color:var(--petrolio);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.mic.attivo{background:var(--rosso);border-color:var(--rosso);color:#fff}
+@media (prefers-reduced-motion:no-preference){.mic.attivo{animation:pulsa 1.2s infinite}@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(174,52,39,.5)}100%{box-shadow:0 0 0 12px rgba(174,52,39,0)}}}
+#dett-barra{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:25;background:var(--inchiostro);color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;max-width:620px;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+#dett-barra[hidden]{display:none}
+#dett-testo{flex:1;min-width:0;overflow-wrap:anywhere}
+#vm-modale{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#vm-modale[hidden]{display:none}
+#vm-modale .ed-fogli{max-height:88vh;overflow:auto}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- AGENDA -->
+  <section id="v-agenda" class="view attiva">
+    <header class="barra">
+      <div style="flex:1;min-width:0">
+        <h1>Appuntamenti</h1>
+        <p class="sotto" id="sotto-agenda"></p>
+      </div>
+      <button class="btn chiaro piccolo" id="b-impostazioni" type="button">Impostazioni</button>
+    </header>
+    <div id="banner"></div>
+    <input type="file" id="in-pacchetto" accept=".json,.txt,application/json,text/plain" hidden>
+    <div class="seg">
+      <button type="button" id="s-oggi" aria-pressed="true">Oggi</button>
+      <button type="button" id="s-sett" aria-pressed="false">Settimana</button>
+      <button type="button" id="s-scorsa" aria-pressed="false">Scorsa</button>
+    </div>
+    <div id="lista"></div>
+    <div id="da-completare"></div>
+    <button class="btn sec pieno" id="b-nuovo" type="button" style="margin-top:14px">Nuovo intervento senza appuntamento</button>
+  </section>
+
+  <div id="destra">
+  <section id="v-vuoto" class="view"><div class="segnaposto"><b>Scegli un appuntamento</b>Toccalo nell'elenco per vedere cliente, impianto e apparecchi.</div></section>
+
+  <!-- DETTAGLIO APPUNTAMENTO -->
+  <section id="v-dettaglio" class="view"></section>
+  <input type="file" id="in-doc-mod" hidden>
+  <input type="file" id="in-foto" accept="image/*" capture="environment" hidden>
+  <input type="file" id="in-foto-gal" accept="image/*" multiple hidden>
+  <div id="dett-barra" hidden role="status" aria-live="polite"><span id="dett-testo"></span><button type="button" id="dett-fine" class="btn piccolo">Fine</button></div>
+  <div id="vm-modale" hidden>
+    <div class="ed-fogli">
+      <label for="vm-testo"><b>Materiali a voce</b></label>
+      <p class="aiuto" id="vm-aiuto" style="margin:2px 0 6px"></p>
+      <div class="cbox"><textarea id="vm-testo" rows="3" placeholder="Qui compare quello che dici. Puoi correggerlo."></textarea><span id="vm-mic-slot"></span></div>
+      <div id="vm-risultato"></div>
+      <div class="azioni" style="margin-top:12px"><button class="btn sec" id="vm-annulla" type="button">Annulla</button><button class="btn" id="vm-aggiungi" type="button" disabled>Aggiungi</button></div>
+    </div>
+  </div>
+
+  <!-- SCHEDA INTERVENTO -->
+  <section id="v-scheda" class="view">
+    <header class="barra fissa">
+      <button class="btn chiaro piccolo" id="b-indietro-scheda" type="button">Indietro</button>
+      <h1>Scheda intervento</h1>
+    </header>
+    <div class="salvato" id="salvato" aria-live="polite"></div>
+    <form id="form" autocomplete="off" onsubmit="return false"></form>
+    <datalist id="lista-um"><option value="pz"><option value="m"><option value="cm"><option value="mm"><option value="kg"><option value="g"><option value="l"><option value="ml"><option value="mq"><option value="mc"><option value="conf."><option value="set"><option value="kit"><option value="rotolo"><option value="ore"></datalist>
+    <div class="barra-azione"><div class="dentro"><button class="btn" id="b-pdf" type="button">Crea PDF</button></div></div>
+  </section>
+
+  <!-- EDITOR DEI DOCUMENTI PDF -->
+  <section id="v-editor" class="view">
+    <div class="ed-testata">
+      <header class="barra fissa" style="position:static;margin:0 -16px 0;border-bottom:0">
+        <button class="btn chiaro piccolo" id="b-ed-chiudi" type="button">Chiudi</button>
+        <h1 id="ed-titolo">Modifica documento</h1>
+        <button class="btn piccolo" id="b-ed-salva" type="button">Salva</button>
+      </header>
+      <div class="ed-barra" role="toolbar" aria-label="Strumenti">
+        <button type="button" class="ed-str" data-str="scorri" aria-pressed="true">Scorri</button>
+        <button type="button" class="ed-str" data-str="testo" aria-pressed="false">Testo</button>
+        <button type="button" class="ed-str" data-str="penna" aria-pressed="false">Penna</button>
+        <button type="button" class="ed-str" data-str="spunta" aria-pressed="false">✓</button>
+        <button type="button" class="ed-str" data-str="croce" aria-pressed="false">✗</button>
+        <span class="ed-sep"></span>
+        <button type="button" class="ed-col" data-col="#111111" style="background:#111111" aria-label="Nero" aria-pressed="true"></button>
+        <button type="button" class="ed-col" data-col="#0B4DB8" style="background:#0B4DB8" aria-label="Blu" aria-pressed="false"></button>
+        <button type="button" class="ed-col" data-col="#C62828" style="background:#C62828" aria-label="Rosso" aria-pressed="false"></button>
+        <span class="ed-sep"></span>
+        <button type="button" class="ed-dim" data-dim="0" aria-pressed="false">S</button>
+        <button type="button" class="ed-dim" data-dim="1" aria-pressed="true">M</button>
+        <button type="button" class="ed-dim" data-dim="2" aria-pressed="false">L</button>
+        <span class="ed-sep"></span>
+        <button type="button" id="b-ed-annulla" class="ed-str" disabled>Annulla</button>
+      </div>
+      <p class="aiuto" id="ed-aiuto" style="margin:4px 0 6px"></p>
+    </div>
+    <div id="ed-pagine"></div>
+    <div id="ed-modale" hidden>
+      <div class="ed-fogli">
+        <label for="ed-testo-in"><b>Testo da scrivere</b></label>
+        <textarea id="ed-testo-in" rows="3" placeholder="Scrivi qui (puoi andare a capo)"></textarea>
+        <div class="azioni"><button class="btn sec" id="b-ed-testo-no" type="button">Annulla</button><button class="btn" id="b-ed-testo-ok" type="button">Aggiungi</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- IMPOSTAZIONI -->
+  <section id="v-impostazioni" class="view">
+    <header class="barra fissa">
+      <button class="btn chiaro piccolo" id="b-indietro-imp" type="button">Indietro</button>
+      <h1>Impostazioni</h1>
+    </header>
+    <div class="campo"><label for="i-azienda">Nome azienda (in alto nel PDF)</label><input type="text" id="i-azienda"></div>
+    <div class="campo"><label for="i-tecnico">Nome del tecnico (precompila la scheda)</label><input type="text" id="i-tecnico"></div>
+    <div class="campo"><span class="etichetta">La tua firma per l'RCEE (si fa una volta sola)</span>
+      <div class="firma"><canvas id="firma-tec"></canvas><div class="linea"></div></div>
+      <div class="strumenti"><span>Firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma-tec" type="button">Cancella firma</button></div></div>
+    <p class="aiuto">Le modifiche si salvano da sole. Schede e impostazioni restano su questo telefono.</p>
+    <h2 class="giorno" style="margin-top:26px">App sul dispositivo</h2>
+    <div id="stato-app"></div>
+    <button class="btn pieno" id="b-installa" type="button" hidden style="margin-bottom:8px">Installa l'app</button>
+    <button class="btn sec pieno" id="b-ricarica" type="button">Aggiorna l'app (serve la connessione)</button>
+    <h2 class="giorno" style="margin-top:26px">Stampante</h2>
+    <p class="aiuto" style="margin-bottom:10px">Premendo <b>Stampa</b> si apre il menu del telefono: scegli l'app della tua stampante Bluetooth e il documento si carica lì.</p>
+    <label class="tile"><input type="radio" name="stampa-formato" value="pdf"><span>Manda il PDF<small>va bene per la maggior parte delle app</small></span></label>
+    <label class="tile"><input type="radio" name="stampa-formato" value="img"><span>Manda le immagini (una per pagina)<small>se l'app della stampante non compare nel menu con il PDF</small></span></label>
+    <label class="tile"><input type="checkbox" id="stampa-bn"><span>Bianco e nero ad alto contrasto<small>solo per le immagini: testo più nitido sulla carta termica</small></span></label>
+    <p class="aiuto" style="margin:10px 0 6px">Qualità delle immagini (carta A4):</p>
+    <label class="tile"><input type="radio" name="stampa-dpi" value="200"><span>Normale, 200 dpi<small>va bene per le stampanti a 203 dpi; file più leggeri</small></span></label>
+    <label class="tile"><input type="radio" name="stampa-dpi" value="300"><span>Alta, 300 dpi<small>per le stampanti a 300 dpi: le note piccole dell'RCEE si leggono meglio</small></span></label>
+    <h2 class="giorno" style="margin-top:26px">Ufficio</h2>
+    <p class="aiuto" style="margin-bottom:10px">Da qui si caricano i file esportati da Levante e si preparano i file da mandare ai tecnici.</p>
+    <button class="btn pieno" id="b-ufficio" type="button">Prepara i file da Levante</button>
+    <button class="btn sec pieno" id="b-azzera" type="button" style="margin-top:18px">Cancella le schede salvate</button>
+    <button class="btn sec pieno" id="b-prova" type="button" style="margin-top:10px">Torna ai dati di prova</button>
+  </section>
+
+  <!-- UFFICIO: DATI DA LEVANTE -->
+  <section id="v-ufficio" class="view">
+    <header class="barra fissa">
+      <button class="btn chiaro piccolo" id="b-indietro-uff" type="button">Indietro</button>
+      <h1>Dati da Levante</h1>
+    </header>
+    <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
+      <li>Sul PC di Levante lancia <b>Esporta_Levante.bat</b>.</li>
+      <li>Apri la cartella che si crea (con data e ora) e scegli qui <b>tutti i file</b> (.csv e .json).</li>
+      <li>Manda a ogni tecnico il suo file (è un file di testo <b>.txt</b>: il tecnico lo apre dall'app con "Carica i dati").</li>
+    </ol>
+    <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
+    <input type="file" id="in-levante" accept=".csv,.json,text/csv,application/json" multiple hidden>
+    <div id="esito-uff"></div>
+    <p class="aiuto" style="margin-top:18px">I file contengono dati dei clienti: mandali solo ai tecnici.</p>
+  </section>
+  </div>
+</div>
+
+<script>
+/* ==================================================================
+   DATI
+   Ogni appuntamento ha un "riassunto" r con questa forma (stessa che
+   scrive Levante negli eventi): c cliente, i impianto, a apparecchi,
+   o operazioni, s storico. Quando leggeremo da Google Calendar basta
+   riempire questi stessi campi: il resto dell'app non cambia.
+   ================================================================== */
+let datiReali = null;
+const riattiva = a => Object.assign({}, a, {inizio: new Date(a.inizio), fine: new Date(a.fine)});
+function caricaAppuntamenti(){            // dati ricevuti dall'ufficio, altrimenti dati di esempio
+  const d = store.get('ass_dati', null);
+  if (d && Array.isArray(d.appuntamenti)) { datiReali = d; return d.appuntamenti.map(riattiva); }
+  datiReali = null;
+  return demoAppuntamenti();
+}
+function riassuntoDaEvento(proprieta){    // pronto per Google Calendar: ricompone i pezzi ass_0, ass_1...
+  const n = parseInt(proprieta.ass_n || '0', 10);
+  let testo = '';
+  for (let i = 0; i < n; i++) testo += proprieta['ass_' + i] || '';
+  try { return JSON.parse(testo); } catch(e) { return null; }
+}
+
+function demoAppuntamenti(){
+  const base = new Date(); base.setHours(0,0,0,0);
+  const at = (g,h,m,durata) => { const s = new Date(base); s.setDate(s.getDate()+g); s.setHours(h,m,0,0); return {inizio:s, fine:new Date(s.getTime()+durata*60000)}; };
+  const oggiISO = d => { const x = new Date(base); x.setDate(x.getDate()+d); return x.toISOString().slice(0,10); };
+  return [
+    { id:'demo-1', ...at(0,8,30,60), titolo:'ROSSI MARCO', urgente:true,
+      luogo:'Via Garibaldi 12, 47843 Misano Adriatico (RN)',
+      messaggio:'La caldaia non parte, sul display compare E01. Citofonare Rossi, secondo piano.',
+      r:{ v:'1', li:'2300021', mi:'101', tp:'Riparazione',
+        c:{k:'12', n:'ROSSI MARCO', t:'0541 123456', m:'333 1234567', e:'marco.rossi@example.it'},
+        i:{id:'36', d:'Caldaia murale appartamento', u:'Via Garibaldi 12, 47843 Misano Adriatico (RN)', z:'Centro', tp:'Riscaldamento', pv:oggiISO(60), ct:'T', tel:'0541 123456', nt:'Chiavi dal portinaio. Cane in giardino: suonare e aspettare.'},
+        a:[{id:'28', t:'Generatore di calore', c:'BOXI', m:'LUMINA 21', s:'BX21-004417', u:'Balcone', y:'2019', p:'20', f:'Gas di rete', x:1}],
+        o:[{id:'93', a:'28', c:'RSC.MO', d:'MANUTENZIONE ORDINARIA', l:oggiISO(-300), p:oggiISO(60)},
+           {id:'94', a:'28', c:'RSC.AF', d:'ANALISI FUMI', l:oggiISO(-300), p:oggiISO(430)},
+           {id:'91', c:'RSC.CLI', d:'CONTR. LIQUIDO INIBITORE (se presente)'}],
+        s:[{d:oggiISO(-300), t:'Manutenzione', r:'Pulizia scambiatore e bruciatore. Analisi fumi nei limiti. Sostituita guarnizione del bruciatore.'}] } },
+    { id:'demo-2', ...at(0,11,0,120), titolo:'CONDOMINIO AURORA', urgente:false,
+      luogo:'Via dei Mille 30, 47838 Riccione (RN)',
+      messaggio:'Manutenzione annuale della centrale termica. Accesso dal garage, chiedere la chiave all\'amministratore.',
+      r:{ v:'1', li:'2300022', mi:'102', tp:'Manutenzione',
+        c:{k:'20', n:'CONDOMINIO AURORA', t:'0541 654321', e:'amministrazione@example.it'},
+        i:{id:'41', d:'Centrale termica condominiale', u:'Via dei Mille 30, 47838 Riccione (RN)', z:'Marina', tp:'Riscaldamento', pv:oggiISO(0), ct:'T', tel:'0541 654321', nt:'Scala B: portone con codice 4812.'},
+        a:[{id:'51', t:'Generatore di calore', c:'BOXI', m:'POWER 250', s:'BXP-250-00918', u:'Centrale termica', y:'2016', p:'250', f:'Gas di rete', x:1},
+           {id:'52', t:'Bruciatore', c:'RIELLO', m:'RS 34', s:'RS34-77120', u:'Centrale termica', y:'2016', p:'', f:'Gas di rete', x:1}],
+        o:[{id:'201', a:'51', c:'CNT.MO', d:'MANUTENZIONE ORDINARIA', f:1, l:oggiISO(-365), p:oggiISO(0)},
+           {id:'202', a:'51', c:'CNT.AF', d:'ANALISI FUMI', f:1, l:oggiISO(-365), p:oggiISO(0)},
+           {id:'203', a:'', c:'CNT.CFD', d:'CONTR. FILTRO DEFANGATORE (se presente)', f:1, l:oggiISO(-365), p:oggiISO(0)},
+           {id:'204', a:'', c:'CNT.CLI', d:'CONTR. LIQUIDO INIBITORE (se presente)', l:oggiISO(-365), p:oggiISO(365)},
+           {id:'205', a:'52', c:'INV', d:'INVERSIONE STAGIONALE', p:oggiISO(25)}],
+        s:[{d:oggiISO(-365), t:'Manutenzione', r:'Manutenzione ordinaria eseguita. Analisi fumi: rendimento 93,1%. Filtro defangatore pulito.', o:'Valvola di sfogo da sostituire entro l\'inverno.'},
+           {d:oggiISO(-730), t:'Manutenzione', r:'Pulizia caldaia e bruciatore, controllo vaso di espansione.'}] } },
+    { id:'demo-3', ...at(0,15,30,90), titolo:'BIANCHI LAURA', urgente:false,
+      luogo:'Via Dante 4, 47921 Rimini (RN)',
+      messaggio:'Pulizia climatizzatori prima della stagione.',
+      r:{ v:'1', li:'2300023', mi:'103', tp:'Manutenzione',
+        c:{k:'33', n:'BIANCHI LAURA', m:'338 7654321', e:'laura.bianchi@example.it'},
+        i:{id:'57', d:'Climatizzazione appartamento', u:'Via Dante 4, 47921 Rimini (RN)', z:'Colle dei Pini', tp:'Climatizzazione', pv:oggiISO(20), ct:'F', tel:'338 7654321'},
+        a:[{id:'71', t:'Unità interna', c:'DAIKIN', m:'FTXM25', s:'DK25-30991', u:'Soggiorno', y:'2021', p:'2,5', x:1},
+           {id:'72', t:'Unità interna', c:'DAIKIN', m:'FTXM20', s:'DK20-31102', u:'Camera', y:'2021', p:'2', x:1},
+           {id:'73', t:'Unità esterna', c:'DAIKIN', m:'2MXM50', s:'DK50-12874', u:'Terrazzo', y:'2021', p:'5', x:1}],
+        o:[{id:'301', a:'71', c:'CLIMA.PSUI', d:'PULIZIA/SANIFICAZIONE UNITA\' INTERNA', f:1, l:oggiISO(-365), p:oggiISO(0)},
+           {id:'302', a:'72', c:'CLIMA.PSUI', d:'PULIZIA/SANIFICAZIONE UNITA\' INTERNA', f:1, l:oggiISO(-365), p:oggiISO(0)},
+           {id:'303', a:'73', c:'CLIMA.PSUE', d:'PULIZIA UNITA\' ESTERNA', f:1, l:oggiISO(-365), p:oggiISO(0)},
+           {id:'304', a:'73', c:'CLIMA.CR', d:'CONTR. REFRIGERANTE', l:oggiISO(-365), p:oggiISO(365)}],
+        s:[] } },
+    { id:'demo-p1', ...at(-2,10,0,60), titolo:'NERI PAOLO', urgente:false, fatto:true,
+      luogo:'Via Flaminia 120, 47921 Rimini (RN)', messaggio:'Sostituzione sonda caldaia.',
+      r:{ v:'1', li:'2300031', mi:'111', tp:'Riparazione', c:{k:'61', n:'NERI PAOLO', m:'339 1122334'},
+        i:{id:'70', d:'Caldaia murale', u:'Via Flaminia 120, 47921 Rimini (RN)', tp:'Riscaldamento', ct:'F', tel:'339 1122334'},
+        a:[{id:'90', t:'Generatore di calore', c:'BOXI', m:'LUMINA 21', s:'BX21-000999', y:'2020', p:'20', x:1}], o:[], s:[] } },
+    { id:'demo-p2', ...at(-5,16,0,60), titolo:'FERRARI GIULIA', urgente:false,
+      luogo:'Via Tonale 8, 47838 Riccione (RN)', messaggio:'Rubinetto cucina che gocciola.',
+      r:{ v:'1', li:'2300030', mi:'110', tp:'Guasto', c:{k:'62', n:'FERRARI GIULIA', t:'0541 777888'} } },
+    { id:'demo-4', ...at(1,9,0,60), titolo:'VERDI ANNA', urgente:false,
+      luogo:'Corso Italia 88, 47841 Cattolica (RN)',
+      messaggio:'Sostituzione valvola a tre vie. Il cliente ha già acquistato il pezzo.',
+      r:{ v:'1', li:'2300024', mi:'104', tp:'Riparazione',
+        c:{k:'48', n:'VERDI ANNA', t:'0541 998877', m:'347 2233445'},
+        i:{id:'62', d:'Caldaia murale', u:'Corso Italia 88, 47841 Cattolica (RN)', tp:'Riscaldamento', pv:oggiISO(150), ct:'T', tel:'0541 998877'},
+        a:[{id:'81', t:'Generatore di calore', c:'BOXI', m:'CALOR 24', s:'BXC24-100233', u:'Cucina', y:'2017', p:'24', f:'Gas di rete', x:1}],
+        o:[], s:[{d:oggiISO(-220), t:'Manutenzione', r:'Manutenzione ordinaria e analisi fumi eseguite, tutto regolare.'}] } },
+    { id:'demo-5', ...at(3,14,0,60), titolo:'COSTA ANDREA', urgente:false,
+      luogo:'Via della Repubblica 34, 47843 Misano Adriatico (RN)',
+      messaggio:'Manutenzione ordinaria e analisi fumi.',
+      r:{ v:'1', li:'2300025', mi:'105', tp:'Manutenzione',
+        c:{k:'2', n:'COSTA ANDREA', t:'0541 475704', m:'329 0583380', e:'andrea@example.it'},
+        i:{id:'36b', d:'Caldaia BOXI Luna 2023', u:'Via della Repubblica 34, 47843 Misano Adriatico (RN)', tp:'Riscaldamento', pv:oggiISO(3), ct:'T', tel:'0541 475704'},
+        a:[{id:'28b', t:'Generatore di calore', c:'BOXI', m:'LUMINA 21', s:'BX21-005560', u:'Esterno', y:'2023', p:'20', f:'Gas di rete', x:1}],
+        o:[{id:'93b', a:'28b', c:'RSC.MO', d:'MANUTENZIONE ORDINARIA', f:1, l:oggiISO(-362), p:oggiISO(3)},
+           {id:'94b', a:'28b', c:'RSC.AF', d:'ANALISI FUMI', f:1, l:oggiISO(-362), p:oggiISO(3)}],
+        s:[] } }
+  ];
+}
+
+/* ==================================================================
+   UTILITA'
+   ================================================================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const isoGiorno = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const maius = s => s.charAt(0).toUpperCase() + s.slice(1);
+const giornoLungo = d => maius(d.toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long'}));
+const dataIT = iso => { if (!iso) return ''; const [y,m,d] = iso.slice(0,10).split('-'); return `${d}/${m}/${y}`; };
+const store = {
+  get(k, def){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e){ return def; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+const ICONE = {
+  tel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>',
+  mappa:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>'
+};
+
+let impostazioni = Object.assign({azienda:'', tecnico:''}, store.get('ass_impostazioni', {}));
+let bozze = store.get('ass_bozze', {});
+let appuntamenti = [];
+let periodo = 'oggi';
+let corrente = null;     // appuntamento aperto
+let lavoro = null;       // scheda in compilazione
+let ultimoPdf = null;
+let ultimiAllegati = [];      // documenti dell'appuntamento che si possono allegare all'invio
+
+const salvaImpostazioni = () => store.set('ass_impostazioni', impostazioni);
+const salvaBozze = () => store.set('ass_bozze', bozze);
+
+let vistaCorrente = 'agenda', storia = false;
+const largo = () => window.matchMedia('(min-width:900px)').matches;
+function mostra(vista, push = true){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('attiva', v.id === 'v-' + vista));
+  document.body.dataset.vista = vista;
+  if (push && vista !== vistaCorrente && vista !== 'agenda') { try { history.pushState({v: vista}, ''); storia = true; } catch(e){} }
+  vistaCorrente = vista;
+  window.scrollTo(0, 0);
+  const dx = $('#destra'); if (dx) dx.scrollTop = 0;
+}
+function vaiIndietro(){      // usata dal tasto indietro del telefono e come ripiego
+  if (vistaCorrente === 'editor') {
+    if (typeof ed !== 'undefined' && ed && ed.sporco && !confirm('Hai modifiche non salvate. Le scarto?')) { try { history.pushState({v: 'editor'}, ''); } catch(e){} return; }
+    ed = null; const mo = $('#ed-modale'); if (mo) mo.hidden = true;
+    if (corrente) apriDettaglio(corrente.id, false); else { mostra('agenda', false); disegnaAgenda(); }
+    return;
+  }
+  if (vistaCorrente === 'scheda') {
+    if (timer) { clearTimeout(timer); salvaBozza(); }
+    if (corrente) apriDettaglio(corrente.id, false); else { mostra('agenda', false); disegnaAgenda(); }
+  } else { mostra('agenda', false); disegnaAgenda(); }
+}
+function indietro(){
+  if (storia && history.state && history.state.v) history.back(); else vaiIndietro();
+}
+window.addEventListener('popstate', vaiIndietro);
+function aggiornaElencoSeLargo(){ if (largo()) disegnaAgenda(); }
+function stato(id){ return bozze[id] ? bozze[id].stato : ''; }
+function telefonoPrincipale(r){ const c = (r && r.c) || {}; return c.m || c.t || (r && r.i && r.i.tel) || ''; }
+const soloCifre = s => String(s || '').replace(/[^\d+]/g, '');
+function opDaFare(r){ return ((r && r.o) || []).filter(o => o.f); }
+
+/* ==================================================================
+   AGENDA
+   ================================================================== */
+let esitoImport = '';
+function disegnaBanner(){
+  const b = $('#banner');
+  b.className = 'avviso info';
+  if (datiReali) {
+    const g = new Date(datiReali.generato);
+    b.innerHTML = `<b>Dati del ${dataIT(isoGiorno(g))} alle ${hhmm(g)}</b>${datiReali.tecnico ? esc(datiReali.tecnico.nome) + ' · ' : ''}${appuntamenti.length} ${appuntamenti.length === 1 ? 'appuntamento' : 'appuntamenti'}${esitoImport ? '<br>' + esc(esitoImport) : ''}
+      <div style="margin-top:8px"><button class="btn sec piccolo" id="b-carica" type="button">Aggiorna i dati</button></div>`;
+  } else {
+    b.innerHTML = `<b>Modalità prova</b>Questi appuntamenti sono di esempio. Per vedere i tuoi, carica il file che ti manda l'ufficio.${esitoImport ? '<br>' + esc(esitoImport) : ''}
+      <div style="margin-top:8px"><button class="btn sec piccolo" id="b-carica" type="button">Carica i dati</button></div>`;
+  }
+  $('#b-carica').onclick = () => $('#in-pacchetto').click();
+}
+function disegnaDaCompletare(){
+  const ids = new Set(appuntamenti.map(a => a.id));
+  const aperte = Object.values(bozze).filter(b => b.stato === 'bozza' && (b.manuale || !ids.has(b.id))).sort((x, y) => y.aggiornata - x.aggiornata);
+  const box = $('#da-completare');
+  if (!aperte.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<h2 class="giorno">Schede da completare</h2>' + aperte.map(b => `<button class="visita bozza" type="button" data-bozza="${esc(b.id)}">
+    <span class="ora" style="font-size:16px">${esc(dataIT(b.data).slice(0, 5))}</span>
+    <span class="corpo"><span class="nome">${esc(b.titolo || b.cliente || 'Intervento')}</span>
+      <span class="dove" style="display:block">${b.manuale ? 'Senza appuntamento' : 'Non è più nell\'elenco degli appuntamenti'}</span>
+      <span class="riga"><span class="chip bozza">Bozza</span></span></span></button>`).join('');
+  box.querySelectorAll('[data-bozza]').forEach(x => x.onclick = () => apriBozza(x.dataset.bozza));
+}
+function apriBozza(id){
+  if (bozze[id] && !bozze[id].foto) bozze[id].foto = [];
+  const a = appuntamenti.find(x => x.id === id);
+  if (a) { apriScheda(a); return; }
+  corrente = null; lavoro = bozze[id]; ultimoPdf = null;
+  disegnaScheda(); mostra('scheda'); preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH);
+}
+function disegnaAgenda(){
+  disegnaBanner(); disegnaDaCompletare();
+  $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
+  $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
+  $('#s-sett').setAttribute('aria-pressed', periodo === 'sett');
+  $('#s-scorsa').setAttribute('aria-pressed', periodo === 'scorsa');
+  const oggi0 = new Date(); oggi0.setHours(0,0,0,0);
+  let inizio = oggi0, fine = new Date(oggi0);
+  if (periodo === 'scorsa') { inizio = new Date(oggi0); inizio.setDate(inizio.getDate() - 7); fine = oggi0; }
+  else fine.setDate(fine.getDate() + (periodo === 'oggi' ? 1 : 7));
+  const elenco = appuntamenti.filter(a => a.inizio >= inizio && a.inizio < fine)
+    .sort((a, b) => periodo === 'scorsa' ? (isoGiorno(b.inizio).localeCompare(isoGiorno(a.inizio)) || a.inizio - b.inizio) : a.inizio - b.inizio);
+  const box = $('#lista');
+  if (!elenco.length) {
+    box.innerHTML = `<div class="vuoto">${periodo === 'oggi' ? 'Nessun appuntamento per oggi.' : periodo === 'sett' ? 'Nessun appuntamento nei prossimi 7 giorni.' : 'Nessun appuntamento negli ultimi 7 giorni. Se ne mancano, ricarica i dati dall\'ufficio.'}</div>`;
+    return;
+  }
+  let html = '', giorno = '';
+  elenco.forEach(a => {
+    const g = isoGiorno(a.inizio);
+    if (g !== giorno) { html += `<h2 class="giorno">${esc(giornoLungo(a.inizio))}</h2>`; giorno = g; }
+    const st = stato(a.id);
+    const nOp = opDaFare(a.r).length;
+    const chips = [];
+    if (a.urgente) chips.push('<span class="chip urg">Urgente</span>');
+    if (a.r && a.r.tp) chips.push(`<span class="chip info">${esc(a.r.tp)}</span>`);
+    if (nOp) chips.push(`<span class="chip">${nOp} ${nOp === 1 ? 'operazione' : 'operazioni'} da fare</span>`);
+    const nDoc = (a.docs || []).filter(d => !d.altro).length;
+    if (nDoc) chips.push(`<span class="chip info">${nDoc} ${nDoc === 1 ? 'documento' : 'documenti'}</span>`);
+    if (st === 'pdf') chips.push('<span class="chip pdf">PDF creato</span>');
+    else if (st === 'bozza') chips.push('<span class="chip bozza">Bozza</span>');
+    if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
+    html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${a.fatto ? 'chiuso ' : ''}${st}" type="button" data-id="${esc(a.id)}">
+      <span class="ora">${hhmm(a.inizio)}<small>${hhmm(a.fine)}</small></span>
+      <span class="corpo"><span class="nome">${esc(a.titolo)}</span>
+        <span class="dove" style="display:block">${esc(a.luogo)}</span>
+        <span class="riga">${chips.join('')}</span></span></button>`;
+  });
+  box.innerHTML = html;
+  box.querySelectorAll('.visita').forEach(b => { b.onclick = () => apriDettaglio(b.dataset.id); if (corrente && b.dataset.id === corrente.id && vistaCorrente !== 'agenda') b.classList.add('selezionata'); });
+}
+
+/* ==================================================================
+   DETTAGLIO APPUNTAMENTO
+   ================================================================== */
+function targhetta(a, scelto){
+  const righe = [['Matricola', a.s], ['Anno', a.y], ['Potenza', a.p ? a.p + ' kW' : ''], ['Combustibile', a.f], ['Ubicazione', a.u]].filter(x => x[1]);
+  return `<div class="targa${scelto ? ' scelto' : ''}">
+    <div class="tipo">${esc(a.t || 'Apparecchio')}</div>
+    <div class="modello">${esc([a.c, a.m].filter(Boolean).join(' '))}</div>
+    <div class="spec">${righe.map(r => `<span>${r[0]}</span><span>${esc(r[1])}</span>`).join('')}</div>
+    ${scelto ? '<div class="seleziona"><span class="chip info">In questo appuntamento</span></div>' : ''}</div>`;
+}
+function rigaOp(o, r){
+  const app = (r.a || []).find(x => x.id === o.a);
+  const dove = app ? [app.c, app.m].filter(Boolean).join(' ') : 'Impianto';
+  const date = [o.l ? 'ultima ' + dataIT(o.l) : 'mai eseguita', o.p ? 'prossima ' + dataIT(o.p) : ''].filter(Boolean).join(' · ');
+  return `<div class="op${o.f ? ' dafare' : ''}"><span class="seg-ok"></span>
+    <span class="nome">${esc(o.d)}</span><span class="meta">${esc(dove)} — ${esc(date)}</span></div>`;
+}
+
+function icoDoc(d){
+  const e = (d.ext || '').toLowerCase();
+  const t = /pdf/.test(e) ? 'PDF' : /xls|csv/.test(e) ? 'XLS' : /doc|odt|rtf|txt/.test(e) ? 'DOC' : /png|jpe?g|bmp|gif|webp|heic/.test(e) ? 'IMG' : (e || 'FILE').toUpperCase().slice(0, 4);
+  return `<span class="docico">${t}</span>`;
+}
+
+function guidaAltroProgramma(){
+  let passi, chiusa;
+  if (èiOS()) {
+    passi = ['Tocca <b>Apri</b>: il PDF si apre in Safari. Tocca l\'icona <b>Condividi</b> e scegli <b>Salva in File</b>.',
+             'Nell\'app <b>File</b> tocca il documento: si apre l\'Anteprima, dove l\'icona della penna (<b>Annotazioni</b>) permette di scrivere, disegnare e firmare. Poi tocca <b>Fine</b>.',
+             'Torna qui, tocca <b>Carica file modificato</b> e scegli il file da <b>File</b>.'];
+    chiusa = 'Per gli Excel serve l\'app Excel installata: aprilo con "Apri in…", salva e riportalo qui allo stesso modo.';
+  } else if (/Android/i.test(navigator.userAgent)) {
+    passi = ['Tocca <b>Apri</b>: il file viene scaricato.',
+             'Aprilo dalla notifica o dalla cartella <b>Download</b> con un\'app per PDF che permetta di annotare (per esempio Google Drive, Adobe Acrobat Reader o Xodo) e <b>salva</b>.',
+             'Torna qui, tocca <b>Carica file modificato</b> e scegli il file dai Download.'];
+    chiusa = 'Per gli Excel serve l\'app Excel installata. Se non hai un\'app adatta, usa <b>Modifica qui</b>.';
+  } else {
+    passi = ['Tocca <b>Apri</b>: il PDF si apre nel browser. Su Edge usa <b>Disegna</b>, <b>Evidenzia</b> e <b>Aggiungi testo</b>; per gli Excel apri il file con Excel.',
+             '<b>Salva</b> il file (di solito finisce nella cartella Download).',
+             'Torna qui, tocca <b>Carica file modificato</b> e scegli il file appena salvato.'];
+    chiusa = '';
+  }
+  return `<ol class="aiuto" style="padding-left:20px;margin:4px 0 8px;line-height:1.55">${passi.map(x => '<li>' + x + '</li>').join('')}</ol>
+    <p class="aiuto" style="margin:0 0 6px">Da quel momento il documento risulta "Modificato" e lo puoi allegare all'invio.${chiusa ? ' ' + chiusa : ''}</p>
+    <p class="aiuto" style="margin:0">Il modo più rapido da telefono resta <b>Modifica qui</b>: scrivi e disegni con il dito, senza uscire dall'app (la prima volta serve la connessione).</p>`;
+}
+function sezioneDocumenti(a){
+  const docs = a.docs || []; if (!docs.length) return '';
+  const èPdf = d => /pdf/i.test(d.mime || '') || /^pdf$/i.test(d.ext || '');
+  const riga = d => {
+    const mod = docModificati.get(d.id);
+    const extra = d.altro ? ' · ' + (d.altro === 'impianto' ? 'dell\'impianto' : 'del cliente') : '';
+    return `<div class="docbox"><button class="doc" type="button" data-doc="${esc(d.id)}" data-nome="${esc(d.nome)}">${icoDoc(d)}<span class="docn">${esc(d.nome)}${mod ? ' <span class="chip pdf">Modificato</span>' : ''}<small>${dimStr(d.size || 0)}${extra}</small></span><span class="docapri">Apri</span></button>
+      <div class="docazioni">${(èPdf(d) || /^image\//i.test(d.mime || '') || /^(png|jpe?g)$/i.test(d.ext || '')) ? `<button class="btn piccolo" type="button" data-stampa-doc="${esc(d.id)}" data-nome="${esc(d.nome)}">Stampa</button>` : ''}${èPdf(d) ? `<button class="btn sec piccolo" type="button" data-modifica="${esc(d.id)}" data-nome="${esc(d.nome)}">${mod ? 'Modifica ancora qui' : 'Modifica qui'}</button>` : ''}<button class="btn sec piccolo" type="button" data-carica-mod="${esc(d.id)}" data-nome="${esc(d.nome)}" data-mime="${esc(d.mime || '')}" data-ext="${esc(d.ext || '')}">Carica file modificato</button>${mod ? `<button class="btn chiaro piccolo" type="button" data-orig="${esc(d.id)}" data-nome="${esc(d.nome)}">Apri originale</button><button class="btn chiaro piccolo" type="button" data-ripristina="${esc(d.id)}">Ripristina originale</button>` : ''}</div></div>`;
+  };
+  const mie = docs.filter(d => !d.altro), altri = docs.filter(d => d.altro);
+  return `<div class="sez"><h2>Documenti<small>${mie.length || docs.length}</small></h2>${mie.map(riga).join('')}
+    ${altri.length ? `<details class="altre"><summary>Altri documenti (${altri.length})</summary>${altri.map(riga).join('')}</details>` : ''}
+    <details class="altre"><summary>Modificare con un altro programma</summary>${guidaAltroProgramma()}</details>
+    <p class="aiuto" id="doc-msg" role="status" style="margin-top:6px"></p></div>`;
+}
+function apriDettaglio(id, push = true){
+  const a = appuntamenti.find(x => x.id === id);
+  if (!a) return;
+  if (timer) { clearTimeout(timer); salvaBozza(); }
+  corrente = a;
+  const r = a.r || {}, c = r.c || {}, i = r.i || {};
+  const tel = telefonoPrincipale(r);
+  const st = stato(a.id);
+  const daFare = opDaFare(r), altre = ((r.o || []).filter(o => !o.f));
+  const durata = Math.round((a.fine - a.inizio) / 60000);
+  const mappa = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(i.u || a.luogo);
+  let h = `<header class="barra fissa"><button class="btn chiaro piccolo" id="b-indietro-det" type="button">Indietro</button>
+      <h1>${esc(hhmm(a.inizio))} · ${esc(r.tp || 'Intervento')}</h1></header>
+    <div class="testata"><div class="cliente">${esc(a.titolo)}</div>
+      <div class="quando">${esc(giornoLungo(a.inizio))}, dalle ${hhmm(a.inizio)} alle ${hhmm(a.fine)} (${durata} min)</div></div>
+    <div class="azioni">
+      ${tel ? `<a class="btn sec" href="tel:${esc(soloCifre(tel))}">${ICONE.tel}Chiama</a>` : '<span></span>'}
+      <a class="btn sec" href="${esc(mappa)}" target="_blank" rel="noopener">${ICONE.mappa}Naviga</a>
+    </div>`;
+  if (a.urgente) h += `<div class="avviso rosso"><b>Intervento urgente</b>Il cliente aspetta: chiamalo prima di partire.</div>`;
+  if (a.messaggio) h += `<div class="avviso info"><b>Richiesta del cliente</b>${esc(a.messaggio)}</div>`;
+  h += sezioneDocumenti(a);
+  if (i.nt) h += `<div class="avviso"><b>Note sull'impianto</b>${esc(i.nt)}</div>`;
+
+  if (r.i) {
+    const contratto = i.ct === 'T' ? 'Contratto attivo' : 'Senza contratto';
+    h += `<div class="sez"><h2>Impianto</h2><dl class="dati">
+      <dt>Descrizione</dt><dd>${esc(i.d)}</dd>
+      <dt>Dove</dt><dd>${esc(i.u)}${i.z ? ' (zona ' + esc(i.z) + ')' : ''}</dd>
+      <dt>Tipo</dt><dd>${esc(i.tp)}</dd>
+      <dt>Contratto</dt><dd>${contratto}</dd>
+      ${i.pv ? `<dt>Prossima visita</dt><dd>${esc(dataIT(i.pv))}</dd>` : ''}</dl></div>`;
+  }
+  if ((r.a || []).length) {
+    h += `<div class="sez"><h2>Apparecchi<small>${r.a.length}</small></h2><div class="targhe">${r.a.map(x => targhetta(x, !!x.x)).join('')}</div></div>`;
+  }
+  if (daFare.length || altre.length) {
+    h += `<div class="sez"><h2>Operazioni<small>${daFare.length} da fare</small></h2>`;
+    h += daFare.length ? daFare.map(o => rigaOp(o, r)).join('') : '<p class="aiuto">Nessuna operazione pianificata per questa visita.</p>';
+    if (altre.length) h += `<details class="altre"><summary>Altre operazioni dell'impianto (${altre.length})</summary>${altre.map(o => rigaOp(o, r)).join('')}</details>`;
+    h += '</div>';
+  }
+  if ((r.s || []).length) {
+    h += `<div class="sez"><h2>Ultimi interventi</h2>${r.s.map(s => `<div class="storia"><span class="data">${esc(dataIT(s.d))}</span> ${s.t ? '· ' + esc(s.t) : ''}
+      <p>${esc(s.r)}</p>${s.o ? `<p><b>Osservazioni:</b> ${esc(s.o)}</p>` : ''}</div>`).join('')}</div>`;
+  }
+  if (r.c) {
+    h += `<div class="sez"><h2>Cliente</h2><dl class="dati"><dt>Nome</dt><dd>${esc(c.n)}</dd>
+      ${c.t ? `<dt>Telefono</dt><dd><a href="tel:${esc(soloCifre(c.t))}">${esc(c.t)}</a></dd>` : ''}
+      ${c.m ? `<dt>Cellulare</dt><dd><a href="tel:${esc(soloCifre(c.m))}">${esc(c.m)}</a></dd>` : ''}
+      ${c.e ? `<dt>Email</dt><dd>${esc(c.e)}</dd>` : ''}</dl></div>`;
+  }
+  h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-inizia" type="button">${st === 'pdf' ? 'Rivedi la scheda' : st === 'bozza' ? 'Continua la scheda' : 'Inizia l\'intervento'}</button></div></div>`;
+  $('#v-dettaglio').innerHTML = h;
+  $('#b-indietro-det').onclick = indietro;
+  $('#v-dettaglio').querySelectorAll('[data-doc]').forEach(b => b.onclick = () => apriDocumento(b.dataset.doc, b.dataset.nome));
+  $('#v-dettaglio').querySelectorAll('[data-orig]').forEach(b => b.onclick = () => apriDocumento(b.dataset.orig, b.dataset.nome, true));
+  $('#v-dettaglio').querySelectorAll('[data-stampa-doc]').forEach(b => b.onclick = () => stampaDocumento(b.dataset.stampaDoc, b.dataset.nome));
+  precaricaDocumenti(a);
+  $('#v-dettaglio').querySelectorAll('[data-carica-mod]').forEach(b => b.onclick = () => { docModTarget = {id: b.dataset.caricaMod, nome: b.dataset.nome, mime: b.dataset.mime, ext: b.dataset.ext}; $('#in-doc-mod').click(); });
+  $('#v-dettaglio').querySelectorAll('[data-modifica]').forEach(b => b.onclick = () => apriEditor(b.dataset.modifica, b.dataset.nome));
+  $('#v-dettaglio').querySelectorAll('[data-ripristina]').forEach(b => b.onclick = async () => {
+    if (!confirm('Torno al documento originale? Le tue modifiche a questo documento andranno perse.')) return;
+    await cancellaModificato(b.dataset.ripristina); apriDettaglio(corrente.id, false);
+  });
+  $('#b-inizia').onclick = () => apriScheda(a);
+  mostra('dettaglio', push);
+  disegnaAgenda();
+}
+
+/* ==================================================================
+   SCHEDA INTERVENTO
+   I quattro testi lunghi hanno gli stessi limiti dei campi di Levante:
+   relazione 2500, osservazioni 255, raccomandazioni 255, prescrizioni 255.
+   ================================================================== */
+const ANALISI_CAMPI = [
+  ['tempfumi','Temp. fumi (°C)'], ['tempamb','Temp. ambiente (°C)'], ['o2','O₂ (%)'], ['co2','CO₂ (%)'],
+  ['bach1','Bacharach 1'], ['bach2','Bacharach 2'], ['bach3','Bacharach 3'], ['co_ppm','CO secchi (ppm)'],
+  ['rend','Rendimento (%)'], ['tiraggio','Tiraggio (Pa)'], ['nox','NOx (ppm)']
+];
+const ESITI = {concluso:'Concluso', da_completare:'Da completare (serve un altro intervento)', non_eseguito:'Non eseguito'};
+const ESITI_TILE = [['concluso','Concluso','','ok'], ['da_completare','Da completare','serve un altro intervento','mezzo'], ['non_eseguito','Non eseguito','scrivi il motivo nelle note','no']];
+
+function nuovaScheda(a){
+  const r = (a && a.r) || {}, c = r.c || {}, i = r.i || {};
+  const w = {
+    id: a ? a.id : 'man-' + Date.now(), stato:'nuova', aggiornata: Date.now(), manuale: !a,
+    titolo: a ? a.titolo : 'Intervento senza appuntamento',
+    cliente: a ? a.titolo : '', indirizzo: i.u || (a ? a.luogo : ''), data: isoGiorno(a ? a.inizio : new Date()),
+    tecnico: impostazioni.tecnico || '', richiesta: a ? a.messaggio || '' : '',
+    impianto: i.d || '', levante: a && r.li ? {li:r.li, mi:r.mi} : null, r: a ? a.r || null : null,
+    rc: a && a.rc ? JSON.parse(JSON.stringify(a.rc)) : [],
+    ops: {}, ops_extra: [], analisi: {}, orari: [{data: isoGiorno(a ? a.inizio : new Date()), dal: a ? hhmm(a.inizio) : '', al: ''}],
+    relazione:'', osservazioni:'', raccomandazioni:'', prescrizioni:'', km:'', materiali: [], esito:'', note:'', firmaNome:'', firma:''
+  };
+  (r.o || []).forEach(o => { w.ops[o.id] = {fatta:false, nota:''}; });
+  // analisi di combustione preparata per gli apparecchi con "analisi fumi" da fare
+  (r.o || []).filter(o => o.f && o.a && /(\.AF$|ANALISI FUMI)/i.test(o.c + ' ' + o.d)).forEach(o => { w.analisi[o.a] = {}; });
+  return w;
+}
+function apriScheda(a){
+  corrente = a;
+  lavoro = bozze[a ? a.id : ''] || nuovaScheda(a);
+  if (a && !bozze[a.id]) lavoro = nuovaScheda(a);
+  if (a && a.rc && a.rc.length && !(lavoro.rc && lavoro.rc.length)) lavoro.rc = JSON.parse(JSON.stringify(a.rc));
+  ultimoPdf = null;
+  disegnaScheda();
+  mostra('scheda');
+  preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH);
+}
+function apriSchedaManuale(){
+  corrente = null; lavoro = nuovaScheda(null); ultimoPdf = null;
+  disegnaScheda(); mostra('scheda'); preparaFirma('');
+}
+
+function campoTesto(k, etichetta, opzioni = {}){
+  const v = lavoro[k] || '';
+  const tag = opzioni.area
+    ? `<div class="cbox"><textarea id="f-${k}" data-k="${k}"${opzioni.max ? ` maxlength="${opzioni.max}"` : ''}${opzioni.alta ? ' class="alta"' : ''}${opzioni.ph ? ` placeholder="${esc(opzioni.ph)}"` : ''}>${esc(v)}</textarea>${bottoneMic('k:' + k)}</div>`
+    : `<input type="${opzioni.tipo || 'text'}" id="f-${k}" data-k="${k}" value="${esc(v)}"${opzioni.inputmode ? ` inputmode="${opzioni.inputmode}"` : ''}>`;
+  const conta = opzioni.max ? `<span class="conta" id="n-${k}">${v.length}/${opzioni.max}</span>` : '';
+  return `<div class="campo"><label for="f-${k}">${etichetta}${conta}</label>${tag}</div>`;
+}
+function righeOrari(){
+  return lavoro.orari.map((o, n) => `<div class="riga-orario">
+    <div><label>Giorno</label><input type="date" data-orario="${n}" data-c="data" value="${esc(o.data)}"></div>
+    <div><label>Dalle</label><input type="time" data-orario="${n}" data-c="dal" value="${esc(o.dal)}"></div>
+    <div><label>Alle</label><input type="time" data-orario="${n}" data-c="al" value="${esc(o.al)}"></div>
+    ${lavoro.orari.length > 1 ? `<button class="togli" type="button" data-togli-orario="${n}" aria-label="Togli questa fascia">×</button>` : '<span></span>'}</div>`).join('');
+}
+function righeMateriali(){
+  return lavoro.materiali.map((m, n) => `<div class="mat">
+    <input class="descr" type="text" data-mat="${n}" data-c="descr" placeholder="Descrizione del materiale" aria-label="Descrizione" value="${esc(m.descr)}">
+    <button class="togli" type="button" data-togli-mat="${n}" aria-label="Togli questo materiale">×</button>
+    <input type="text" data-mat="${n}" data-c="codice" placeholder="Codice" aria-label="Codice" value="${esc(m.codice)}">
+    <input type="text" inputmode="decimal" data-mat="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(m.qta)}">
+    <input type="text" list="lista-um" data-mat="${n}" data-c="um" placeholder="Unità" aria-label="Unità di misura" autocapitalize="none" autocomplete="off" value="${esc(m.um || '')}"></div>`).join('');
+}
+const rr = () => (lavoro && lavoro.r) || (corrente && corrente.r) || {};
+function nomeApparecchio(id){
+  const r = rr();
+  const a = (r.a || []).find(x => x.id === id);
+  return a ? [a.c, a.m].filter(Boolean).join(' ') + (a.s ? ' (matr. ' + a.s + ')' : '') : 'Apparecchio';
+}
+function schedeAnalisi(){
+  const ids = Object.keys(lavoro.analisi);
+  const r = rr();
+  const liberi = (r.a || []).filter(a => !(a.id in lavoro.analisi));
+  let h = ids.map(id => `<div class="analisi"><h3>${esc(nomeApparecchio(id))}</h3><div class="sub">Compila solo i valori che hai misurato.</div>
+      <div class="tre">${ANALISI_CAMPI.map(([k, et]) => `<div class="campo"><label>${et}</label>
+        <input type="text" inputmode="decimal" data-an="${esc(id)}" data-c="${k}" value="${esc((lavoro.analisi[id] || {})[k] || '')}"></div>`).join('')}</div>
+      <button class="btn chiaro piccolo" type="button" data-togli-an="${esc(id)}">Togli questa analisi</button></div>`).join('');
+  if (liberi.length) {
+    h += `<div class="campo"><label for="an-nuova">Aggiungi un'analisi di combustione</label><select id="an-nuova"><option value="">Scegli l'apparecchio…</option>
+      ${liberi.map(a => `<option value="${esc(a.id)}">${esc([a.c, a.m].filter(Boolean).join(' '))}</option>`).join('')}</select></div>`;
+  }
+  return h || '<p class="aiuto">Nessun apparecchio a cui aggiungere un\'analisi.</p>';
+}
+function sezioneOperazioni(){
+  const r = rr();
+  const elenco = r.o || [];
+  if (!elenco.length && !lavoro.ops_extra.length) return '';
+  const riga = o => {
+    const st = lavoro.ops[o.id] || {fatta:false};
+    const app = (r.a || []).find(x => x.id === o.a);
+    return `<label class="tile ok"><input type="checkbox" data-op="${esc(o.id)}"${st.fatta ? ' checked' : ''}>
+      <span><span class="nome">${esc(o.d)}</span><span class="meta" style="display:block">${esc(app ? [app.c, app.m].filter(Boolean).join(' ') : 'Impianto')}</span></span></label>`;
+  };
+  const daFare = elenco.filter(o => o.f), altre = elenco.filter(o => !o.f);
+  let h = '<div class="passo"><h2>Operazioni eseguite</h2><p class="aiuto">Spunta quelle che hai fatto.</p>';
+  h += daFare.length ? daFare.map(riga).join('') : '<p class="aiuto">Nessuna operazione era pianificata per questa visita.</p>';
+  if (altre.length) h += `<details class="altre"><summary>Altre operazioni dell'impianto (${altre.length})</summary>${altre.map(riga).join('')}</details>`;
+  h += '</div>';
+  return h;
+}
+function sezioneExtra(){
+  return lavoro.ops_extra.map((t, n) => `<div class="riga-orario" style="grid-template-columns:1fr 44px">
+    <div><input type="text" data-extra="${n}" placeholder="Per esempio: sostituzione valvola a tre vie" aria-label="Altra operazione" value="${esc(t)}"></div>
+    <button class="togli" type="button" data-togli-extra="${n}" aria-label="Togli questa operazione">×</button></div>`).join('');
+}
+
+function triBtn(i, col, val, testo, inv){
+  const attuale = String((lavoro.rc[i] || {})[col] || '').toUpperCase();
+  const sel = attuale === val;
+  return `<button type="button" class="tri${sel ? ' sel' : ''}" data-tri="${i}|${col}|${val}" aria-pressed="${sel}">${testo}</button>`;
+}
+function rigaControllo(i, col, label, inv){
+  const [vSi, vNo] = inv ? ['F', 'T'] : ['T', 'F'];
+  return `<div class="controllo"><span>${esc(label)}</span><span class="tris">${triBtn(i, col, vSi, 'Sì')}${triBtn(i, col, vNo, 'No')}${triBtn(i, col, 'N', 'Nc')}</span></div>`;
+}
+
+/* ---- allegato RCEE di tipo 2 (frigo) e 1B (biomassa): la scheda si costruisce dal modulo stesso ---- */
+const CAMPI_MISURA = /^(ANFUMI_|SCAMBINT_|TORAF_)/;
+function descrizioniRcee(tpl, mappa){
+  if (tpl._desc) return tpl._desc;
+  const testi = tpl.items.filter(i => i.t === 'label' && i.text.trim().length > 2 && i.text.toLowerCase() !== 'x' && i.enabled !== false);
+  const sinistra = (it) => {
+    let best = null, dist = 1e9;
+    testi.forEach(t => { if (Math.abs(t.y - it.y) < 8 && t.x < it.x - 2 && it.x - t.x < dist) { dist = it.x - t.x; best = t; } });
+    return best ? best.text.replace(/\s+/g, ' ').trim() : '';
+  };
+  const destra = (it) => {
+    let best = null, dist = 1e9;
+    testi.forEach(t => { if (Math.abs(t.y - it.y) < 8 && t.x > it.x && t.x - it.x < dist) { dist = t.x - it.x; best = t; } });
+    return best ? best.text.replace(/\s+/g, ' ').trim() : '';
+  };
+  const xl = tpl.items.filter(i => i.t === 'label' && i.text.toLowerCase() === 'x' && mappa[i.name]);
+  const tri = {}, toggles = [];
+  xl.forEach(it => {
+    const m = it.name.match(/^(.*?)_(SI|NO|NC|Si|No|Na)$/), [col, val] = mappa[it.name];
+    if (m && ['T','F','N'].includes(val) && /^[A-Z]\d+$/.test(m[1])) {
+      const g = tri[m[1]] = tri[m[1]] || {base: m[1], col, y: it.y, x: it.x, inv: false};
+      if (m[2].toUpperCase() === 'SI') { g.inv = (val === 'F'); g.x = it.x; g.y = it.y; g.testo = sinistra(it); }
+    } else if (/^Check_CheckList\d$/.test(it.name) || /^Check_ProvaModalita/.test(it.name)) {
+      toggles.push({name: it.name, col, val, y: it.y, x: it.x, testo: /^Check_CheckList/.test(it.name) ? (destra(it) || sinistra(it)) : destra(it)});
+    }
+  });
+  const campi = tpl.items.filter(i => i.t === 'db' && CAMPI_MISURA.test(i.field)).map(it => {
+    // intestazione sopra la casella; se manca, il testo a sinistra
+    const su = testi.filter(t => t.y < it.y + 2 && it.y - t.y < 34 && t.x < it.x + it.w + 8 && t.x + t.w > it.x - 8).sort((a, b) => a.y - b.y);
+    const vicini = su.length ? su.filter(t => it.y - t.y < (it.y - su[su.length - 1].y) + 12) : [];
+    let et = vicini.map(t => t.text.replace(/\s+/g, ' ').trim()).join(' ').trim() || sinistra(it) || it.field.replace(/_/g, ' ').toLowerCase();
+    return {field: it.field, et: et.replace(/\s*[(][0-9]+[)]\s*$/, ''), y: it.y, x: it.x};
+  }).sort((a, b) => (Math.round(a.y / 8) - Math.round(b.y / 8)) || (a.x - b.x));
+  const triOrd = Object.values(tri).sort((a, b) => a.base[0].localeCompare(b.base[0]) || (parseInt(a.base.slice(1)) - parseInt(b.base.slice(1))));
+  const rispetta = Object.keys(mappa).filter(n => /^UNN\d$/.test(n)).length;
+  return tpl._desc = {tri: triOrd, toggles, campi, rispetta};
+}
+function sezioneRceeGenerica(i, r, tpl, mappa){
+  const d = descrizioniRcee(tpl, mappa);
+  const nome = [r.GENCAL_COSTRUTTORE, r.GENCAL_MODELLO].filter(Boolean).join(' ') || 'Generatore';
+  const riga = (g) => {
+    const [vSi, vNo] = g.inv ? ['F', 'T'] : ['T', 'F'];
+    const t = (v, tx) => triBtn(i, g.col, v, tx);
+    return `<div class="controllo"><span>${esc(g.testo || g.base)}</span><span class="tris">${t(vSi, 'Sì')}${t(vNo, 'No')}${t('N', 'Nc')}</span></div>`;
+  };
+  const sezD = d.tri.filter(g => g.base[0] === 'D'), sezE = d.tri.filter(g => g.base[0] === 'E');
+  const cl = d.toggles.filter(t => /CheckList/.test(t.name)), prova = d.toggles.filter(t => /ProvaModalita/.test(t.name));
+  return `<div class="passo rcee-blocco"><h2>Allegato ${esc(r._tipo)}${''}</h2>
+    <p class="aiuto">${esc(nome)}${r.GENCAL_MATRICOLA ? ' · matr. ' + esc(r.GENCAL_MATRICOLA) : ''}. Creato dall'ufficio e già compilato: correggi solo quello che serve.</p>
+    ${modelliRcee()[r._tpl].verificato ? '' : '<div class="avviso"><b>Modello non ancora confrontato con un PDF di Levante</b>Controlla bene il PDF prima di farlo firmare.</div>'}
+    ${prova.length ? '<h3 class="sottotit">Prova eseguita in modalità</h3>' + prova.map(t => `<div class="controllo"><span>${esc(t.testo)}</span><span class="tris">${triBtn(i, t.col, 'T', 'Sì')}</span></div>`).join('') : ''}
+    ${d.campi.length ? '<h3 class="sottotit">Misure</h3><div class="tre">' + d.campi.map(c => `<div class="campo"><label>${esc(c.et)}</label><input type="text" inputmode="decimal" data-rci="${i}" data-rcc="${c.field}" value="${esc(r[c.field] || '')}"></div>`).join('') + '</div>' : ''}
+    ${sezD.length ? '<h3 class="sottotit">Controllo dell\'impianto</h3>' + sezD.map(riga).join('') : ''}
+    ${sezE.length ? '<h3 class="sottotit">Controllo e verifica del gruppo</h3>' + sezE.map(riga).join('') : ''}
+    ${cl.length ? '<h3 class="sottotit">Check-list: interventi consigliati</h3>' + cl.map(t => `<div class="controllo"><span>${esc(t.testo)}</span><span class="tris">${triBtn(i, t.col, 'T', 'Sì')}</span></div>`).join('') : ''}
+    <h3 class="sottotit">Esito</h3>
+    <div class="controllo"><span><b>L'impianto può funzionare</b></span><span class="tris">${triBtn(i, 'IMPPUOFUNZIONARE', 'T', 'Sì')}${triBtn(i, 'IMPPUOFUNZIONARE', 'F', 'No')}</span></div>
+    <p class="aiuto" style="margin-top:8px">I dati del generatore arrivano da Levante. Osservazioni, raccomandazioni e prescrizioni sono quelle della sezione "Relazione"; data e orari vengono da "Orari e viaggio".</p>
+  </div>`;
+}
+function sezioneRcee(){
+  const sup = rcSupportati(lavoro);
+  return sup.map(({r, i}) => {
+    const mod = modelliRcee()[r._tpl];
+    if (r._tipo !== 'RCEE1') return sezioneRceeGenerica(i, r, mod, window.MAPPE_RCEE[r._tipo]);
+    const nome = [r.GENCAL_COSTRUTTORE, r.GENCAL_MODELLO].filter(Boolean).join(' ') || 'Generatore';
+    return `<div class="passo rcee-blocco"><h2>Allegato RCEE${sup.length > 1 ? ' ' + (i + 1) : ''}</h2>
+      <p class="aiuto">${esc(nome)}${r.GENCAL_MATRICOLA ? ' · matr. ' + esc(r.GENCAL_MATRICOLA) : ''}. Creato dall'ufficio e già compilato: correggi solo quello che serve.</p>
+      ${mod.verificato ? '' : '<div class="avviso"><b>Modello non ancora verificato</b>Controlla bene il PDF prima di farlo firmare.</div>'}
+      <h3 class="sottotit">Analisi di combustione</h3>
+      <div class="tre">${RCEE_ANALISI.map(([c, et]) => `<div class="campo"><label>${et}</label><input type="text" inputmode="decimal" data-rci="${i}" data-rcc="${c}" value="${esc(r[c] || '')}"></div>`).join('')}</div>
+      ${RCEE_RISPETTA.map(([c, l]) => rigaControllo(i, c, l)).join('')}
+      ${RCEE_CONTROLLI.map(([tit, righe]) => `<h3 class="sottotit">${tit}</h3>${righe.map(([c, l, inv]) => rigaControllo(i, c, l, inv)).join('')}`).join('')}
+      <h3 class="sottotit">Check-list: interventi consigliati</h3>
+      ${RCEE_CHECKLIST.map(([c, l]) => `<div class="controllo"><span>${esc(l)}</span><span class="tris">${triBtn(i, c, 'T', 'Sì')}</span></div>`).join('')}
+      <h3 class="sottotit">Esito</h3>
+      <div class="controllo"><span><b>L'impianto può funzionare</b></span><span class="tris">${triBtn(i, 'IMPPUOFUNZIONARE', 'T', 'Sì')}${triBtn(i, 'IMPPUOFUNZIONARE', 'F', 'No')}</span></div>
+      <p class="aiuto" style="margin-top:8px">Osservazioni, raccomandazioni e prescrizioni sono quelle della sezione "Relazione" qui sotto. Data e orari vengono da "Orari e viaggio".</p>
+    </div>`;
+  }).join('');
+}
+function disegnaScheda(){
+  const w = lavoro;
+  $('#form').innerHTML = `
+    <div class="passo"><h2>Chi e dove</h2>
+      ${campoTesto('cliente', 'Cliente')}
+      ${campoTesto('indirizzo', 'Indirizzo dell\'intervento')}
+      <div class="due">${campoTesto('data', 'Data', {tipo:'date'})}${campoTesto('tecnico', 'Tecnico')}</div>
+    </div>
+    <div class="passo"><h2>Guasto o richiesta</h2>${campoTesto('richiesta', 'Cosa ha segnalato il cliente', {area:true})}</div>
+    ${sezioneOperazioni()}
+    <div class="passo"><h2>Altre operazioni</h2><p class="aiuto">Lavori fatti che non erano in programma.</p>
+      <div id="extra">${sezioneExtra()}</div>
+      <button class="btn sec piccolo" type="button" id="b-add-extra">Aggiungi un lavoro</button></div>
+    ${rcSupportati(w).length ? '<div id="rcee">' + sezioneRcee() + '</div>' : '<div class="passo"><h2>Analisi di combustione</h2><div id="analisi">' + schedeAnalisi() + '</div></div>'}
+    <div class="passo"><h2>Relazione</h2>
+      ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, ph:'Cosa hai trovato e cosa hai fatto.'})}
+      ${campoTesto('osservazioni', 'Osservazioni', {area:true, max:255})}
+      ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, ph:'Lavori consigliati al cliente.'})}
+      ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, ph:'Interventi obbligatori per la sicurezza.'})}
+    </div>
+    <div class="passo"><h2>Orari e viaggio</h2><p class="aiuto">Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
+      <div id="orari">${righeOrari()}</div>
+      <div class="totale" id="ore-tot"></div>
+      <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
+      <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
+    </div>
+    <div class="passo"><h2>Materiali</h2><div id="materiali">${righeMateriali()}</div>
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn sec piccolo" type="button" id="b-add-mat">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce>${ICONA_MIC} Detta i materiali</button></div></div>
+    <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
+      <div id="foto-lista"></div>
+      <div class="azioni" style="margin:8px 0"><button class="btn" type="button" data-foto-scatta>Scatta una foto</button><button class="btn sec" type="button" data-foto-galleria>Dalla galleria</button></div>
+      <p class="aiuto" id="foto-msg" role="status"></p></div>
+    <div class="passo"><h2>Esito</h2>
+      ${ESITI_TILE.map(([v, t, s, k]) => `<label class="tile ${k}"><input type="radio" name="esito" value="${v}"${w.esito === v ? ' checked' : ''}><span>${t}${s ? `<small>${s}</small>` : ''}</span></label>`).join('')}
+      ${campoTesto('note', 'Note per l\'ufficio', {area:true, ph:'Per esempio: serve un ricambio, il cliente chiede di spostare, non era in casa.'})}
+    </div>
+    <div class="passo"><h2>Firma del cliente</h2>
+      <div class="firma"><canvas id="firma"></canvas><div class="linea"></div></div>
+      <div class="strumenti"><span>Il cliente firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma" type="button">Cancella firma</button></div>
+      <div style="margin-top:12px">${campoTesto('firmaNome', 'Nome di chi firma')}</div>
+    </div>
+    <div class="fatto" id="pdf-fatto" hidden>
+      <p><strong id="pdf-titolo">PDF creato.</strong></p><div id="pdf-lista"></div><div id="pdf-allegati"></div><p class="aiuto" id="pdf-msg" role="status" style="margin:0 0 10px"></p>
+      <div class="azioni2"><button class="btn" id="b-condividi" type="button" hidden>Invia il PDF</button>
+      <button class="btn sec" id="b-scarica" type="button">Scarica il PDF</button></div></div>`;
+  if (!lavoro.foto) lavoro.foto = [];
+  disegnaFoto();
+  aggiornaOre();
+  collegaFirma();
+  aggiornaTile();
+  $('#salvato').textContent = '';
+}
+function aggiornaTile(){
+  document.querySelectorAll('.tile').forEach(t => { const i = t.querySelector('input'); t.classList.toggle('sel', !!(i && i.checked)); });
+}
+
+/* ---- calcolo ore ---- */
+function minuti(dal, al){
+  if (!dal || !al) return 0;
+  const [h1, m1] = dal.split(':').map(Number), [h2, m2] = al.split(':').map(Number);
+  const t = (h2*60 + m2) - (h1*60 + m1);
+  return t > 0 ? t : 0;
+}
+const fmtOre = m => Math.floor(m/60) + ' h' + (m % 60 ? ' ' + pad(m % 60) + ' min' : '');
+function oreTotali(){ return lavoro.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0); }
+function aggiornaOre(){
+  const t = oreTotali();
+  const el = $('#ore-tot'); if (el) el.innerHTML = t ? `Ore totali: <b>${fmtOre(t)}</b>` : '';
+}
+
+/* ---- salvataggio automatico ---- */
+let timer = null;
+function bozzaModificata(){
+  lavoro.stato = 'bozza'; lavoro.aggiornata = Date.now();
+  clearTimeout(timer);
+  timer = setTimeout(salvaBozza, 400);
+}
+function catturaFirma(){
+  const c = $('#firma');
+  lavoro.firma = (firmaHaInchiostro && c) ? c.toDataURL('image/png') : '';
+  lavoro.firmaW = c ? c.clientWidth : 0; lavoro.firmaH = c ? c.clientHeight : 0;
+}
+function salvaBozza(){
+  timer = null;
+  if (!lavoro) return;
+  catturaFirma();
+  bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
+  const s = $('#salvato'); if (s) s.textContent = 'Bozza salvata su questo telefono';
+  const p = $('#pdf-fatto'); if (p) p.hidden = true;
+}
+
+/* ---- gestione dei campi (un solo ascoltatore) ---- */
+function collegaForm(){
+  const f = $('#form');
+  f.addEventListener('input', e => {
+    const t = e.target, d = t.dataset;
+    if (d.k) { lavoro[d.k] = t.value; const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength'); }
+    else if (d.orario !== undefined) { lavoro.orari[+d.orario][d.c] = t.value; aggiornaOre(); }
+    else if (d.mat !== undefined) { lavoro.materiali[+d.mat][d.c] = t.value; }
+    else if (d.an !== undefined) { (lavoro.analisi[d.an] = lavoro.analisi[d.an] || {})[d.c] = t.value; }
+    else if (d.extra !== undefined) { lavoro.ops_extra[+d.extra] = t.value; }
+    else if (d.fotoc !== undefined) { const f = (lavoro.foto || []).find(x => x.id === d.fotoc); if (f) f.commento = t.value; }
+    else if (d.rci !== undefined) { lavoro.rc[+d.rci][d.rcc] = t.value.replace(',', '.'); }
+    else return;
+    bozzaModificata();
+  });
+  f.addEventListener('change', e => {
+    const t = e.target, d = t.dataset;
+    if (d.allega !== undefined) { ultimiAllegati[+d.allega].on = t.checked; aggiornaPulsantiInvio(); }
+    else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); }
+    else if (t.name === 'esito') { lavoro.esito = t.value; aggiornaTile(); bozzaModificata(); }
+    else if (t.id === 'an-nuova' && t.value) { lavoro.analisi[t.value] = {}; $('#analisi').innerHTML = schedeAnalisi(); bozzaModificata(); }
+  });
+  f.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+    if (d.stampa !== undefined) { const f = ultimoPdf && ultimoPdf[+d.stampa]; if (f) stampaFile(new File([f.blob], f.nome, {type: 'application/pdf'}), $('#pdf-msg')); return; }
+    if (d.stampaAll !== undefined) { const a = ultimiAllegati[+d.stampaAll]; if (a) stampaFile(new File([a.blob], a.nome, {type: a.mime || 'application/octet-stream'}), $('#pdf-msg')); return; }
+    if (d.stampaAncora !== undefined) { stampaPronta_(); return; }
+    if (d.mic !== undefined) { avviaDettatura(d.mic); return; }
+    if (d.fotoScatta !== undefined) { $('#in-foto').click(); return; }
+    if (d.fotoGalleria !== undefined) { $('#in-foto-gal').click(); return; }
+    if (d.fotoTogli !== undefined) { togliFoto(d.fotoTogli); return; }
+    if (d.matVoce !== undefined) { apriMaterialiVoce(); return; }
+    if (d.fotoCancella !== undefined) { cancellaFotoInviate(); return; }
+    if (d.tri !== undefined) {
+      const [i, col, val] = d.tri.split('|'); const r = lavoro.rc[+i];
+      r[col] = String(r[col] || '').toUpperCase() === val ? '' : val;
+      b.closest('.controllo').querySelectorAll('.tri').forEach(x => { const v = x.dataset.tri.split('|')[2]; const on = String(r[col] || '').toUpperCase() === v; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on); });
+      bozzaModificata(); return;
+    }
+    if (b.id === 'b-add-orario' && lavoro.orari.length < 5) { lavoro.orari.push({data: lavoro.data, dal:'', al:''}); disegnaOrari(); }
+    else if (d.togliOrario !== undefined) { lavoro.orari.splice(+d.togliOrario, 1); disegnaOrari(); }
+    else if (b.id === 'b-add-mat') { lavoro.materiali.push({descr:'', codice:'', qta:'', um:'pz'}); $('#materiali').innerHTML = righeMateriali(); const l = document.querySelectorAll('#materiali .descr'); l[l.length-1].focus(); bozzaModificata(); }
+    else if (d.togliMat !== undefined) { lavoro.materiali.splice(+d.togliMat, 1); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); }
+    else if (b.id === 'b-add-extra') { lavoro.ops_extra.push(''); $('#extra').innerHTML = sezioneExtra(); const l = document.querySelectorAll('#extra input'); l[l.length-1].focus(); bozzaModificata(); }
+    else if (d.togliExtra !== undefined) { lavoro.ops_extra.splice(+d.togliExtra, 1); $('#extra').innerHTML = sezioneExtra(); bozzaModificata(); }
+    else if (d.togliAn !== undefined) { delete lavoro.analisi[d.togliAn]; $('#analisi').innerHTML = schedeAnalisi(); bozzaModificata(); }
+    else if (b.id === 'b-cancella-firma') { preparaFirma(''); bozzaModificata(); }
+    else if (d.apri !== undefined) apriPdf(+d.apri);
+    else if (d.apriAll !== undefined) apriAllegato(+d.apriAll);
+    else if (b.id === 'b-condividi') condividiPdf();
+    else if (b.id === 'b-scarica') scaricaPdf();
+  });
+}
+function disegnaOrari(){
+  $('#orari').innerHTML = righeOrari();
+  const add = $('#b-add-orario'); if (add) add.disabled = lavoro.orari.length >= 5;
+  aggiornaOre(); bozzaModificata();
+}
+
+/* ---- firma ---- */
+let firmaHaInchiostro = false, firmaDisegna = false, ctxFirma = null;
+function preparaFirma(dataUrl, ow, oh){
+  const c = $('#firma'), ratio = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  ultimaLarghezzaFirma = w;
+  c.width = Math.round(w * ratio); c.height = Math.round(h * ratio);
+  ctxFirma = c.getContext('2d'); ctxFirma.scale(ratio, ratio);
+  ctxFirma.lineWidth = 2.6; ctxFirma.lineCap = 'round'; ctxFirma.lineJoin = 'round'; ctxFirma.strokeStyle = '#14232B';
+  firmaHaInchiostro = false;
+  if (dataUrl) {
+    const img = new Image();
+    img.onload = () => {
+      const k = (ow && oh) ? Math.min(w / ow, h / oh) : 1, dw = (ow && oh) ? ow * k : w, dh = (ow && oh) ? oh * k : h;
+      ctxFirma.drawImage(img, 0, 0, dw, dh); firmaHaInchiostro = true;
+    };
+    img.src = dataUrl;
+  }
+}
+let ultimaLarghezzaFirma = 0;
+window.addEventListener('resize', () => {
+  const c = $('#firma');
+  if (vistaCorrente !== 'scheda' || !c || !c.clientWidth || c.clientWidth === ultimaLarghezzaFirma) return;
+  const ratio = window.devicePixelRatio || 1;
+  const url = firmaHaInchiostro ? c.toDataURL('image/png') : '';
+  preparaFirma(url, c.width / ratio, c.height / ratio);   // ridisegna senza deformare
+});
+function collegaFirma(){
+  const c = $('#firma');
+  const pos = e => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  c.addEventListener('pointerdown', e => { firmaDisegna = true; c.setPointerCapture(e.pointerId); const [x, y] = pos(e); ctxFirma.beginPath(); ctxFirma.moveTo(x, y); ctxFirma.lineTo(x + .1, y + .1); ctxFirma.stroke(); firmaHaInchiostro = true; e.preventDefault(); });
+  c.addEventListener('pointermove', e => { if (!firmaDisegna) return; const [x, y] = pos(e); ctxFirma.lineTo(x, y); ctxFirma.stroke(); e.preventDefault(); });
+  const fine = () => { if (firmaDisegna) { firmaDisegna = false; bozzaModificata(); } };
+  c.addEventListener('pointerup', fine); c.addEventListener('pointercancel', fine);
+}
+
+/* ---- firma del tecnico (per l'RCEE), salvata nelle impostazioni ---- */
+let ctxTec = null, tecDisegna = false;
+function preparaFirmaTec(){
+  const c = $('#firma-tec'), ratio = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w) return;
+  c.width = Math.round(w * ratio); c.height = Math.round(h * ratio);
+  ctxTec = c.getContext('2d'); ctxTec.scale(ratio, ratio);
+  ctxTec.lineWidth = 2.6; ctxTec.lineCap = 'round'; ctxTec.lineJoin = 'round'; ctxTec.strokeStyle = '#14232B';
+  if (impostazioni.firmaTecnico) { const img = new Image(); img.onload = () => { const k = Math.min(w / img.width * ratio, h / img.height * ratio); ctxTec.drawImage(img, 0, 0, img.width / ratio * k, img.height / ratio * k); }; img.src = impostazioni.firmaTecnico; }
+}
+function collegaFirmaTec(){
+  const c = $('#firma-tec');
+  const pos = e => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  c.addEventListener('pointerdown', e => { if (!ctxTec) preparaFirmaTec(); tecDisegna = true; c.setPointerCapture(e.pointerId); const [x, y] = pos(e); ctxTec.beginPath(); ctxTec.moveTo(x, y); ctxTec.lineTo(x + .1, y + .1); ctxTec.stroke(); e.preventDefault(); });
+  c.addEventListener('pointermove', e => { if (!tecDisegna) return; const [x, y] = pos(e); ctxTec.lineTo(x, y); ctxTec.stroke(); e.preventDefault(); });
+  const fine = () => { if (tecDisegna) { tecDisegna = false; impostazioni.firmaTecnico = c.toDataURL('image/png'); salvaImpostazioni(); } };
+  c.addEventListener('pointerup', fine); c.addEventListener('pointercancel', fine);
+  $('#b-cancella-firma-tec').onclick = () => { impostazioni.firmaTecnico = ''; salvaImpostazioni(); preparaFirmaTec(); };
+}
+
+/* ==================================================================
+   PDF
+   ================================================================== */
+// <pdf>
+function costruisciPdf(w, ctx){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4', compress:true});
+  const M = 15, W = 210, CW = W - 2*M, FONDO = 280;
+  const INK = [20,35,43], PET = [14,90,107], GRIGIO = [91,109,117], RIGA = [211,220,223];
+  let y = M;
+  const colore = c => doc.setTextColor(c[0], c[1], c[2]);
+  const serve = h => { if (y + h > FONDO) { doc.addPage(); y = M; } };
+  const apparecchio = id => { const a = ((ctx.r && ctx.r.a) || []).find(x => x.id === id); return a ? [a.c, a.m].filter(Boolean).join(' ') : ''; };
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); colore(INK);
+  doc.text(ctx.azienda || 'Rapporto di intervento', M, y + 5);
+  if (ctx.azienda) { doc.setFont('helvetica','normal'); doc.setFontSize(10); colore(GRIGIO); doc.text('Rapporto di intervento', W - M, y + 5, {align:'right'}); }
+  y += 9; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.6); doc.line(M, y, W - M, y); y += 5;
+
+  const titolo = t => { serve(14); y += 3; doc.setFont('helvetica','bold'); doc.setFontSize(11); colore(PET); doc.text(t, M, y + 4); y += 6.5;
+    doc.setDrawColor(RIGA[0], RIGA[1], RIGA[2]); doc.setLineWidth(0.2); doc.line(M, y, W - M, y); y += 4; doc.setFont('helvetica','normal'); };
+  const coppia = (e1, v1, e2, v2) => {
+    const cw = CW/2 - 4, a = doc.splitTextToSize(v1 || '—', cw), b = doc.splitTextToSize(v2 || '—', cw);
+    const h = 8 + (Math.max(a.length, b.length) - 1) * 5 + 4; serve(h);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); colore(GRIGIO); doc.text(e1, M, y + 3); if (e2) doc.text(e2, M + CW/2 + 4, y + 3);
+    doc.setFontSize(10.5); colore(INK); doc.text(a, M, y + 8); if (e2) doc.text(b, M + CW/2 + 4, y + 8); y += h; };
+  const blocco = (e, testo) => {
+    if (!testo) return;
+    const righe = doc.splitTextToSize(testo, CW); serve(14);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); colore(GRIGIO); doc.text(e, M, y + 3); y += 8;
+    doc.setFontSize(10.5); colore(INK); righe.forEach(l => { serve(6); doc.text(l, M, y); y += 5; }); y += 3; };
+
+  titolo('Appuntamento');
+  coppia('Cliente', w.cliente, 'Data', dataIT(w.data));
+  coppia('Indirizzo', w.indirizzo, 'Tecnico', w.tecnico);
+  if (w.levante) coppia('Impianto', w.impianto, 'Rif. Levante', 'Impegno ' + w.levante.mi);
+
+  titolo('Intervento');
+  blocco('Richiesta del cliente', w.richiesta);
+
+  const opsPian = ((ctx.r && ctx.r.o) || []).filter(o => o.f || (w.ops[o.id] && w.ops[o.id].fatta));
+  if (opsPian.length || w.ops_extra.filter(Boolean).length) {
+    serve(12); doc.setFont('helvetica','bold'); doc.setFontSize(9); colore(GRIGIO); doc.text('Operazioni', M, y + 3); y += 6;
+    const c2 = 52, c3 = 28, c1 = CW - c2 - c3;
+    doc.setFillColor(238,243,244); doc.rect(M, y, CW, 7, 'F'); doc.setFontSize(8.5);
+    doc.text('Operazione', M + 2, y + 4.8); doc.text('Apparecchio', M + c1 + 2, y + 4.8); doc.text('Esito', M + CW - 2, y + 4.8, {align:'right'}); y += 7;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); colore(INK);
+    const riga = (nome, app, esito) => {
+      const a = doc.splitTextToSize(nome, c1 - 4), b = doc.splitTextToSize(app || '', c2 - 4);
+      const h = Math.max(a.length, b.length, 1) * 4.8 + 3; serve(h);
+      doc.text(a, M + 2, y + 4.8); doc.text(b, M + c1 + 2, y + 4.8); doc.text(esito, M + CW - 2, y + 4.8, {align:'right'});
+      y += h; doc.setDrawColor(RIGA[0], RIGA[1], RIGA[2]); doc.setLineWidth(0.2); doc.line(M, y, M + CW, y); };
+    opsPian.forEach(o => riga(o.d, o.a ? apparecchio(o.a) : 'Impianto', (w.ops[o.id] && w.ops[o.id].fatta) ? 'Eseguita' : 'Non eseguita'));
+    w.ops_extra.filter(Boolean).forEach(t => riga(t, 'Fuori programma', 'Eseguita'));
+    y += 3;
+  }
+
+  Object.keys(w.analisi).forEach(id => {
+    const valori = ANALISI_CAMPI.filter(([k]) => (w.analisi[id] || {})[k]);
+    if (!valori.length) return;
+    const righe = Math.ceil(valori.length / 3); serve(12 + righe * 10);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); colore(GRIGIO); doc.text('Analisi di combustione — ' + (apparecchio(id) || 'apparecchio'), M, y + 3); y += 6;
+    valori.forEach(([k, et], n) => {
+      const x = M + (n % 3) * (CW / 3), yy = y + Math.floor(n / 3) * 10;
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); colore(GRIGIO); doc.text(et.replace(/\u2082/g, '2'), x, yy + 3);
+      doc.setFontSize(10.5); colore(INK); doc.text(String(w.analisi[id][k]), x, yy + 8);
+    });
+    y += righe * 10 + 3;
+  });
+
+  blocco('Relazione dell\'intervento', w.relazione);
+  blocco('Osservazioni', w.osservazioni);
+  blocco('Raccomandazioni', w.raccomandazioni);
+  blocco('Prescrizioni', w.prescrizioni);
+
+  const tot = w.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0);
+  titolo('Orari');
+  w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—'), '', ''));
+  coppia('Ore totali', tot ? fmtOre(tot) : '', 'Km percorsi', w.km);
+
+  titolo('Materiali');
+  const mats = (w.materiali || []).filter(m => m.descr || m.codice || m.qta);
+  if (!mats.length) { serve(8); doc.setFontSize(10.5); colore(GRIGIO); doc.text('Nessun materiale indicato.', M, y + 3); y += 8; }
+  else {
+    const c1 = 34, c3 = 24, c2 = CW - c1 - c3; serve(10);
+    doc.setFillColor(238,243,244); doc.rect(M, y, CW, 7, 'F'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5); colore(GRIGIO);
+    doc.text('Codice', M + 2, y + 4.8); doc.text('Descrizione', M + c1 + 2, y + 4.8); doc.text('Q.tà', M + CW - 2, y + 4.8, {align:'right'}); y += 7;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); colore(INK);
+    mats.forEach(m => {
+      const cl = doc.splitTextToSize(m.codice || '', c1 - 4), dl = doc.splitTextToSize(m.descr || '', c2 - 4);
+      const h = Math.max(cl.length, dl.length, 1) * 4.8 + 3; serve(h);
+      doc.text(cl, M + 2, y + 4.8); doc.text(dl, M + c1 + 2, y + 4.8); doc.text(((m.qta || '') + (m.um ? ' ' + m.um : '')).trim(), M + CW - 2, y + 4.8, {align:'right'});
+      y += h; doc.setDrawColor(RIGA[0], RIGA[1], RIGA[2]); doc.setLineWidth(0.2); doc.line(M, y, M + CW, y); });
+    y += 2;
+  }
+
+  titolo('Esito');
+  serve(10); doc.setFont('helvetica','bold'); doc.setFontSize(11); colore(INK); doc.text(ESITI[w.esito] || '—', M, y + 3); y += 8; doc.setFont('helvetica','normal');
+  blocco('Note per l\'ufficio', w.note);
+
+  titolo('Firma del cliente'); serve(40);
+  if (w.firma) { const p = doc.getImageProperties(w.firma), s = Math.min(70 / p.width, 28 / p.height); doc.addImage(w.firma, 'PNG', M, y, p.width * s, p.height * s); }
+  doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.3); doc.line(M, y + 29, M + 70, y + 29);
+  doc.setFontSize(9); colore(GRIGIO); doc.text(w.firmaNome || 'Firma', M, y + 34);
+
+  const n = doc.getNumberOfPages(), ora = new Date();
+  for (let k = 1; k <= n; k++) {
+    doc.setPage(k); doc.setFont('helvetica','normal'); doc.setFontSize(8); colore(GRIGIO);
+    doc.text(`Generato il ${dataIT(isoGiorno(ora))} alle ${hhmm(ora)}`, M, 290); doc.text(`Pagina ${k} di ${n}`, W - M, 290, {align:'right'});
+  }
+  return doc.output('blob');
+}
+// </pdf>
+function costruisciRcee(w){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4', compress:true});
+  const sup = rcSupportati(w);
+  const prima = w.orari.find(o => o.dal), ultima = [...w.orari].reverse().find(o => o.al);
+  sup.forEach(({r}, n) => {
+    if (n > 0) doc.addPage();
+    const rec = Object.assign({}, r, {
+      DATACONTROLLO: w.data ? w.data + ' 00:00:00' : r.DATACONTROLLO,
+      DATAORAARRIVO: prima ? `${prima.data || w.data} ${prima.dal}:00` : r.DATAORAARRIVO,
+      DATAORAPARTENZA: ultima ? `${ultima.data || w.data} ${ultima.al}:00` : r.DATAORAPARTENZA,
+      OSSERVAZIONI: w.osservazioni, RACCOMANDAZIONI: w.raccomandazioni, PRESCRIZIONI: w.prescrizioni,
+      TECNICO_NOMECOGNOME: r.TECNICO_NOMECOGNOME || w.tecnico, PAG: String(n + 1), PAGDI: String(sup.length)
+    });
+    const tpl = modelliRcee()[r._tpl];
+    window.rceeRender(doc, tpl, rec, {extra: aziendaRcee(), mappa: window.MAPPE_RCEE[r._tipo]});
+    window.rceeTesti(doc, tpl, rec);
+    window.rceeFirme(doc, tpl, {firmaTecnico: impostazioni.firmaTecnico, firmaCliente: w.firma});
+  });
+  return doc.output('blob');
+}
+function nomeRcee(w){
+  const s = (w.cliente || 'impianto').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+  return `RCEE_${s}_${(w.levante && w.levante.li) || ''}_${w.data || isoGiorno(new Date())}.pdf`.replace('__', '_');
+}
+function nomePdf(w){
+  const s = (w.cliente || 'intervento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  return `Rapporto_${s}_${w.data || isoGiorno(new Date())}.pdf`;
+}
+function creaPdf(){
+  if (!window.jspdf) { alert('La libreria per creare il PDF non si è caricata. Controlla la connessione e riprova.'); return; }
+  clearTimeout(timer); timer = null;
+  catturaFirma();
+  if (!lavoro.cliente.trim()) { alert('Scrivi il nome del cliente prima di creare il PDF.'); $('#f-cliente').focus(); return; }
+  if (!lavoro.esito) { alert('Scegli l\'esito dell\'intervento.'); return; }
+  if (!lavoro.firma && !confirm('Manca la firma del cliente. Creo il PDF lo stesso?')) return;
+  const files = [{blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda}), nome: nomePdf(lavoro), titolo: 'Rapportino'}];
+  if (rcSupportati(lavoro).length) {
+    if (!impostazioni.firmaTecnico && !confirm('Manca la tua firma per l\'RCEE (si imposta una volta sola in Impostazioni). Creo i PDF lo stesso?')) return;
+    try { files.push({blob: costruisciRcee(lavoro), nome: nomeRcee(lavoro), titolo: 'RCEE'}); }
+    catch(e) { alert('Non sono riuscito a creare l\'RCEE: ' + e.message + '\nIl rapportino è stato creato.'); }
+  }
+  lavoro.stato = 'pdf'; lavoro.aggiornata = Date.now(); bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
+  ultimoPdf = files;
+  $('#pdf-lista').innerHTML = files.map((f, n) => `<p style="margin:0 0 8px"><strong>${f.titolo}</strong> · ${esc(f.nome)} <button class="btn sec piccolo" type="button" data-apri="${n}">Apri</button> <button class="btn piccolo" type="button" data-stampa="${n}">Stampa</button></p>`).join('');
+  $('#pdf-titolo').textContent = files.length > 1 ? 'PDF creati.' : 'PDF creato.'; $('#pdf-msg').textContent = '';
+  ultimiAllegati = []; $('#pdf-allegati').innerHTML = '';
+  aggiornaPulsantiInvio();
+  preparaAllegati();
+  $('#pdf-fatto').hidden = false; $('#salvato').textContent = '';
+  $('#pdf-fatto').scrollIntoView({behavior:'smooth', block:'center'});
+}
+async function condividiPdf(){
+  const fl = filesDaInviare(); if (!fl.length) return;
+  try { await navigator.share({files: fl, title: fl[0].name}); } catch(e){}
+}
+function scaricaPdf(){
+  filesDaInviare().forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
+}
+
+/* ---- cosa si invia: i PDF appena creati + i documenti scelti (quelli modificati sono già spuntati) ---- */
+function filesDaInviare(){
+  const out = (ultimoPdf || []).map(f => new File([f.blob], f.nome, {type: 'application/pdf'}));
+  ultimiAllegati.filter(a => a.on).forEach(a => {
+    if (a.gruppo) a.gruppo.forEach(g => out.push(new File([g.blob], g.nome, {type: 'image/jpeg'})));
+    else out.push(new File([a.blob], a.nome, {type: a.mime || 'application/octet-stream'}));
+  });
+  return out;
+}
+function aggiornaPulsantiInvio(){
+  const fl = filesDaInviare(), solo = fl.length === 1 && /pdf/i.test(fl[0].type);
+  $('#b-condividi').textContent = solo ? 'Invia il PDF' : 'Invia i file';
+  $('#b-scarica').textContent = solo ? 'Scarica il PDF' : 'Scarica i file';
+  const puo = !!(navigator.canShare && fl.length && navigator.canShare({files: fl}));
+  $('#b-condividi').hidden = !puo;
+  const nonCond = fl.length && !puo && navigator.canShare;
+  const m = $('#pdf-msg'); if (m && !m.innerHTML.includes('<a ')) m.textContent = nonCond ? 'Uno dei file scelti non si può inviare direttamente da questo dispositivo: scaricali e allegali tu al messaggio.' : '';
+}
+async function preparaAllegati(){
+  const box = $('#pdf-allegati'); const docs = ((corrente && corrente.docs) || []).filter(d => !d.altro);
+  ultimiAllegati = [];
+  const nf = (lavoro.foto || []).length;
+  if (nf) {
+    try {
+      const blob = await costruisciPdfFoto(lavoro), sl = slugNome(lavoro.cliente || 'intervento');
+      ultimiAllegati.push({id: 'foto-pdf', nome: `Foto_${sl}_${lavoro.data || isoGiorno(new Date())}.pdf`, mime: 'application/pdf', blob, on: true, foto: true, etichetta: `Documentazione fotografica (${nf} ${nf === 1 ? 'foto' : 'foto'})`});
+      const singole = [];
+      for (let i = 0; i < nf; i++) { const rec = await leggiFotoRec(chiaveFoto(lavoro.id, lavoro.foto[i].id)); if (rec) singole.push({nome: `Foto_${sl}_${i + 1}.jpg`, blob: new Blob([rec.dati], {type: 'image/jpeg'})}); }
+      if (singole.length) ultimiAllegati.push({id: 'foto-singole', gruppo: singole, mime: 'image/jpeg', on: false, foto: true, etichetta: `Anche le foto singole (${singole.length} file JPG)`});
+    } catch(e) { const m = $('#pdf-msg'); if (m) m.textContent = 'Non sono riuscito a preparare le foto (' + e.message + ').'; }
+  }
+  for (const d of docs) {
+    try {
+      const mod = docModificati.get(d.id), rec = mod ? await leggiModificato(d.id) : await leggiFile(d.id);
+      if (!rec) continue;
+      const bytes = bytesDaB64(rec.b64), mime = rec.mime || d.mime || 'application/octet-stream';
+      ultimiAllegati.push({id: d.id, nome: mod ? (rec.nome || d.nome) : d.nome, mime, modificato: !!mod, blob: new Blob([bytes], {type: mime}), on: !!mod});
+    } catch(e) {}
+  }
+  if (!ultimiAllegati.length) { box.innerHTML = ''; aggiornaPulsantiInvio(); return; }
+  box.innerHTML = '<p style="margin:12px 0 4px"><strong>Allega anche questi file</strong></p>' + ultimiAllegati.map((a, n) =>
+    `<label class="allega"><input type="checkbox" data-allega="${n}"${a.on ? ' checked' : ''}><span>${esc(a.etichetta || a.nome)}${a.foto ? '' : (a.modificato ? ' <span class="chip pdf">Modificato</span>' : ' <span class="chip">Originale</span>')}</span>${a.gruppo ? '' : `<button class="btn sec piccolo" type="button" data-apri-all="${n}">Apri</button><button class="btn piccolo" type="button" data-stampa-all="${n}">Stampa</button>`}</label>`).join('')
+    + (nf ? '<p class="aiuto" style="margin:8px 0 0">Dopo l\'invio puoi liberare spazio: <button class="btn chiaro piccolo" type="button" data-foto-cancella>Cancella le foto da questo dispositivo</button></p>' : '');
+  aggiornaPulsantiInvio();
+}
+function slugNome(t){ return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'intervento'; }
+async function cancellaFotoInviate(){
+  if (!confirm('Hai già inviato le foto? Le cancello da questo dispositivo (restano nel PDF e nei file che hai inviato).')) return;
+  try { await cancellaFotoPrefisso(lavoro.id + '|'); } catch(e){}
+  lavoro.foto = []; lavoro.stato = lavoro.stato || 'bozza'; bozze[lavoro.id] = lavoro; salvaBozze();
+  disegnaFoto(); await preparaAllegati();
+  const m = $('#pdf-msg'); if (m) m.textContent = 'Foto cancellate da questo dispositivo.';
+}
+function apriAllegato(n){
+  const a = ultimiAllegati[n]; if (!a) return;
+  const r = mostraFile(a.blob, a.nome, a.mime); const m = $('#pdf-msg'); if (!m) return;
+  if (r.html) m.innerHTML = r.testo; else m.textContent = r.testo;
+}
+
+function apriPdf(n){
+  if (!ultimoPdf || !ultimoPdf[n]) return;
+  const r = mostraFile(ultimoPdf[n].blob, ultimoPdf[n].nome, 'application/pdf');
+  const m = $('#pdf-msg'); if (!m) return;
+  if (r.html) m.innerHTML = r.testo; else m.textContent = r.testo;
+}
+
+
+
+/* ==================================================================
+   RCEE: disegno del modulo ufficiale con i modelli di stampa di Levante
+   ================================================================== */
+// Disegna un RCEE da un modello (convertito da Levante) e dai dati dell'allegato.
+// Funziona sia nel browser (jsPDF globale) sia in Node.
+(function(root){
+// Collegamento tra le caselle dei modelli RCEE di Levante e le colonne dell'allegato.
+// Regole: ['COLONNA','T'|'F'|'N'] = casella accesa se la colonna vale quel valore;
+//         ['COLONNA','=testo'] = uguale al testo; ['COLONNA','~testo'] = contiene il testo.
+(function(root){
+const tri=(base,col,inv)=>{const si=inv?'F':'T',no=inv?'T':'F';return {[base+'_SI']:[col,si],[base+'_NO']:[col,no],[base+'_NC']:[col,'N']};};
+const opz=(col,mappa)=>{const o={};for(const k in mappa)o[k]=[col,mappa[k]];return o;};
+const COMUNE={
+  ...opz('INQUALITADIRESPIMP',{CheckProprietario:'~Proprietario',CheckOccupante:'~Occupante',CheckAmministratore:'~Amministratore',CheckTerzoResponsabile:'~Terzo'}),
+  CheckDichConfPres_Si:['B_DICHCONFIMP','T'],CheckDichConfPres_No:['B_DICHCONFIMP','F'],
+  CheckLibrUsoManut_Si:['B_LIBRUSOCALD','T'],CheckLibrUsoManut_No:['B_LIBRUSOCALD','F'],
+  CheckLibrImpPres_Si:['B_LIBRETTOIMPIANTO','T'],CheckLibrImpPres_No:['B_LIBRETTOIMPIANTO','F'],
+  CheckLibrCompilato_Si:['B_LIBRETTOIMPIANTOCOMPILATO','T'],CheckLibrCompilato_No:['B_LIBRETTOIMPIANTOCOMPILATO','F'],
+  ...opz('TH2O_TRATTRISCALDAM',{Check_TH2O_Risc1:'~non richiesto',Check_TH2O_Risc2:'~assente',Check_TH2O_Risc3:'~filtraz',Check_TH2O_Risc4:'~addolc',Check_TH2O_Risc5:'~condiz'}),
+  ...opz('TH2O_TRATTACS',{Check_TH2O_ACS1:'~non richiesto',Check_TH2O_ACS2:'~assente',Check_TH2O_ACS3:'~filtraz',Check_TH2O_ACS4:'~addolc',Check_TH2O_ACS5:'~condiz'}),
+  Check_CheckList1:['CHKLST_ADOZVALVTERMOST','T'],Check_CheckList2:['CHKLST_ISOLAMRETEDISTRIB','T'],Check_CheckList3:['CHKLST_SISTTRATTAMACQUA','T'],Check_CheckList4:['CHKLST_SOSTSISTREGOLAZ','T'],
+  ...opz('CONTREG_TIPODISTRIBUZIONE',{ContReg_TipoDistribuzione_Verticale:'~vert',ContReg_TipoDistribuzione_Orizzontale:'~orizz'}),
+  ContReg_UnImmContab_Si:['CONTREG_UNITAIMMCONTABILIZATE','T'],ContReg_UnImmContab_No:['CONTREG_UNITAIMMCONTABILIZATE','F'],ContReg_UnImmContab_Na:['CONTREG_UNITAIMMCONTABILIZATE','N'],
+  ...opz('CONTREG_TIPOCONTABILIZZAZIONE',{ContReg_TipoContab_Diretta:'~dirett',ContReg_TipoContab_Indiretta:'~indirett',ContReg_TipoContab_Na:'=N'}),
+  ContReg_ValvoleTermostatPresenti_Si:['CONTREG_VALVOLETERMOSTATPRES','T'],ContReg_ValvoleTermostatPresenti_No:['CONTREG_VALVOLETERMOSTATPRES','F'],ContReg_ValvoleTermostatPresenti_Na:['CONTREG_VALVOLETERMOSTATPRES','N'],
+  ContReg_CorrettoFunzionamento_Si:['CONTREG_CORRETTOFUNZIONAMENTO','T'],ContReg_CorrettoFunzionamento_No:['CONTREG_CORRETTOFUNZIONAMENTO','F'],ContReg_CorrettoFunzionamento_Na:['CONTREG_CORRETTOFUNZIONAMENTO','N'],
+  Check_PuoFunzionare_SI:['IMPPUOFUNZIONARE','T'],Check_PuoFunzionare_NO:['IMPPUOFUNZIONARE','F'],
+  Check_UsoRiscaldam:['GENCAL_RISCALDAMENTO','T'],Check_UsoACS:['GENCAL_ACQUASANITARIA','T']
+};
+// ---- RCEE tipo 1 (gruppi termici) — verificato su un PDF di Levante
+const RCEE1={...COMUNE,
+  ...tri('D1','C_IDONLOCALEINSTALLAZ'),...tri('D2','C_EXTINST_GENERATOREIDONEO'),...tri('D3','C_APERTVENTILAZLIBERE'),...tri('D4','C_ADEGDIMENSVENTILAZ'),
+  ...tri('D5','G_ESAMEVISIVOCAMINO'),...tri('D6','F_SISTIREGOLAZTEMPFUNZIONANTE'),...tri('D7','G_ASSENZAPERDITECOMBLIQUIDO'),...tri('D8','G_CONTROLLOASSENZAFUGHEGAS'),
+  ...tri('E1','F_DISPCOMANDOREGOLAZFUNZCORR'),...tri('E2','F_DISPSICUREZZANONMANOMESSI'),...tri('E3','F_VALVOLASICUREZZASOVRAPRESS'),...tri('E4','F_SCAMBLATOFUMOPULITO'),...tri('E5','E_NORIFLUSSIFUMILOCALE',true),...tri('E6','G_RISCTRLUNI10389_1'),
+  ...opz('GENCAL_TIPOLOGIA',{Check_Gruppo_Singolo:'~singolo',Check_Gruppo_Modulare:'~modulare',Check_Gruppo_Nastro:'~nastro',Check_Gruppo_AriaCalda:'~aria'}),
+  ...opz('GENCAL_TIPOLOGIA2',{Check_Tradizionale:'~standard',Check_Altro:'~bassa',Check_Condensazione:'~condens'}),
+  ...opz('GENCAL_COMBUSTIBILE',{CombustibileGPL:'~gpl',CombustibileGasDiRete:'~gas',CombustibileGasolio:'~gasolio',CombustibileAltro:'~altro'}),
+  ...opz('GENCAL_TIPOTIRAGGIO',{TiraggioNaturale:'~natural',TiraggioForzato:'~forzat'}),
+  UNN0:['ANFUMI_RISPETTA_BACHARACH','T'],UNN1:['ANFUMI_RISPETTA_BACHARACH','F'],UNN2:['ANFUMI_RISPETTA_CO_FUMISECCHI','T'],UNN3:['ANFUMI_RISPETTA_CO_FUMISECCHI','F'],UNN4:['ANFUMI_RISPETTA_RENDIMENTO','T'],UNN5:['ANFUMI_RISPETTA_RENDIMENTO','F']
+};
+// ---- RCEE tipo 1B (biomassa) — le caselle dei dati del generatore sono verificate su un PDF di Levante;
+//      i controlli D/E sono collegati per nome della colonna (da verificare)
+const RCEE1B={...COMUNE,
+  ...tri('D1','C_IDONLOCALEINSTALLAZ'),...tri('D2','C_EXTINST_GENERATOREIDONEO'),...tri('D3','C_APERTVENTILAZLIBERE'),...tri('D4','C_ADEGDIMENSVENTILAZ'),
+  ...tri('D5','G_ESAMEVISIVOCAMINO'),...tri('D6','F_SISTIREGOLAZTEMPFUNZIONANTE'),...tri('D7','G_CONTROLLOASSENZAFUGHEGAS'),...tri('D8','X_PULIZIACAMINO'),
+  ...tri('E1','F_DISPCOMANDOREGOLAZFUNZCORR'),...tri('E2','F_DISPSICUREZZANONMANOMESSI'),...tri('E3','F_VALVOLASICUREZZASOVRAPRESS'),...tri('E4','F_SCAMBLATOFUMOPULITO'),...tri('E5','E_NORIFLUSSIFUMILOCALE',true),...tri('E6','G_RISCTRLUNI10389_1'),
+  ...opz('GENCAL_TIPOLOGIA',{Check_Caldaia:'~Caldaia',Check_Stufa:'=Stufa (UNI EN 13240)',Check_StufaAdAccumulo:'~15250',Check_Termocucina:'~12815'}),
+  ...opz('GENCAL_TIPOCAMERA',{Check_CaminettoAperto:'~aperto',Check_CaminettoChiuso:'~chiuso',Check_InsertoCaminetto:'~inserto'}),
+  ...opz('GENCAL_TIPOTIRAGGIO',{Check_StufaAssemblataInOpera:'~15544',Check_StufaAPellet:'~14785',Check_StufaAltro:'=Altro'}),
+  ...opz('GENCAL_TIPOLOGIA2',{Check_Tradizionale:'=Tradizionale',Check_Condensazione:'~condens',Check_Tipologia2Altro:'=Altro'}),
+  Check_UsoCucina:['GENCAL_CUCINA','T'],
+  ...opz('GENCAL_MARCATURACE',{Check_MarcaturaCE_Presente:'=Presente',Check_MarcaturaCE_Assente:'=Assente'}),
+  ...opz('GENCAL_PLACCACAMINO',{Check_PlaccaCamino_Presente:'=Presente',Check_PlaccaCamino_Assente:'=Assente'}),
+  ...opz('GENCAL_MODEVACUAZFUMI',{Check_ModEvacuazFumi_Naturale:'=Naturale',Check_ModEvacuazFumi_Forzata:'=Forzata'}),
+  ...opz('GENCAL_ARIACOMBURENTE',{Check_AriaComburente_DaEsterno:'=Da esterno',Check_AriaComburente_DaLocaleInst:'~locale'}),
+  ...opz('GENCAL_CONTRARIACOMBURENTE',{Check_ContrAriaComb_Auto:'=Automatico',Check_ContrAriaComb_Semi:'=Semiautomatico',Check_ContrAriaComb_Man:'=Manuale'}),
+  ...opz('GENCAL_CARICACOMBUSTIBILE',{Check_CaricamCombustibile_Auto:'=Automatico',Check_CaricamCombustibile_Man:'=Manuale',Check_CaricamCombustibile_AutoMan:'=Automatico/Manuale'}),
+  ...opz('GENCAL_COMBUSTIBILE',{Check_Combustibile_Legna:'=Legna',Check_Combustibile_Pellet:'=Pellet',CombustibileBricchette:'=Bricchette',Check_Combustibile_Cippato:'=Cippato',Check_Combustibile_Altro:'=Altro'})
+};
+// ---- RCEE tipo 2 (gruppi frigo / pompe di calore) — dati del generatore verificati su un PDF di Levante
+const RCEE2={...COMUNE,
+  ...tri('D1','C_IDONLOCALEINSTALLAZ'),...tri('D2','C_ADEGDIMENSVENTILAZ'),...tri('D3','C_APERTVENTILAZLIBERE'),...tri('D4','C_ESAMEVISIVOLINEEELETTRICHE'),...tri('D5','G_ESAMEVISIVOCOIBENTAZIONI'),
+  ...tri('E1','G_CONTROLLOASSENZAFUGHEGAS'),...tri('E2','F_CIRCUITOARIAPULITO'),...tri('E3','X_LEAKDETECTORDIRETTO'),...tri('E4','X_LEAKDETECTORINDIRETTO'),...tri('E5','F_SCAMBLATOFUMOPULITO'),
+  Check_UsoRaffrescam:['FRIGO_RAFFRESCAMENTO','T'],
+  Check_ProvaModalitaRaffrescam:['MODPROVA_RAFFRESCAMENTO','T'],Check_ProvaModalitaRiscaldam:['MODPROVA_RISCALDAMENTO','T'],
+  ...opz('GENCAL_TIPOLOGIA',{Check_TipologiaGeneratore1:'~recupero del calore',Check_TipologiaGeneratore2:'~fiamma diretta',Check_TipologiaGeneratore3:'~motore elettrico',Check_TipologiaGeneratore4:'~motore endotermico'})
+};
+root.MAPPE_RCEE={RCEE1,RCEE1B,RCEE2};
+})(window);
+
+const pad=n=>String(n).padStart(2,'0');
+function acceso(regola, rec){
+  if(!regola) return false;
+  const v=String(rec[regola[0]]==null?'':rec[regola[0]]).trim(), e=regola[1];
+  if(e[0]==='~') return v!==''&&v.toLowerCase().includes(e.slice(1).toLowerCase());
+  if(e[0]==='=') return v.toLowerCase()===e.slice(1).toLowerCase();
+  return v.toUpperCase()===e;
+}
+function formato(it, v){
+  v=(v==null?'':String(v)).trim(); if(!v) return '';
+  const m=it.mask||'';
+  const d=v.match(/^(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d))?/);
+  if(d && (m||/DATA/.test(it.field))){
+    if(m==='hh:nn') return d[4]?`${d[4]}.${d[5]}`:'';
+    return `${d[3]}/${d[2]}/${d[1]}`;
+  }
+  if(/^-?\d+(\.\d+)?$/.test(v) && !/^\d{5,}$/.test(v) && !/(CODICE|CAP|TELEFONO|CELL|MATRICOLA|PIVA|P_IVA|NUMCIVICO|PAG)/.test(it.field)){
+    const n=parseFloat(v); if(it.blank0 && n===0) return ''; return String(+n.toFixed(2)).replace('.',',');
+  }
+  return v;
+}
+function render(doc, tpl, rec, opz){
+  opz=opz||{}; const mappa=opz.mappa||window.MAPPE_RCEE.RCEE1, dy=opz.dy==null?0.7:opz.dy;
+  const unn=tpl.items.filter(i=>i.t==='label'&&i.text.toLowerCase()==='x'&&!i.name).sort((a,b)=>(Math.round(a.y/6)-Math.round(b.y/6))||(a.x-b.x));
+  unn.forEach((i,n)=>{i.name='UNN'+n;});
+  const col=c=>{ if(!c) return [0,0,0]; return [parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)]; };
+  const setFont=f=>{ doc.setFont('helvetica',(f.bold&&f.italic)?'bolditalic':f.bold?'bold':f.italic?'italic':'normal'); doc.setFontSize(f.size); doc.setTextColor(...col(f.color)); };
+  const stretto=f=>/narrow/i.test(f.name);
+  const testo=(s,it,wrap)=>{
+    if(!s) return; setFont(it.font);
+    const NF=0.082, fat=stretto(it.font)?(1-NF*1.9):1;
+    doc.setCharSpace(stretto(it.font)?-NF*it.font.size:0);
+    const base=it.y+it.font.size*0.80+dy;
+    const x=it.align==='c'?it.x+it.w/2:it.align==='r'?it.x+it.w:it.x;
+    const daDividere=String(s).split(/\r\n|\r|\n/);
+    const righe=wrap?daDividere.flatMap(p=>doc.splitTextToSize(p,it.w/fat)):daDividere;
+    righe.forEach((r,n)=>{
+      let xx=x, al=it.align==='c'?'center':it.align==='r'?'right':'left';
+      if(stretto(it.font)&&al!=='left'){ const lw=doc.getTextWidth(r)+(-NF*it.font.size)*r.length; xx=al==='center'?x-lw/2:x-lw; al='left'; }
+      doc.text(r,xx,base+n*it.font.size*1.15,{align:al});
+    });
+    if(it.font.underline) doc.line(it.x,base+1,it.x+doc.getTextWidth(s)*fat,base+1);
+    doc.setCharSpace(0);
+  };
+  const piuLungoDelBox=(s,it)=>{ setFont(it.font); return doc.getTextWidth(String(s))*(stretto(it.font)?0.82:1)>it.w+1; };
+  const lT=tpl.items.find(i=>i.t==='label'&&/^Terzo Responsabile/i.test(i.text)), lI=tpl.items.find(i=>i.t==='label'&&/^Impresa manutentrice/i.test(i.text));
+  const terzo=/terzo/i.test(String(rec.INQUALITADIRESPIMP||''));
+  const inBloccoTerzo=it=>lT&&lI&&it.t==='db'&&it.y>=lT.y-1&&it.y<lI.y-2;
+  // caselle di osservazioni / raccomandazioni / prescrizioni: se c'e' testo si tolgono le righe tratteggiate
+  const zone=[['OSSERVAZIONI','OSSERVAZIONI'],['RACCOMANDAZIONI','RACCOMANDAZIONI'],['PRESCRIZIONI','PRESCRIZIONI']].map(([k,col])=>{
+    const l=tpl.items.find(i=>i.t==='label'&&i.text.trim().toUpperCase().startsWith(k)); return l&&{x:l.x,y:l.y,col,testo:String(rec[col]||'').trim()};
+  }).filter(Boolean);
+  const inZonaConTesto=it=>zone.some(z=>z.testo&&it.x>=z.x-4&&it.x<z.x+170&&it.y>z.y+8&&it.y<z.y+52);
+  for(const it of tpl.items){
+    if(it.t==='shape'){
+      if(it.shape==='hline'&&inZonaConTesto(it)) continue;
+      if(it.enabled===false) continue;
+      doc.setDrawColor(...col(it.pen)); doc.setLineWidth(0.5);
+      doc.setLineDashPattern(it.dot?[1,1]:[],0);
+      if(it.shape==='hline') doc.line(it.x,it.y+it.h/2,it.x+it.w,it.y+it.h/2);
+      else if(it.shape==='vline') doc.line(it.x+it.w/2,it.y,it.x+it.w/2,it.y+it.h);
+      else {
+        const st=it.fill?'FD':'S'; if(it.fill) doc.setFillColor(...col(it.fill));
+        if(it.shape==='rrect') doc.roundedRect(it.x,it.y,it.w,it.h,1.5,1.5,st); else doc.rect(it.x,it.y,it.w,it.h,st);
+      }
+      doc.setLineDashPattern([],0);
+    } else if(it.t==='label'){
+      const isX=it.text.toLowerCase()==='x';
+      if(isX){ if(acceso(mappa[it.name],rec)) testo('x',it); continue; }
+      if(it.enabled===false) continue;
+      if(it.fill && it.fill.toUpperCase()!=='#FFFFFF'){ doc.setFillColor(...col(it.fill)); doc.rect(it.x,it.y,it.w,it.h,'F'); }
+      testo(it.text,it,it.wrap||(it.h>=it.font.size*1.6&&piuLungoDelBox(it.text,it)));
+    } else if(it.t==='db'){
+      if(inBloccoTerzo(it)&&!terzo) continue;
+      testo(formato(it,rec[it.field]!=null&&rec[it.field]!==''?rec[it.field]:(opz.extra||{})[it.field]),it,false);
+    } else if(it.t==='memo'){
+      setFont(it.font); const base=it.y+it.font.size*0.80+dy;
+      let yy=base; it.lines.forEach(r=>{ doc.splitTextToSize(r||' ',it.w).forEach(rg=>{ doc.text(rg,it.x,yy); yy+=it.font.size*1.2; }); });
+    }
+  }
+}
+function testiZone(doc,tpl,rec){
+  const col=c=>c;
+  [['OSSERVAZIONI'],['RACCOMANDAZIONI'],['PRESCRIZIONI']].forEach(([k])=>{
+    const l=tpl.items.find(i=>i.t==='label'&&i.text.trim().toUpperCase().startsWith(k)); const t=String(rec[k]||'').trim(); if(!l||!t) return;
+    doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+    for(const sz of [6,5.5,5,4.5,4,3.6]){
+      doc.setFontSize(sz); const righe=doc.splitTextToSize(t,162), sp=sz*1.18, cap=Math.floor(31/sp);
+      if(righe.length<=cap||sz===3.6){ righe.forEach((r,n)=>doc.text(r,l.x+2,l.y+17+n*sp)); break; }
+    }
+  });
+}
+function firme(doc,tpl,opz){
+  const put=(img,x,w)=>{ if(!img) return; try{ const p=doc.getImageProperties(img), k=Math.min(w/p.width,34/p.height); doc.addImage(img,'PNG',x+(w-p.width*k)/2,658-p.height*k,p.width*k,p.height*k);}catch(e){} };
+  put(opz.firmaTecnico,95,182); put(opz.firmaCliente,377,176);
+}
+root.rceeRender=render; root.rceeTesti=testiZone; root.rceeFirme=firme;
+
+})(window);
+
+const RCEE_CONTROLLI = [
+  ['Documentazione tecnica a corredo', [['B_DICHCONFIMP','Dichiarazione di conformità presente'],['B_LIBRETTOIMPIANTO','Libretto impianto presente'],['B_LIBRUSOCALD','Libretto uso/manutenzione generatore presenti'],['B_LIBRETTOIMPIANTOCOMPILATO','Libretto compilato in tutte le sue parti']]],
+  ['Controllo dell\'impianto', [['C_IDONLOCALEINSTALLAZ','Installazione interna: in locale idoneo'],['C_EXTINST_GENERATOREIDONEO','Installazione esterna: generatori idonei'],['C_APERTVENTILAZLIBERE','Aperture di ventilazione/aerazione libere da ostruzioni'],['C_ADEGDIMENSVENTILAZ','Adeguate dimensioni aperture di ventilazione/aerazione'],['G_ESAMEVISIVOCAMINO','Canale da fumo o condotti di scarico idonei (esame visivo)'],['F_SISTIREGOLAZTEMPFUNZIONANTE','Sistema di regolazione temperatura ambiente funzionante'],['G_ASSENZAPERDITECOMBLIQUIDO','Assenza di perdite di combustibile liquido'],['G_CONTROLLOASSENZAFUGHEGAS','Idonea tenuta dell\'impianto interno e raccordi con il generatore']]],
+  ['Controllo e verifica del gruppo termico', [['F_DISPCOMANDOREGOLAZFUNZCORR','Dispositivi di comando e regolazione funzionanti correttamente'],['F_DISPSICUREZZANONMANOMESSI','Dispositivi di sicurezza non manomessi e/o cortocircuitati'],['F_VALVOLASICUREZZASOVRAPRESS','Valvola di sicurezza alla sovrapressione a scarico libero'],['F_SCAMBLATOFUMOPULITO','Controllato e pulito lo scambiatore lato fumi'],['E_NORIFLUSSIFUMILOCALE','Presenza riflusso dei prodotti della combustione',true],['G_RISCTRLUNI10389_1','Risultati controllo, secondo UNI 10389-1, conformi alla legge']]]
+];
+const RCEE_CHECKLIST = [['CHKLST_ADOZVALVTERMOST','Adozione di valvole termostatiche sui corpi scaldanti'],['CHKLST_ISOLAMRETEDISTRIB','Isolamento della rete di distribuzione nei locali non riscaldati'],['CHKLST_SISTTRATTAMACQUA','Introduzione di un sistema di trattamento dell\'acqua'],['CHKLST_SOSTSISTREGOLAZ','Sostituzione del sistema di regolazione on/off con uno programmabile']];
+const RCEE_ANALISI = [['ANFUMI_TEMPFUMI','Temp. fumi (°C)'],['ANFUMI_TEMPAMBIENTE','Temp. aria comburente (°C)'],['ANFUMI_O2_PERC','O₂ (%)'],['ANFUMI_CO2_PERC','CO₂ (%)'],['ANFUMI_BACHARACH_NUM','Bacharach 1'],['ANFUMI_BACHARACH_NUM2','Bacharach 2'],['ANFUMI_BACHARACH_NUM3','Bacharach 3'],['ANFUMI_CO_PPM','CO fumi secchi (ppm)'],['ANFUMI_CUFUMISECCHI','CO corretto (ppm)'],['ANFUMI_PORTATACOMBUSTIBILE','Portata combustibile (m³/h)'],['ANFUMI_PORTATATERMICAEFFETTIVA','Pot. term. effettiva (kW)'],['ANFUMI_RENDIMENTO_PERC','Rend. di combustione (%)'],['ANFUMI_RENDMINIMOLEGGE','Rend. minimo di legge (%)'],['ANFUMI_TIRAGGIO_PA','Tiraggio (Pa)']];
+const RCEE_RISPETTA = [['ANFUMI_RISPETTA_BACHARACH','Rispetta l\'indice di Bacharach'],['ANFUMI_RISPETTA_CO_FUMISECCHI','CO fumi secchi e senz\'aria ≤ 1000 ppm'],['ANFUMI_RISPETTA_RENDIMENTO','Rendimento ≥ rendimento minimo']];
+const modelliRcee = () => (datiReali && datiReali.modelli) || {};
+const aziendaRcee = () => (datiReali && datiReali.azienda) || {};
+function rcSupportati(w){
+  return (w.rc || []).map((r, i) => ({r, i})).filter(x => window.MAPPE_RCEE[x.r._tipo] && modelliRcee()[x.r._tpl]);
+}
+
+
+/* ==================================================================
+   DOCUMENTI ALLEGATI AGLI APPUNTAMENTI (pdf, excel, ...)
+   I file stanno in IndexedDB (localStorage ha pochi MB); nell'appuntamento resta solo l'elenco.
+   ================================================================== */
+const DB_NOME = 'assistenza_file';
+function apriDb(){
+  return new Promise((ok, ko) => {
+    if (!window.indexedDB) { ko(new Error('IndexedDB non disponibile')); return; }
+    const r = indexedDB.open(DB_NOME, 3);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if (!db.objectStoreNames.contains('file')) db.createObjectStore('file');
+      if (!db.objectStoreNames.contains('modificati')) db.createObjectStore('modificati');
+      if (!db.objectStoreNames.contains('foto')) db.createObjectStore('foto');                       // le foto scattate dal tecnico   // le versioni modificate NON si cancellano quando arrivano dati nuovi
+    };
+    r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
+  });
+}
+async function salvaFiles(files){          // files: {id: {mime, b64, nome}}; sostituisce tutto l'archivio
+  try {
+    const db = await apriDb();
+    await new Promise((ok, ko) => {
+      const tx = db.transaction('file', 'readwrite'), st = tx.objectStore('file');
+      st.clear();
+      Object.keys(files || {}).forEach(id => st.put(files[id], id));
+      tx.oncomplete = ok; tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error);
+    });
+    db.close(); return true;
+  } catch(e) { return false; }
+}
+async function leggiFile(id){
+  const db = await apriDb();
+  const v = await new Promise((ok, ko) => { const r = db.transaction('file').objectStore('file').get(id); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+  db.close(); return v;
+}
+function bytesDaB64(b64){
+  const bin = atob(b64), n = bin.length, a = new Uint8Array(n);
+  for (let i = 0; i < n; i++) a[i] = bin.charCodeAt(i);
+  return a;
+}
+
+
+function b64DaBytes(u8){
+  let s = ''; const n = 0x8000;
+  for (let i = 0; i < u8.length; i += n) s += String.fromCharCode.apply(null, u8.subarray(i, i + n));
+  return btoa(s);
+}
+let docModificati = new Map();          // id documento -> {nome, quando}
+async function caricaModificati(){
+  try {
+    const db = await apriDb();
+    const tutti = await new Promise((ok, ko) => { const r = db.transaction('modificati').objectStore('modificati').openCursor(); const m = new Map();
+      r.onsuccess = () => { const c = r.result; if (c) { m.set(c.key, {nome: c.value.nome, quando: c.value.quando}); c.continue(); } else ok(m); }; r.onerror = () => ko(r.error); });
+    db.close(); docModificati = tutti;
+  } catch(e) { docModificati = new Map(); }
+}
+async function leggiModificato(id){
+  try {
+    const db = await apriDb();
+    const v = await new Promise((ok, ko) => { const r = db.transaction('modificati').objectStore('modificati').get(id); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+    db.close(); return v;
+  } catch(e) { return undefined; }
+}
+async function scriviModificato(id, obj){
+  const db = await apriDb();
+  await new Promise((ok, ko) => { const tx = db.transaction('modificati', 'readwrite'); tx.objectStore('modificati').put(obj, id); tx.oncomplete = ok; tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error); });
+  db.close(); await caricaModificati();
+}
+async function cancellaModificato(id){
+  const db = await apriDb();
+  await new Promise((ok, ko) => { const tx = db.transaction('modificati', 'readwrite'); tx.objectStore('modificati').delete(id); tx.oncomplete = ok; tx.onerror = () => ko(tx.error); });
+  db.close(); await caricaModificati();
+}
+
+/* ---- apertura dei file: ogni sistema ha il suo modo ----
+   - computer, iPhone e iPad mostrano i PDF in una scheda del browser;
+   - Android (Chrome) non sa mostrarli: se si apre un indirizzo "blob:" scarica il file con un nome senza
+     estensione e poi il telefono dice "Impossibile aprire questo file". Quindi li scarico con il nome giusto. */
+const èiOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function sappiMostrarePdf(){
+  if (navigator.pdfViewerEnabled === true) return true;
+  if (navigator.pdfViewerEnabled === false) return false;
+  return èiOS() || !/Android/i.test(navigator.userAgent);
+}
+function scaricaBlob(blob, nome){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
+function mostraFile(blob, nome, mime){
+  const inline = /^(image\/|text\/plain)/.test(mime || '') || (/^application\/pdf/.test(mime || '') && sappiMostrarePdf());
+  if (!inline) { scaricaBlob(blob, nome); return {html: false, testo: 'Ho scaricato ' + nome + ': aprilo dalla notifica o dall\'elenco dei download (da lì puoi anche stamparlo).'}; }
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+  if (w) return {html: false, testo: ''};
+  return {html: true, testo: `Il browser ha bloccato l'apertura. <a href="${url}" target="_blank" rel="noopener">Tocca qui per aprire ${esc(nome)}</a> oppure <a href="${url}" download="${esc(nome)}">scaricalo</a>.`};
+}
+function inizioPdf(bytes){      // posizione di '%PDF-' nei primi 1024 byte (i lettori di PDF ne accettano qualcuno davanti), altrimenti -1
+  const n = Math.min(bytes.length - 5, 1024);
+  for (let i = 0; i <= n; i++) if (bytes[i] === 0x25 && bytes[i+1] === 0x50 && bytes[i+2] === 0x44 && bytes[i+3] === 0x46 && bytes[i+4] === 0x2D) return i;
+  return -1;
+}
+const dimStr = n => n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+async function apriDocumento(id, nome, originale){
+  const area = $('#doc-msg');
+  try {
+    const m = originale ? null : await leggiModificato(id);
+    const f = m || await leggiFile(id);
+    if (!f) { area.textContent = 'File non trovato su questo telefono: chiedi all\'ufficio di rimandare i dati.'; return; }
+    const bytes0 = bytesDaB64(f.b64);
+    const mime = f.mime || 'application/octet-stream';
+    let bytes = bytes0;
+    if (/pdf/i.test(mime)) {
+      const i = inizioPdf(bytes);
+      if (i < 0) {
+        area.innerHTML = 'Questo file non è un PDF valido: si è rovinato nel passaggio da Levante. Chiedi all\'ufficio di controllarlo e rimandare i dati.';
+        return;
+      }
+      if (i > 0) bytes = bytes.slice(i);
+    }
+    const nomeFile = m ? (m.nome || nome) : nome;
+    const r = mostraFile(new Blob([bytes], {type: mime}), nomeFile, mime);
+    if (r.html) area.innerHTML = r.testo; else area.textContent = r.testo;
+  } catch(e) { area.textContent = 'Non riesco ad aprire il file (' + e.message + ').'; }
+}
+
+
+/* ==================================================================
+   EDITOR DEI DOCUMENTI PDF
+   Si scrive, si disegna e si mettono spunte sopra le pagine; al salvataggio le aggiunte vengono
+   fuse nel PDF e si crea una nuova versione ("... (modificato).pdf"). L'originale resta intatto.
+   Le due librerie (lettura e scrittura dei PDF) si scaricano solo la prima volta che si usa l'editor.
+   ================================================================== */
+const LIB_PDFJS = ['libs/pdf.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'];
+const LIB_PDFJS_WORKER = ['libs/pdf.worker.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'];
+const LIB_PDFLIB = ['libs/pdf-lib.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'];
+let pdfjsDaLocale = true;
+function caricaScript(indirizzi){
+  const lista = Array.isArray(indirizzi) ? indirizzi : [indirizzi];
+  const prova = n => new Promise((ok, ko) => {
+    const url = lista[n];
+    const sc = document.createElement('script'); sc.src = url; sc.dataset.lib = url;
+    sc.onload = () => ok(n); sc.onerror = () => { sc.remove(); ko(new Error('non riesco a caricare ' + url)); };
+    document.head.appendChild(sc);
+  });
+  return (async () => {
+    let ultimo;
+    for (let n = 0; n < lista.length; n++) { try { return await prova(n); } catch(e) { ultimo = e; } }
+    throw new Error('connessione assente');
+  })();
+}
+async function preparaLibrerieEditor(){
+  await preparaPdfJs();
+  if (!window.PDFLib) await caricaScript(LIB_PDFLIB);
+}
+const ED_PENNA = [0.0022, 0.0038, 0.0065], ED_TESTO = [0.0125, 0.0175, 0.0245];
+let ed = null;      // stato dell'editor aperto
+
+async function apriEditor(id, nome){
+  const msg = $('#doc-msg');
+  try {
+    if (msg) msg.textContent = 'Preparo l\'editor…';
+    await preparaLibrerieEditor();
+    const m = await leggiModificato(id);
+    const f = m || await leggiFile(id);
+    if (!f) { if (msg) msg.textContent = 'File non trovato su questo telefono: chiedi all\'ufficio di rimandare i dati.'; return; }
+    let bytes = bytesDaB64(f.b64);
+    const i0 = inizioPdf(bytes);
+    if (i0 < 0) { if (msg) msg.textContent = 'Questo file non è un PDF valido: non si può modificare.'; return; }
+    if (i0 > 0) bytes = bytes.slice(i0);
+    ed = {id, nome, bytes, azioni: [], sporco: false, str: 'scorri', col: '#111111', dim: 1, pagine: [], giaModificato: !!m};
+    $('#ed-titolo').textContent = nome.replace(/\.pdf$/i, '');
+    $('#ed-pagine').innerHTML = '<p class="aiuto">Carico le pagine…</p>';
+    mostra('editor');
+    aggiornaBarraEditor();
+    await disegnaPagineEditor();
+  } catch(e) {
+    if (msg) msg.textContent = 'Non riesco ad aprire l\'editor (' + e.message + '). Serve la connessione la prima volta.';
+    ed = null;
+  }
+}
+async function disegnaPagineEditor(){
+  const box = $('#ed-pagine');
+  const doc = await window.pdfjsLib.getDocument({data: ed.bytes.slice()}).promise;
+  box.innerHTML = '';
+  const larg = Math.min(1000, box.clientWidth || 360), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  ed.pagine = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const pag = await doc.getPage(n);
+    const v1 = pag.getViewport({scale: 1}), k = larg / v1.width, vp = pag.getViewport({scale: k * dpr});
+    const div = document.createElement('div'); div.className = 'ed-pagina'; div.style.width = larg + 'px';
+    const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+    const ov = document.createElement('canvas'); ov.className = 'ed-ov'; ov.width = cv.width; ov.height = cv.height; ov.dataset.p = n - 1;
+    div.appendChild(cv); div.appendChild(ov); box.appendChild(div);
+    await pag.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+    ed.pagine.push({cv, ov, div, cssW: larg, cssH: larg * v1.height / v1.width, dpr});
+    collegaOverlay(ov, n - 1);
+  }
+  aggiornaBarraEditor();
+  ed.pagine.forEach((_, i) => ridisegnaPagina(i));
+}
+function aggiornaBarraEditor(){
+  if (!ed) return;
+  document.querySelectorAll('.ed-str[data-str]').forEach(b => b.setAttribute('aria-pressed', b.dataset.str === ed.str));
+  document.querySelectorAll('.ed-col').forEach(b => b.setAttribute('aria-pressed', b.dataset.col === ed.col));
+  document.querySelectorAll('.ed-dim').forEach(b => b.setAttribute('aria-pressed', +b.dataset.dim === ed.dim));
+  $('#b-ed-annulla').disabled = !ed.azioni.length;
+  const aiuti = {scorri: 'Scorri le pagine. Scegli uno strumento per scrivere o disegnare.', testo: 'Tocca dove vuoi scrivere.', penna: 'Disegna con il dito.', spunta: 'Tocca dove mettere la spunta.', croce: 'Tocca dove mettere la croce.'};
+  $('#ed-aiuto').textContent = aiuti[ed.str] + (ed.giaModificato ? ' (Stai modificando la tua versione già salvata.)' : '');
+  const box = $('#ed-pagine');
+  box.classList.toggle('ed-scorri', ed.str === 'scorri');
+  box.classList.toggle('ed-sul-testo', ed.str === 'testo');
+  box.classList.toggle('ed-sul-disegno', ['penna', 'spunta', 'croce'].includes(ed.str));
+}
+function ridisegnaPagina(i){
+  const pg = ed.pagine[i]; if (!pg) return;
+  const ctx = pg.ov.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, pg.ov.width, pg.ov.height);
+  ctx.setTransform(pg.dpr, 0, 0, pg.dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ed.azioni.filter(a => a.p === i).forEach(a => {
+    if (a.t === 'tratto') {
+      ctx.strokeStyle = a.c; ctx.lineWidth = a.w * pg.cssW; ctx.beginPath();
+      a.pt.forEach(([x, y], n) => { const X = x * pg.cssW, Y = y * pg.cssH; if (n) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+      if (a.pt.length === 1) ctx.lineTo(a.pt[0][0] * pg.cssW + 0.1, a.pt[0][1] * pg.cssH);
+      ctx.stroke();
+    } else if (a.t === 'testo') {
+      const sz = a.f * pg.cssW; ctx.fillStyle = a.c; ctx.font = sz + 'px Helvetica, Arial, sans-serif'; ctx.textBaseline = 'alphabetic';
+      a.s.split('\n').forEach((r, n) => ctx.fillText(r, a.x * pg.cssW, a.y * pg.cssH + sz * 0.8 + n * sz * 1.2));
+    }
+  });
+}
+function collegaOverlay(ov, i){
+  let corrente = null;
+  const pos = e => { const r = ov.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
+  ov.addEventListener('pointerdown', e => {
+    if (!ed || ed.str === 'scorri') return;
+    const [x, y] = pos(e);
+    if (ed.str === 'testo') { e.preventDefault(); chiediTesto(i, x, y); return; }
+    e.preventDefault(); ov.setPointerCapture(e.pointerId);
+    if (ed.str === 'penna') { corrente = {p: i, t: 'tratto', c: ed.col, w: ED_PENNA[ed.dim], pt: [[x, y]]}; ed.azioni.push(corrente); }
+    else {                                   // spunta e croce: due o tre tratti disegnati subito
+      const L = 0.032 * [0.75, 1, 1.4][ed.dim], pg = ed.pagine[i], h = L * pg.cssW / pg.cssH, w = ED_PENNA[Math.min(2, ed.dim + 1)];
+      const seg = ed.str === 'spunta' ? [[[x - L * .5, y], [x - L * .15, y + h * .55], [x + L * .55, y - h * .5]]]
+                                       : [[[x - L * .5, y - h * .5], [x + L * .5, y + h * .5]], [[x + L * .5, y - h * .5], [x - L * .5, y + h * .5]]];
+      seg.forEach(pt => ed.azioni.push({p: i, t: 'tratto', c: ed.col, w, pt, gruppo: Date.now()}));
+      ed.sporco = true; ridisegnaPagina(i); aggiornaBarraEditor();
+    }
+  });
+  ov.addEventListener('pointermove', e => {
+    if (!corrente) return; e.preventDefault();
+    const [x, y] = pos(e), u = corrente.pt[corrente.pt.length - 1];
+    if (Math.abs(x - u[0]) + Math.abs(y - u[1]) < 0.0015) return;
+    corrente.pt.push([x, y]); ridisegnaPagina(i);
+  });
+  const fine = () => { if (corrente) { ed.sporco = true; corrente = null; aggiornaBarraEditor(); } };
+  ov.addEventListener('pointerup', fine); ov.addEventListener('pointercancel', fine);
+}
+let edTestoPos = null;
+function chiediTesto(i, x, y){
+  edTestoPos = {i, x, y}; $('#ed-testo-in').value = ''; $('#ed-modale').hidden = false; setTimeout(() => $('#ed-testo-in').focus(), 50);
+}
+function confermaTesto(){
+  const t = $('#ed-testo-in').value.replace(/\s+$/, '');
+  $('#ed-modale').hidden = true;
+  if (!t || !edTestoPos || !ed) return;
+  ed.azioni.push({p: edTestoPos.i, t: 'testo', c: ed.col, f: ED_TESTO[ed.dim], x: edTestoPos.x, y: edTestoPos.y, s: t});
+  ed.sporco = true; ridisegnaPagina(edTestoPos.i); aggiornaBarraEditor(); edTestoPos = null;
+}
+function annullaUltimo(){
+  if (!ed || !ed.azioni.length) return;
+  const u = ed.azioni[ed.azioni.length - 1], g = u.gruppo;
+  const toglie = g ? ed.azioni.filter(a => a.gruppo === g).length : 1;
+  const pagine = new Set(); for (let k = 0; k < toglie; k++) pagine.add(ed.azioni.pop().p);
+  pagine.forEach(ridisegnaPagina); ed.sporco = ed.azioni.length > 0; aggiornaBarraEditor();
+}
+
+
+/* ---- versione modificata caricata da file (modificata con Edge, Excel, Anteprima...) ---- */
+let docModTarget = null;
+async function caricaVersioneModificata(t, f){
+  const msg = () => $('#doc-msg');
+  try {
+    if (f.size > 15 * 1048576) { msg().textContent = 'Il file pesa ' + dimStr(f.size) + ': il limite è 15 MB.'; return; }
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const èPdfOrig = /pdf/i.test(t.mime || '') || /^pdf$/i.test(t.ext || '');
+    if (èPdfOrig && inizioPdf(bytes) < 0) { msg().textContent = 'Il file scelto non è un PDF: scegli il PDF che hai salvato.'; return; }
+    const ext = ((f.name.match(/\.([A-Za-z0-9]+)$/) || [])[1] || t.ext || '').toLowerCase();
+    const base = t.nome.replace(/\.[^.]+$/, '').replace(/\s*\(modificato\)/i, '');
+    const nomeMod = base + ' (modificato)' + (ext ? '.' + ext : '');
+    await scriviModificato(t.id, {mime: f.type || t.mime || 'application/octet-stream', b64: b64DaBytes(bytes), nome: nomeMod, quando: new Date().toISOString()});
+    if (corrente) apriDettaglio(corrente.id, false);
+    const m = msg(); if (m) m.textContent = 'Caricato: ' + nomeMod + '. Lo trovi tra i file da inviare quando crei i PDF.';
+  } catch(e) { const m = msg(); if (m) m.textContent = 'Non sono riuscito a caricare il file (' + e.message + ').'; }
+}
+
+/* ---- salvataggio: le aggiunte diventano parte del PDF ---- */
+function sanificaTesto(t, font, size){
+  let out = '';
+  for (const ch of t) { try { font.widthOfTextAtSize(ch, size); out += ch; } catch(e) { out += '?'; } }
+  return out;
+}
+async function creaPdfModificato(bytes, azioni){
+  const L = window.PDFLib;
+  const pdf = await L.PDFDocument.load(bytes, {ignoreEncryption: true});
+  const font = await pdf.embedFont(L.StandardFonts.Helvetica);
+  const pagine = pdf.getPages();
+  const col = h => L.rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
+  azioni.forEach(a => {
+    const pg = pagine[a.p]; if (!pg) return;
+    const {width: W, height: H} = pg.getSize(), rot = ((pg.getRotation().angle % 360) + 360) % 360;
+    const Wd = (rot === 90 || rot === 270) ? H : W, Hd = (rot === 90 || rot === 270) ? W : H;      // dimensioni come le vede chi guarda la pagina
+    const aUtente = (xd, yd) => rot === 0 ? {x: xd, y: H - yd} : rot === 90 ? {x: yd, y: xd} : rot === 180 ? {x: W - xd, y: yd} : {x: W - yd, y: H - xd};
+    if (a.t === 'tratto') {
+      const sp = a.w * Wd;
+      for (let k = 1; k < a.pt.length; k++) {
+        pg.drawLine({start: aUtente(a.pt[k-1][0] * Wd, a.pt[k-1][1] * Hd), end: aUtente(a.pt[k][0] * Wd, a.pt[k][1] * Hd), thickness: sp, color: col(a.c), lineCap: L.LineCapStyle.Round});
+      }
+      if (a.pt.length === 1) { const q = aUtente(a.pt[0][0] * Wd, a.pt[0][1] * Hd); pg.drawCircle({x: q.x, y: q.y, size: sp / 2, color: col(a.c)}); }
+    } else if (a.t === 'testo') {
+      const sz = a.f * Wd;
+      a.s.split('\n').forEach((riga, n) => {
+        const q = aUtente(a.x * Wd, a.y * Hd + sz * 0.8 + n * sz * 1.2);
+        pg.drawText(sanificaTesto(riga, font, sz), {x: q.x, y: q.y, size: sz, font, color: col(a.c), rotate: L.degrees(rot)});
+      });
+    }
+  });
+  return await pdf.save();
+}
+async function salvaEditor(){
+  if (!ed) return;
+  if (!ed.azioni.length) { $('#ed-aiuto').textContent = 'Non hai aggiunto niente: non c\'è nulla da salvare.'; return; }
+  const b = $('#b-ed-salva'); b.disabled = true; $('#ed-aiuto').textContent = 'Salvo…';
+  try {
+    const out = await creaPdfModificato(ed.bytes, ed.azioni);
+    const nomeMod = ed.nome.replace(/\s*\(modificato\)/i, '').replace(/\.pdf$/i, '') + ' (modificato).pdf';
+    await scriviModificato(ed.id, {mime: 'application/pdf', b64: b64DaBytes(out), nome: nomeMod, quando: new Date().toISOString()});
+    ed.sporco = false; ed.azioni = [];
+    const id = ed.id; ed = null;
+    $('#ed-modale').hidden = true;
+    esitoDoc = 'Documento salvato: ' + nomeMod;
+    if (corrente) apriDettaglio(corrente.id, false); else { mostra('agenda', false); disegnaAgenda(); }
+    const m = $('#doc-msg'); if (m && esitoDoc) m.textContent = esitoDoc + '. Lo trovi tra i file da inviare quando crei i PDF.';
+  } catch(e) {
+    $('#ed-aiuto').textContent = 'Non sono riuscito a salvare (' + e.message + '). Il documento potrebbe essere protetto.';
+  }
+  b.disabled = false;
+}
+let esitoDoc = '';
+function chiudiEditor(){
+  if (ed && ed.sporco && !confirm('Hai modifiche non salvate. Le scarto?')) return;
+  ed = null; $('#ed-modale').hidden = true;
+  indietro();
+}
+
+
+/* ===== DETTATURA: punteggiatura e interpretazione delle frasi sui materiali ===== */
+const NUM_U = {zero:0,uno:1,una:1,un:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,tredici:13,quattordici:14,quindici:15,sedici:16,diciassette:17,diciotto:18,diciannove:19};
+const NUM_D = {venti:20,trenta:30,quaranta:40,cinquanta:50,sessanta:60,settanta:70,ottanta:80,novanta:90};
+function parolaNumero(w){
+  w = String(w || '').toLowerCase();
+  if (!w) return null;
+  let tot = 0, resto = w;
+  let m = resto.match(/^(.*?)(mille|mila)(.*)$/);
+  if (m) {
+    const k = m[2] === 'mille' ? (m[1] ? null : 1) : parolaNumero(m[1]);
+    if (k == null) return null;
+    tot += k * 1000; resto = m[3]; if (!resto) return tot;
+  }
+  m = resto.match(/^(due|tre|quattro|cinque|sei|sette|otto|nove)?cento(.*)$/);
+  if (m) { tot += (m[1] ? NUM_U[m[1]] : 1) * 100; resto = m[2]; if (!resto) return tot; }
+  for (const d in NUM_D) {
+    const stem = d.slice(0, -1);
+    if (resto === d) return tot + NUM_D[d];
+    if (resto.startsWith(d)) { const u = NUM_U[resto.slice(d.length)]; if (u !== undefined && u > 0 && resto.slice(d.length) !== 'un') return tot + NUM_D[d] + u; }
+    if (resto.startsWith(stem)) { const a = resto.slice(stem.length); if (a === 'uno' || a === 'otto') return tot + NUM_D[d] + NUM_U[a]; }
+  }
+  if (NUM_U[resto] !== undefined) return tot + NUM_U[resto];
+  return null;
+}
+const èNumeroParola = w => parolaNumero(w) !== null || /^mezz[oa]$/i.test(w);
+
+/* ---- punteggiatura dettata ---- */
+function normalizzaDettatura(t){
+  let s = ' ' + String(t || '') + ' ';
+  const sost = [
+    [/\s+punto e virgola\s+/gi, '; '], [/\s+punto interrogativo\s+/gi, '? '], [/\s+punto esclamativo\s+/gi, '! '],
+    [/\s+due punti\s+/gi, ': '], [/(\d)\s+virgola\s+(\d)/gi, '$1,$2'], [/\s+virgola\s+/gi, ', '], [/\s+punto\s+/gi, '. '],
+    [/\s+(?:a capo|nuova riga)\s+/gi, '\n'], [/\s+apri parentesi\s+/gi, ' ('], [/\s+chiudi parentesi\s+/gi, ') '], [/\s+trattino\s+/gi, ' - ']
+  ];
+  for (let i = 0; i < 2; i++) sost.forEach(([a, b]) => { s = s.replace(a, b); });
+  s = s.replace(/\s+([,.;:?!)])/g, '$1').replace(/\(\s+/g, '(').replace(/[ \t]{2,}/g, ' ').replace(/ *\n */g, '\n');
+  return s.trim();
+}
+/* testo dettato da aggiungere dopo "prima": spazi e maiuscole giusti */
+function accodaDettato(prima, dettato){
+  let d = normalizzaDettatura(dettato);
+  if (!d) return '';
+  const p = String(prima || '');
+  const ult = p.replace(/[ \t]+$/, '').slice(-1);
+  const maiusc = !p.trim() || /[.!?\n]/.test(ult);
+  if (maiusc) d = d.charAt(0).toUpperCase() + d.slice(1);
+  d = d.replace(/([.!?]\s+)([a-zà-ù])/g, (m, a, b) => a + b.toUpperCase()).replace(/(\n)([a-zà-ù])/g, (m, a, b) => a + b.toUpperCase());
+  const sep = (!p || /[\s\n(]$/.test(p) || /^[,.;:?!)]/.test(d)) ? '' : ' ';
+  return sep + d;
+}
+
+/* ---- materiali dettati ---- */
+const UNITA = {metro:'m',metri:'m',mt:'m',m:'m',centimetro:'cm',centimetri:'cm',cm:'cm',millimetro:'mm',millimetri:'mm',mm:'mm',
+  chilo:'kg',chili:'kg',chilo:'kg',chilogrammo:'kg',chilogrammi:'kg',kg:'kg',grammo:'g',grammi:'g',g:'g',litro:'l',litri:'l',l:'l',
+  pezzo:'pz',pezzi:'pz',pz:'pz',confezione:'conf.',confezioni:'conf.',rotolo:'rotolo',rotoli:'rotolo',kit:'kit',set:'set',ora:'ore',ore:'ore'};
+const NUMERO_RE = '(?:\\d+(?:[.,]\\d+)?|[a-zàèéìòù]+)';
+function leggiNumeroIniziale(parole){
+  // ritorna {valore, usate} se le prime parole sono una quantita'
+  if (!parole.length) return null;
+  const p0 = parole[0].toLowerCase().replace(/[.,;]$/, '');
+  let v = null, usate = 0;
+  if (/^\d+([.,]\d+)?$/.test(p0)) { v = parseFloat(p0.replace(',', '.')); usate = 1; }
+  else if (/^mezz[oa]$/.test(p0)) { v = 0.5; usate = 1; }
+  else { const n = parolaNumero(p0); if (n !== null) { v = n; usate = 1; } }
+  if (v === null) return null;
+  const p1 = (parole[1] || '').toLowerCase(), p2 = (parole[2] || '').toLowerCase();
+  if (p1 === 'virgola' && /^\d+$/.test(p2.replace(/\D/g, '')) && p2) { v = parseFloat(String(Math.trunc(v)) + '.' + (parolaNumero(p2) ?? p2.replace(/\D/g, ''))); usate += 2; }
+  else if (p1 === 'virgola' && parolaNumero(p2) !== null) { v = parseFloat(String(Math.trunc(v)) + '.' + parolaNumero(p2)); usate += 2; }
+  return {valore: v, usate};
+}
+function formatoNum(n){ return String(+n.toFixed(2)).replace('.', ','); }
+function numeriInDescrizione(t){
+  let s = ' ' + t + ' ';
+  const U = '(millimetri|millimetro|mm|centimetri|centimetro|cm|metri|metro|mt|pollici|pollice|litri|litro|kilowatt|kw|watt|volt|bar|gradi|ampere)';
+  const sigla = {millimetri:'mm',millimetro:'mm',mm:'mm',centimetri:'cm',centimetro:'cm',cm:'cm',metri:'m',metro:'m',mt:'m',litri:'l',litro:'l',kilowatt:'kW',kw:'kW',watt:'W',volt:'V',bar:'bar',gradi:'°',ampere:'A'};
+  s = s.replace(/\b(?:mezzo pollice|1\/2 pollice)\b/gi, '1/2"').replace(/\b(?:tre quarti(?: di pollice)?|3\/4 pollice)\b/gi, '3/4"').replace(/\b(?:un quarto(?: di pollice)?)\b/gi, '1/4"')
+       .replace(/\bun pollice e mezzo\b/gi, '1 1/2"').replace(/\bun pollice\b/gi, '1"');
+  s = s.replace(new RegExp('\\b(' + NUMERO_RE + ')(?:\\s+(?:virgola\\s+(' + NUMERO_RE + ')))?\\s+' + U + '\\b', 'gi'), (m, a, dec, u) => {
+    let n = /^\d/.test(a) ? parseFloat(a.replace(',', '.')) : parolaNumero(a);
+    if (n === null) return m;
+    if (dec) { const d2 = /^\d/.test(dec) ? dec.replace(/\D/g, '') : String(parolaNumero(dec)); if (d2 === 'null') return m; n = parseFloat(String(n) + '.' + d2); }
+    const ul = u.toLowerCase();
+    if (ul === 'pollici' || ul === 'pollice') return formatoNum(n) + '"';
+    return formatoNum(n) + ' ' + sigla[ul];
+  });
+  return s.replace(/\s{2,}/g, ' ').trim();
+}
+function interpretaMateriali(testo){
+  let t = ' ' + String(testo || '').replace(/\n+/g, ', ') + ' ';
+  t = t.replace(/\s+(?:e poi|poi|inoltre|più|ancora|altro|nuova riga|a capo)\s+/gi, ', ');
+  const NUMINIZIO = '(?:\\d|un\\b|uno\\b|una\\b|due\\b|tre\\b|quattro\\b|cinque\\b|sei\\b|sette\\b|otto\\b|nove\\b|dieci\\b|undici\\b|dodici\\b|tredici\\b|quattordici\\b|quindici\\b|sedici\\b|diciassette\\b|diciotto\\b|diciannove\\b|venti|trent|quarant|cinquant|sessant|settant|ottant|novant|cent|mille)';
+  t = t.replace(new RegExp('\\s+e\\s+(?=' + NUMINIZIO + ')', 'gi'), ', ');
+  const segmenti = t.split(/\s*[,;]\s*/).map(x => x.trim()).filter(Boolean);
+  const out = [];
+  segmenti.forEach(seg => {
+    let parole = seg.split(/\s+/);
+    const q = leggiNumeroIniziale(parole);
+    let qta = '', um = 'pz', i = 0;
+    if (q) {
+      qta = q.valore; i = q.usate;
+      const emezzo = () => { if ((parole[i] || '').toLowerCase() === 'e' && /^mezz[oa]$/i.test(parole[i + 1] || '')) { qta += 0.5; i += 2; return true; } return false; };
+      emezzo();                                   // "tre e mezzo metri"
+      const u = UNITA[(parole[i] || '').toLowerCase().replace(/[.,]$/, '')];
+      if (u) { um = u; i++; }
+      emezzo();                                   // "un metro e mezzo"
+      qta = formatoNum(qta);
+    } else if (/^(un|uno|una)$/i.test(parole[0])) { qta = '1'; i = 1; }
+    let rest = parole.slice(i).join(' ').replace(/^(?:di|d'|del|della|dei|delle|degli)\s+/i, '').replace(/^d'/i, '');
+    rest = numeriInDescrizione(rest);
+    if (!rest && !qta) return;
+    out.push({descr: rest.charAt(0).toUpperCase() + rest.slice(1), qta, um});
+  });
+  return out;
+}
+
+
+/* ---- dettatura con il microfono (riconoscimento vocale del browser) ---- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let dett = null;                    // {rec, dest, attivo}
+const ICONA_MIC = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>';
+function bottoneMic(dest){ return `<button type="button" class="mic" data-mic="${esc(dest)}" aria-label="Detta con la voce" title="Detta con la voce">${ICONA_MIC}</button>`; }
+let timerBarra = null;
+function barraDett(testo, durata){
+  const b = $('#dett-barra'); if (!b) return;
+  clearTimeout(timerBarra);
+  if (!testo) { b.hidden = true; return; }
+  $('#dett-testo').textContent = testo; b.hidden = false;
+  $('#dett-fine').hidden = !(dett && dett.attivo);
+  if (durata) timerBarra = setTimeout(() => { if (!(dett && dett.attivo)) b.hidden = true; }, durata);
+}
+function aggiornaMic(){
+  document.querySelectorAll('.mic').forEach(m => m.classList.toggle('attivo', !!(dett && dett.attivo && m.dataset.mic === dett.dest)));
+}
+function fermaDettatura(){
+  if (!dett) return;
+  const d = dett; dett = null;
+  try { d.rec.onend = null; d.rec.stop(); } catch(e){}
+  aggiornaMic(); barraDett('');
+  if (d.dest === 'vm') interpretaDaTesto();
+}
+function inserisciDettato(dest, testo){
+  if (dest === 'vm') {                                   // materiali: il testo resta com'e', lo interpreta il riconoscitore di frasi
+    const el = $('#vm-testo'); el.value = (el.value + (el.value && !/\s$/.test(el.value) ? ' ' : '') + testo.trim()).trim();
+    interpretaDaTesto(); return;
+  }
+  if (dest.startsWith('foto:')) {
+    const id = dest.slice(5), f = (lavoro.foto || []).find(x => x.id === id), el = document.querySelector('[data-fotoc="' + id + '"]'); if (!f || !el) return;
+    const add = accodaDettato(el.value, testo); if (!add) return;
+    el.value = (el.value + add).slice(0, 300); f.commento = el.value; bozzaModificata(); return;
+  }
+  if (dest.startsWith('k:')) {
+    const k = dest.slice(2), el = $('#f-' + k); if (!el) return;
+    const add = accodaDettato(el.value, testo); if (!add) return;
+    const max = parseInt(el.getAttribute('maxlength') || '0', 10);
+    let nuovo = el.value + add; if (max) nuovo = nuovo.slice(0, max);
+    el.value = nuovo; lavoro[k] = nuovo;
+    const n = $('#n-' + k); if (n) n.textContent = nuovo.length + '/' + max;
+    bozzaModificata();
+  }
+}
+function avviaDettatura(dest){
+  if (navigator.onLine === false) { barraDett('Senza connessione la dettatura non funziona: usa il microfono della tastiera del telefono.', 7000); return; }
+  if (!SR) { barraDett('La dettatura non è disponibile su questo browser. Usa il microfono della tastiera del telefono.', 7000); return; }
+  if (dett && dett.attivo) { const stessa = dett.dest === dest; fermaDettatura(); if (stessa) return; }
+  const rec = new SR();
+  rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.continuous = !/Android/i.test(navigator.userAgent);   // su Android si ricomincia a ogni frase: evita le frasi ripetute
+  dett = {rec, dest, attivo: true};
+  rec.onresult = e => {
+    let provvisorio = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) inserisciDettato(dest, r[0].transcript); else provvisorio += r[0].transcript;
+    }
+    barraDett(provvisorio ? '… ' + provvisorio : 'Ascolto… parla pure');
+  };
+  rec.onerror = e => {
+    const err = e && e.error;
+    if (err === 'no-speech' || err === 'aborted') return;       // il riavvio lo gestisce onend
+    const msg = {'not-allowed': 'Il microfono è bloccato: consentilo dalle impostazioni del browser.',
+      'service-not-allowed': 'Questo browser non permette la dettatura (se l\'app è sulla schermata Home, prova ad aprirla da Safari o Chrome).',
+      'network': 'Serve la connessione internet per la dettatura.', 'audio-capture': 'Non trovo il microfono.',
+      'language-not-supported': 'La dettatura in italiano non è disponibile su questo dispositivo.'}[err] || ('Dettatura interrotta (' + err + ').');
+    if (dett && dett.rec === rec) dett.attivo = false;
+    aggiornaMic(); barraDett(msg, 9000);
+  };
+  rec.onend = () => {
+    if (dett && dett.rec === rec && dett.attivo) { try { rec.start(); return; } catch(e){} }
+    if (dett && dett.rec === rec) { const d = dett; dett = null; if (d.dest === 'vm') interpretaDaTesto(); }
+    aggiornaMic();
+  };
+  try { rec.start(); } catch(e) { dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
+  aggiornaMic(); barraDett('Ascolto… parla pure');
+}
+
+/* ---- materiali a voce: si detta (o si scrive) una frase, l'app la trasforma in righe e le fa controllare ---- */
+let vmRighe = [];
+function apriMaterialiVoce(){
+  $('#vm-testo').value = ''; vmRighe = []; $('#vm-risultato').innerHTML = ''; $('#vm-aggiungi').disabled = true;
+  $('#vm-aiuto').textContent = SR ? 'Tocca il microfono e di\' per esempio: "due metri di tubo rame sedici millimetri, quattro raccordi, un sigillante".' : 'Il microfono non è disponibile qui: scrivi la frase (o detta con la tastiera del telefono) e controlla le righe.';
+  $('#vm-modale').hidden = false;
+  if (SR) avviaDettatura('vm');
+}
+function chiudiMaterialiVoce(){ if (dett && dett.dest === 'vm') fermaDettatura(); $('#vm-modale').hidden = true; }
+function interpretaDaTesto(){
+  vmRighe = interpretaMateriali($('#vm-testo').value);
+  const box = $('#vm-risultato');
+  if (!vmRighe.length) { box.innerHTML = $('#vm-testo').value.trim() ? '<p class="aiuto">Non ho capito nessun materiale: prova a dire prima la quantità ("due metri di…").</p>' : ''; $('#vm-aggiungi').disabled = true; return; }
+  box.innerHTML = '<p class="etichetta" style="margin:10px 0 6px">Controlla le righe:</p>' + vmRighe.map((r, n) => `<div class="mat">
+    <input class="descr" type="text" data-vm="${n}" data-c="descr" aria-label="Descrizione" value="${esc(r.descr)}">
+    <button class="togli" type="button" data-vm-togli="${n}" aria-label="Togli questa riga">×</button>
+    <input type="text" inputmode="decimal" data-vm="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(r.qta)}"${r.qta ? '' : ' style="border-color:var(--rosso)"'}>
+    <input type="text" list="lista-um" data-vm="${n}" data-c="um" aria-label="Unità" autocapitalize="none" value="${esc(r.um)}"></div>`).join('');
+  $('#vm-aggiungi').disabled = false; $('#vm-aggiungi').textContent = 'Aggiungi ' + vmRighe.length + (vmRighe.length === 1 ? ' materiale' : ' materiali');
+}
+function interpretaDaRighe(){
+  const box = $('#vm-risultato');
+  box.innerHTML = vmRighe.length ? '<p class="etichetta" style="margin:10px 0 6px">Controlla le righe:</p>' + vmRighe.map((r, n) => `<div class="mat">
+    <input class="descr" type="text" data-vm="${n}" data-c="descr" aria-label="Descrizione" value="${esc(r.descr)}">
+    <button class="togli" type="button" data-vm-togli="${n}" aria-label="Togli questa riga">×</button>
+    <input type="text" inputmode="decimal" data-vm="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(r.qta)}">
+    <input type="text" list="lista-um" data-vm="${n}" data-c="um" aria-label="Unità" autocapitalize="none" value="${esc(r.um)}"></div>`).join('') : '';
+  $('#vm-aggiungi').disabled = !vmRighe.length; $('#vm-aggiungi').textContent = 'Aggiungi ' + vmRighe.length + (vmRighe.length === 1 ? ' materiale' : ' materiali');
+}
+function aggiungiMaterialiVoce(){
+  vmRighe.filter(r => r && (r.descr || r.qta)).forEach(r => lavoro.materiali.push({descr: r.descr, codice: '', qta: r.qta, um: r.um || 'pz'}));
+  $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); chiudiMaterialiVoce();
+}
+
+/* ==================================================================
+   FOTO: si scatta (o si sceglie dalla galleria), si ridimensiona sul dispositivo, si aggiunge un commento
+   e all'invio parte un PDF "Documentazione fotografica" (e, se vuoi, le foto singole).
+   Le immagini stanno in IndexedDB; nella scheda restano solo anteprima e commento.
+   ================================================================== */
+const FOTO_MAX_LATO = 1600, FOTO_QUALITA = 0.8, FOTO_MAX_NUMERO = 30;
+async function operaSuFoto(modo, fn){
+  const db = await apriDb();
+  const r = await new Promise((ok, ko) => { const tx = db.transaction('foto', modo); const out = fn(tx.objectStore('foto')); tx.oncomplete = () => ok(out && out.result !== undefined ? out.result : undefined); tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error); });
+  db.close(); return r;
+}
+const scriviFoto = (chiave, rec) => operaSuFoto('readwrite', st => st.put(rec, chiave));
+const leggiFotoRec = chiave => operaSuFoto('readonly', st => st.get(chiave));
+const cancellaFotoChiave = chiave => operaSuFoto('readwrite', st => st.delete(chiave));
+function cancellaFotoPrefisso(pref){ return operaSuFoto('readwrite', st => st.delete(IDBKeyRange.bound(pref, pref + '\uffff'))); }
+const cancellaTutteLeFoto = () => operaSuFoto('readwrite', st => st.clear());
+const chiaveFoto = (bozzaId, fotoId) => bozzaId + '|' + fotoId;
+
+async function elaboraImmagine(file){
+  let bmp;
+  try { bmp = await createImageBitmap(file, {imageOrientation: 'from-image'}); }
+  catch(e) {
+    bmp = await new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ko(new Error('immagine non leggibile')); im.src = URL.createObjectURL(file); });
+  }
+  const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+  const k = Math.min(1, FOTO_MAX_LATO / Math.max(w0, h0)), w = Math.round(w0 * k), h = Math.round(h0 * k);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(bmp, 0, 0, w, h);
+  const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', FOTO_QUALITA));
+  const dati = await blob.arrayBuffer();
+  const kt = 240 / Math.max(w, h), tw = Math.round(w * kt), th = Math.round(h * kt);
+  const tc = document.createElement('canvas'); tc.width = tw; tc.height = th; tc.getContext('2d').drawImage(cv, 0, 0, tw, th);
+  if (bmp.close) bmp.close();
+  return {dati, w, h, thumb: tc.toDataURL('image/jpeg', 0.7)};
+}
+async function aggiungiFoto(files){
+  const msg = $('#foto-msg'); const lista = [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|webp)$/i.test(f.name));
+  if (!lista.length) { if (msg) msg.textContent = 'Non ho trovato immagini in quello che hai scelto.'; return; }
+  lavoro.foto = lavoro.foto || [];
+  let fatte = 0;
+  for (const f of lista) {
+    if (lavoro.foto.length >= FOTO_MAX_NUMERO) { if (msg) msg.textContent = 'Puoi aggiungere al massimo ' + FOTO_MAX_NUMERO + ' foto per intervento.'; break; }
+    try {
+      if (msg) msg.textContent = 'Preparo la foto…';
+      const r = await elaboraImmagine(f);
+      const id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      await scriviFoto(chiaveFoto(lavoro.id, id), {tipo: 'image/jpeg', dati: r.dati, w: r.w, h: r.h});
+      lavoro.foto.push({id, commento: '', thumb: r.thumb, w: r.w, h: r.h}); fatte++;
+    } catch(e) { if (msg) msg.textContent = 'Non sono riuscito a leggere una foto (' + e.message + ').'; }
+  }
+  if (fatte) { disegnaFoto(); bozzaModificata(); const m = $('#foto-msg'); if (m) m.textContent = fatte === 1 ? 'Foto aggiunta. Scrivi un commento, se ti serve.' : fatte + ' foto aggiunte.'; }
+}
+function disegnaFoto(){
+  const box = $('#foto-lista'); if (!box) return;
+  const f = lavoro.foto || [];
+  box.innerHTML = f.map((x, n) => `<div class="fotocard"><img src="${x.thumb}" alt="Foto ${n + 1}"><div class="fotodati">
+    <div class="fototesta"><strong>Foto ${n + 1}</strong><button class="togli" type="button" data-foto-togli="${esc(x.id)}" aria-label="Togli la foto ${n + 1}">×</button></div>
+    <div class="cbox"><textarea rows="2" data-fotoc="${esc(x.id)}" maxlength="300" placeholder="Commento (per esempio: perdita dal raccordo)" aria-label="Commento foto ${n + 1}">${esc(x.commento || '')}</textarea>${bottoneMic('foto:' + x.id)}</div></div></div>`).join('');
+}
+async function togliFoto(id){
+  if (!confirm('Tolgo questa foto?')) return;
+  lavoro.foto = (lavoro.foto || []).filter(x => x.id !== id);
+  try { await cancellaFotoChiave(chiaveFoto(lavoro.id, id)); } catch(e){}
+  disegnaFoto(); bozzaModificata();
+}
+function bytesDaBuffer(buf){ return new Uint8Array(buf); }
+async function costruisciPdfFoto(w){
+  const { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', compress: true});
+  const M = 15, W = 210, H = 297, CW = W - 2 * M, INK = [20, 35, 43], GRIGIO = [91, 109, 117], PET = [14, 90, 107];
+  let y = M;
+  const col = c => doc.setTextColor(c[0], c[1], c[2]);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15); col(INK); doc.text(impostazioni.azienda || 'Documentazione fotografica', M, y + 5);
+  if (impostazioni.azienda) { doc.setFont('helvetica', 'normal'); doc.setFontSize(10); col(GRIGIO); doc.text('Documentazione fotografica', W - M, y + 5, {align: 'right'}); }
+  y += 9; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.6); doc.line(M, y, W - M, y); y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); col(INK);
+  const intest = [[w.cliente, 'Cliente'], [w.indirizzo, 'Indirizzo'], [dataIT(w.data), 'Data'], [w.tecnico, 'Tecnico']].filter(r => r[0]);
+  intest.forEach(([v, et]) => { doc.setFontSize(8); col(GRIGIO); doc.text(et, M, y + 3); doc.setFontSize(10.5); col(INK); doc.text(doc.splitTextToSize(String(v), CW - 25), M + 22, y + 3.2); y += 6.5; });
+  y += 3;
+  const fotos = w.foto || [];
+  for (let n = 0; n < fotos.length; n++) {
+    const f = fotos[n], rec = await leggiFotoRec(chiaveFoto(w.id, f.id)); if (!rec) continue;
+    const maxW = CW, maxH = 100, k = Math.min(maxW / rec.w, maxH / rec.h), iw = rec.w * k, ih = rec.h * k;
+    const righe = f.commento ? doc.splitTextToSize(f.commento, CW) : [];
+    const blocco = ih + 9 + righe.length * 4.6 + 5;
+    if (y + blocco > H - M) { doc.addPage(); y = M; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); col(PET); doc.text('Foto ' + (n + 1), M, y + 3.5); y += 6;
+    doc.addImage('data:image/jpeg;base64,' + b64DaBytes(bytesDaBuffer(rec.dati)), 'JPEG', M, y, iw, ih); y += ih + 3;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); col(INK); righe.forEach(r => { doc.text(r, M, y + 3.5); y += 4.6; });
+    y += 6;
+  }
+  const np = doc.getNumberOfPages();
+  for (let i = 1; i <= np; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); col(GRIGIO); doc.text('Pagina ' + i + ' di ' + np, W - M, 290, {align: 'right'}); }
+  return doc.output('blob');
+}
+
+
+/* ==================================================================
+   STAMPA IN LOCO
+   Una pagina web non puo' aprire da sola l'app della stampante: apre il menu di condivisione del
+   telefono, dove si sceglie l'app (che importa il file e lo stampa). In alternativa si scarica il file.
+   ================================================================== */
+async function preparaPdfJs(){
+  if (!window.pdfjsLib) { const n = await caricaScript(LIB_PDFJS); pdfjsDaLocale = (n === 0); }
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsDaLocale ? LIB_PDFJS_WORKER[0] : LIB_PDFJS_WORKER[1];
+}
+/* ogni pagina del PDF diventa un'immagine (circa 200 dpi su A4), in bianco e nero se richiesto */
+async function pdfInImmagini(blob, base, bn, dpi){
+  await preparaPdfJs();
+  const doc = await window.pdfjsLib.getDocument({data: new Uint8Array(await blob.arrayBuffer())}).promise, out = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const pag = await doc.getPage(n), v1 = pag.getViewport({scale: 1}), vp = pag.getViewport({scale: Math.round(8.27 * (dpi || 200)) / v1.width});
+    const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+    await pag.render({canvasContext: cx, viewport: vp}).promise;
+    if (bn) {
+      const im = cx.getImageData(0, 0, cv.width, cv.height), d = im.data;
+      for (let i = 0; i < d.length; i += 4) { const v = (0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]) < 175 ? 0 : 255; d[i] = d[i+1] = d[i+2] = v; }
+      cx.putImageData(im, 0, 0);
+    }
+    const b = await new Promise(ok => cv.toBlob(ok, 'image/png'));
+    out.push(new File([b], `${base}${doc.numPages > 1 ? '_p' + n : ''}.png`, {type: 'image/png'}));
+  }
+  return out;
+}
+let stampaPronta = null;
+async function stampaFile(f, msgEl){
+  const set = (html, ok) => { if (msgEl) { if (ok) msgEl.innerHTML = html; else msgEl.textContent = html; } };
+  const opz = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
+  let files = [f];
+  if (opz.formato === 'img' && /pdf/i.test(f.type)) {
+    try { set('Preparo le immagini…'); files = await pdfInImmagini(f, f.name.replace(/\.pdf$/i, ''), opz.bn !== false, +opz.dpi || 200); }
+    catch(e) { set('Non sono riuscito a preparare le immagini (' + e.message + '). Serve la connessione la prima volta, oppure scegli "Manda il PDF" in Impostazioni.'); return; }
+  }
+  if (navigator.canShare && navigator.canShare({files})) {
+    try { await navigator.share({files, title: f.name}); set(''); return; }
+    catch(e) {
+      if (e && e.name === 'AbortError') return;
+      if (e && e.name === 'NotAllowedError') {            // il telefono vuole un tocco nuovo dopo la preparazione
+        stampaPronta = {files, titolo: f.name};
+        set('Tutto pronto: <button class="btn piccolo" type="button" data-stampa-ancora>Scegli l\'app della stampante</button>', true); return;
+      }
+    }
+  }
+  files.forEach((x, n) => setTimeout(() => scaricaBlob(x, x.name), n * 400));
+  set('Su questo dispositivo non posso aprire direttamente l\'app della stampante: ho scaricato ' + (files.length > 1 ? 'i file' : 'il file') + '. Aprili dall\'app della stampante (Stampa documento o immagine).');
+}
+async function stampaPronta_() {
+  if (!stampaPronta) return; const sp = stampaPronta; stampaPronta = null;
+  try { await navigator.share({files: sp.files, title: sp.titolo}); } catch(e){}
+}
+const docCache = new Map();         // documenti gia' letti dall'archivio: serve per stampare con un tocco solo
+async function precaricaDocumenti(a){
+  for (const d of (a.docs || [])) {
+    try {
+      const m = await leggiModificato(d.id), f = m || await leggiFile(d.id); if (!f) continue;
+      const mime = f.mime || d.mime || 'application/octet-stream';
+      docCache.set(d.id, new File([bytesDaB64(f.b64)], m ? (m.nome || d.nome) : d.nome, {type: mime}));
+    } catch(e){}
+  }
+}
+async function stampaDocumento(id, nome){
+  const area = $('#doc-msg');
+  let f = docCache.get(id);
+  if (!f) { try { const m = await leggiModificato(id), r = m || await leggiFile(id); if (r) f = new File([bytesDaB64(r.b64)], m ? (m.nome || nome) : nome, {type: r.mime || 'application/octet-stream'}); } catch(e){} }
+  if (!f) { area.textContent = 'File non trovato su questo telefono: chiedi all\'ufficio di rimandare i dati.'; return; }
+  await stampaFile(f, area);
+}
+
+/* ==================================================================
+   UFFICIO: dai file di Levante ai file per i tecnici
+   ================================================================== */
+function parseCSV(t, sep = ';'){
+  const righe = []; let r = [], c = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (q) { if (ch === '"') { if (t[i+1] === '"') { c += '"'; i++; } else q = false; } else c += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep) { r.push(c); c = ''; }
+    else if (ch === '\n') { r.push(c); righe.push(r); r = []; c = ''; }
+    else if (ch !== '\r') c += ch;
+  }
+  if (c !== '' || r.length) { r.push(c); righe.push(r); }
+  return righe;
+}
+function tabellaCSV(testo){
+  const righe = parseCSV(testo.replace(/^\uFEFF/, ''));
+  const h = (righe.shift() || []).map(x => x.trim());
+  return righe.filter(r => r.length > 1 || (r[0] || '').trim()).map(r => { const o = {}; h.forEach((c, i) => { o[c] = (r[i] || '').trim(); }); return o; });
+}
+const indicizza = (righe, campo) => { const m = {}; (righe || []).forEach(r => { (m[r[campo]] = m[r[campo]] || []).push(r); }); return m; };
+const dt10 = v => (!v || v.startsWith('1899') || v.startsWith('0001')) ? '' : v.slice(0, 10);
+function tipoInt(v){
+  return (v || '').split(';').map(p => p.trim()).map(p => /^\d+:/.test(p) ? p.replace(/^\d+:/, '').trim() : p).filter(Boolean).join(', ');
+}
+function ubicazioneDa(r){
+  const via = [r.UBICAZ_INDIRIZZO, r.UBICAZ_NUMCIVICO].filter(Boolean).join(' ');
+  let citta = [r.UBICAZ_CAP, r.UBICAZ_COMUNE].filter(Boolean).join(' ');
+  if (r.UBICAZ_PROVINCIA) citta += ' (' + r.UBICAZ_PROVINCIA + ')';
+  return [via, citta].filter(Boolean).join(', ');
+}
+const senzaVuoti = o => { const n = {}; Object.keys(o).forEach(k => { if (o[k] !== '' && o[k] != null && !(Array.isArray(o[k]) && !o[k].length)) n[k] = o[k]; }); return n; };
+
+function costruisciDaLevante(T){
+  const sette = new Date(); sette.setHours(0,0,0,0); sette.setDate(sette.getDate() - 7);
+  const da = isoGiorno(sette);
+  const allIdx = indicizza(T.allegati, 'APPUNTAMENTO_ID');
+  const imp = indicizza(T.impianti, 'ID'), cli = indicizza(T.clienti, 'CODICE'), app = indicizza(T.apparecchi, 'IDPRATICA'),
+        opp = indicizza(T.operazioni_pianificate, 'IDPRATICA'), opa = indicizza(T.operazioni_appuntamento, 'IDIMPEGNO'),
+        sto = indicizza(T.storico_interventi, 'IDPRATICA');
+  const tecnici = {};
+  (T.tecnici || []).forEach(t => { tecnici[t.RESOURCEID] = t.RESOURCENAME || t.NOME || ('Tecnico ' + t.RESOURCEID); });
+  const out = [], stat = {totale: 0, fatti: 0, vecchi: 0};
+  (T.appuntamenti || []).forEach(a => {
+    stat.totale++;
+    const inizio = (a.START_EVENT || '').replace(' ', 'T').slice(0, 19);
+    if (!inizio || inizio.slice(0, 10) < da) { stat.vecchi++; return; }
+    const fine = (a.FINISH_EVENT || a.START_EVENT || '').replace(' ', 'T').slice(0, 19) || inizio;
+    const i0 = (imp[a.IDPRATICA] || [null])[0], c0 = (cli[a.CLIENTE] || [null])[0];
+    const opsApp = opa[a.ID] || [], selOp = {}, selApp = new Set();
+    opsApp.forEach(o => { selOp[o.IDOPPRATICA] = o; if (o.IDAPPARECCHIOPRAT && o.IDAPPARECCHIOPRAT !== '0') selApp.add(o.IDAPPARECCHIOPRAT); });
+    const r = {v:'1', li:a.ID, mi:a.MASTER_ID, tp:tipoInt(a.TIPOINTERVENTO)};
+    r.c = senzaVuoti(c0 ? {k:c0.CODICE, n:c0.RAGIONESOCIALE || a.RAGSOCCLI, t:c0.TELEFONO, m:c0.CELLULARE, e:c0.EMAIL} : {k:a.CLIENTE, n:a.RAGSOCCLI});
+    if (i0) {
+      r.i = senzaVuoti({id:i0.ID, d:i0.DESCRIZIONE, u:ubicazioneDa(i0), z:i0.UBICAZ_ZONA, tp:i0.TIPOIMPIANTO, pv:dt10(i0.PROXVISITAENTRO),
+        ct:i0.CONTRATTO_STATO, tel:i0.TELEFONOCLI || i0.CELLULARECLI, nt:(i0.NOTE || '').slice(0, 300)});
+      r.a = (app[i0.ID] || []).filter(x => (x.DISMESSO || '').toUpperCase() !== 'T').map(x => senzaVuoti({id:x.ID, t:x.TIPOAPPARECCHIO, c:x.COSTRUTTORE,
+        m:x.MODELLO, s:x.MATRICOLA, u:x.UBICAZIONE, y:x.ANNOCOSTRUZIONE, p:x.POTENZATERMICA, f:x.COMBUSTIBILE, x:selApp.has(x.ID) ? 1 : ''}));
+      const viste = new Set(); r.o = [];
+      (opp[i0.ID] || []).forEach(o => {
+        viste.add(o.ID); const sel = selOp[o.ID];
+        r.o.push(senzaVuoti({id:o.ID, a:(o.IDAPPARECCHIOPRAT && o.IDAPPARECCHIOPRAT !== '0') ? o.IDAPPARECCHIOPRAT : '', c:o.IDOP, d:o.DESCRIZIONE,
+          f:(sel && (sel.DAEFFETTUARE || '').toUpperCase() === 'T') ? 1 : '', e:(sel && (sel.EFFETTUATA || '').toUpperCase() === 'T') ? 1 : '',
+          l:dt10(o.ULTIMA), p:dt10(o.PROSSIMA), m:o.MINUTIPREVISTI}));
+      });
+      Object.keys(selOp).forEach(id => { if (!viste.has(id)) { const o = selOp[id];
+        r.o.push(senzaVuoti({id, c:o.IDOP, d:o.DESCRIZIONE, a:(o.IDAPPARECCHIOPRAT && o.IDAPPARECCHIOPRAT !== '0') ? o.IDAPPARECCHIOPRAT : '',
+          f:(o.DAEFFETTUARE || '').toUpperCase() === 'T' ? 1 : '', e:(o.EFFETTUATA || '').toUpperCase() === 'T' ? 1 : ''})); } });
+      r.s = (sto[i0.ID] || []).sort((x, y) => (y.DATAORAINTERVENTO || '').localeCompare(x.DATAORAINTERVENTO || '')).slice(0, 3)
+        .map(x => senzaVuoti({d:dt10(x.DATAORAINTERVENTO), t:tipoInt(x.TIPOINTERVENTO), r:(x.RELAZIONEINTERVENTO || '').slice(0, 400), o:(x.OSSERVAZIONI || '').slice(0, 150)}));
+    }
+    const luogo = (r.i && r.i.u) || (a.LOCATION || '').replace(/\|/g, '').trim();
+    const docsApp = (T.docfiles || []).filter(d => String(d.appuntamento_id) === String(a.ID) && (d.collegamento || 'appuntamento') === 'appuntamento')
+      .map(d => ({id: d.id, nome: d.nome, ext: d.ext, mime: d.mime, size: d.size}));
+    const docsAltri = (T.docfiles || []).filter(d => String(d.appuntamento_id) === String(a.ID) && (d.collegamento || '') !== 'appuntamento')
+      .map(d => ({id: d.id, nome: d.nome, ext: d.ext, mime: d.mime, size: d.size, altro: d.collegamento}));
+    const rcs = (allIdx[a.ID] || []).map(row => {
+      const o = {}; Object.keys(row).forEach(k => { if (row[k] !== '') o[k] = row[k]; });
+      const tipo = (row.TIPO || '').toUpperCase(); o._tipo = ''; o._tpl = '';
+      for (const [sg, col] of COL_MODELLO) { if (tipo.startsWith(sg)) { o._tipo = sg; o._tpl = (row[col] || '').trim(); break; } }
+      return o;
+    });
+    const fatto = (a.FATTO || '').toUpperCase() === 'T'; if (fatto) stat.fatti++;
+    out.push({id:'lev-' + a.ID, fatto: fatto || undefined, rc: rcs.length ? rcs : undefined, docs: (docsApp.length || docsAltri.length) ? docsApp.concat(docsAltri) : undefined, inizio, fine, titolo:(c0 && c0.RAGIONESOCIALE) || a.RAGSOCCLI || 'Appuntamento', luogo, messaggio:a.EVENTMESSAGE || '',
+      urgente:(a.URGENTE || '').toUpperCase() === 'T', tecnico_id:a.RESOURCEID || '', tecnico_nome:tecnici[a.RESOURCEID] || '', r});
+  });
+  out.sort((x, y) => x.inizio.localeCompare(y.inizio));
+  const files = {};
+  (T.docfiles || []).forEach(d => { files[d.id] = {mime: d.mime, b64: d.b64, nome: d.nome}; });
+  return {appuntamenti: out, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files};
+}
+
+let datiLevante = null;
+const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda'];
+const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
+async function leggiFileLevante(files){
+  const T = {}, trovati = [];
+  for (const f of files) {
+    const nome = f.name.replace(/\.csv$/i, '').toLowerCase();
+    if (NOMI_FILE.includes(nome)) { T[nome] = tabellaCSV(await f.text()); trovati.push(nome); }
+    else if (/^documenti_files\.json$/i.test(f.name)) {
+      try { const dj = JSON.parse(await f.text()); if (Array.isArray(dj)) T.docfiles = dj; } catch(e){}
+    }
+    else if (/^modello_.*\.json$/i.test(f.name)) {
+      try { const m = JSON.parse(await f.text()); if (m && m.nome && Array.isArray(m.items)) { (T.modelli = T.modelli || {})[m.nome] = m; } } catch(e){}
+    }
+  }
+  const esito = $('#esito-uff');
+  if (!T.appuntamenti) { esito.innerHTML = '<div class="avviso rosso" style="margin-top:14px"><b>Manca appuntamenti.csv</b>Scegli tutti i file della cartella creata da Esporta_Levante.bat.</div>'; return; }
+  datiLevante = costruisciDaLevante(T);
+  const mancanti = ['impianti','apparecchi','operazioni_pianificate','clienti','tecnici'].filter(n => !trovati.includes(n));
+  const per = {};
+  datiLevante.appuntamenti.forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
+  const st = datiLevante.stat, esclusi = [];
+  if (st.vecchi) esclusi.push(`${st.vecchi} ${st.vecchi === 1 ? 'precedente' : 'precedenti'} agli ultimi 7 giorni`);
+  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.length} ${datiLevante.appuntamenti.length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.
+    <br>Nel file c'${st.totale === 1 ? 'era 1 appuntamento' : 'erano ' + st.totale + ' appuntamenti'}${esclusi.length ? ': non inclusi ' + esclusi.join(' e ') : ''}${st.fatti ? ' (' + st.fatti + ' già ' + (st.fatti === 1 ? 'chiuso' : 'chiusi') + ' in Levante, li vedi segnati)' : ''}.
+    <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}</div>`;
+  if (!datiLevante.appuntamenti.length) h += '<p class="aiuto">Non ci sono appuntamenti da oggi in poi nell\'esportazione.</p>';
+  Object.keys(per).forEach(id => {
+    const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
+    h += `<div class="sez" style="margin-top:16px"><h2>${esc(nome)}<small>${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}</small></h2>
+      <div class="azioni"><button class="btn" type="button" data-invia="${esc(id)}">Invia il file</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
+  });
+  h += '<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px"></p>';
+  h += `<div class="sez" style="margin-top:22px"><h2>Su questo dispositivo</h2><button class="btn sec pieno" id="b-usa-qui" type="button">Usa questi dati qui (tutti i tecnici)</button></div>`;
+  esito.innerHTML = h;
+  esito.querySelectorAll('[data-invia]').forEach(b => b.onclick = () => consegna(b.dataset.invia, true));
+  esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
+  $('#b-usa-qui').onclick = async () => { await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
+}
+function riepilogoDocumenti(){
+  const n = datiLevante.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
+  if (!n) return '';
+  const kb = Object.values(datiLevante.files || {}).reduce((s, f) => s + (f.b64 ? f.b64.length * 0.75 : 0), 0);
+  const rotti = Object.values(datiLevante.files || {}).filter(f => /pdf/i.test(f.mime || '') && f.b64 && inizioPdf(bytesDaB64(f.b64.slice(0, 1400))) < 0).map(f => f.nome);
+  const avviso = rotti.length ? `<br><span style="color:var(--rosso);font-weight:650">Attenzione: ${rotti.length === 1 ? 'questo PDF non sembra valido' : 'questi PDF non sembrano validi'}: ${esc(rotti.join(', '))}. Usa l'esportazione aggiornata (documenti_diagnosi.txt dice come Levante li salva).</span>` : '';
+  return `<br>Documenti allegati: <b>${n}</b> (${dimStr(kb)} in tutto)${avviso}`;
+}
+function riepilogoRcee(){
+  const nAll = datiLevante.appuntamenti.reduce((s, a) => s + (a.rc ? a.rc.length : 0), 0);
+  if (!nAll) return '';
+  const usati = new Set(); let senza = 0, nonSupp = 0;
+  datiLevante.appuntamenti.forEach(a => (a.rc || []).forEach(r => { if (!window.MAPPE_RCEE[r._tipo]) nonSupp++; else if (!datiLevante.modelli[r._tpl]) senza++; else usati.add(r._tpl); }));
+  let h = `<br>Allegati RCEE: <b>${nAll}</b>`;
+  if (senza) h += `<br>Per ${senza} manca il file del modello di stampa (modello_….json): rilancia Esporta_Levante.bat.`;
+  if (nonSupp) h += `<br>${nonSupp} sono di un tipo non ancora gestito dall'app: restano in Levante.`;
+  if (!datiLevante.azienda) h += '<br>Mancano i dati azienda (azienda.csv): l\'impresa manutentrice resterà vuota.';
+  return h;
+}
+function pacchettoPer(id){
+  const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : '';
+  const apps = datiLevante.appuntamenti.filter(a => (a.tecnico_id || '') === id);
+  const modelli = {};
+  apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
+  const files = {};
+  apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id]) files[d.id] = datiLevante.files[d.id]; }));
+  return {formato:'assistenza-v1', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files};
+}
+async function salvaDati(d){
+  const files = d.files || {}; const dd = Object.assign({}, d); delete dd.files;
+  store.set('ass_dati', dd); appuntamenti = caricaAppuntamenti();
+  const ok = await salvaFiles(files);
+  if (!ok && Object.keys(files).length) esitoImport = (esitoImport ? esitoImport + ' ' : '') + 'Attenzione: i documenti non si sono salvati su questo dispositivo.';
+}
+async function consegna(id, condividi){
+  const pk = pacchettoPer(id);
+  const slug = (pk.tecnico ? pk.tecnico.nome : 'senza_tecnico').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
+  const nome = `appuntamenti_${slug}_${isoGiorno(new Date())}.txt`;
+  const file = new File([JSON.stringify(pk)], nome, {type:'text/plain'});   // testo: i browser lo lasciano condividere
+  const msg = $('#msg-consegna');
+  if (file.size > 12 * 1048576 && msg) msg.textContent = 'Attenzione: il file pesa ' + dimStr(file.size) + '. Se WhatsApp lo rifiuta, mandalo per mail o riduci i documenti allegati.';
+  if (condividi) {
+    if (navigator.canShare && navigator.canShare({files:[file]})) {
+      try { await navigator.share({files:[file], title:nome}); if (msg) msg.textContent = ''; return; }
+      catch(e) { if (e && e.name === 'AbortError') return; }
+    }
+    if (msg) msg.textContent = 'Questo dispositivo non apre direttamente WhatsApp o la mail con un file: l\'ho scaricato, allegalo tu al messaggio (per esempio da WhatsApp Web, trascinandolo, o dalla mail).';
+  } else if (msg) msg.textContent = '';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function caricaPacchetto(file){
+  try {
+    const d = JSON.parse(await file.text());
+    if (!d || d.formato !== 'assistenza-v1' || !Array.isArray(d.appuntamenti)) throw new Error('formato');
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}});
+    if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
+    const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
+    esitoImport = (d.appuntamenti.length === 1 ? 'Caricato 1 appuntamento' : `Caricati ${d.appuntamenti.length} appuntamenti`) + (nd ? ` e ${nd} ${nd === 1 ? 'documento' : 'documenti'}.` : '.') + (esitoImport ? ' ' + esitoImport : '');
+  } catch(e) { esitoImport = 'Il file non è valido: chiedi all\'ufficio di rimandarlo.'; }
+  disegnaAgenda();
+}
+
+
+/* ==================================================================
+   APP INSTALLABILE E USO SENZA CAMPO
+   Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
+   che sia tutto pronto e si offre l'installazione sulla schermata Home.
+   ================================================================== */
+const VERSIONE_APP = '1.0 (03/10/2026)';
+let richiestaInstalla = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); richiestaInstalla = e; aggiornaStatoApp(); });
+window.addEventListener('appinstalled', () => { richiestaInstalla = null; aggiornaStatoApp(); });
+function inLocaleSicuro(){ return location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); }
+async function registraServiceWorker(){
+  if (!('serviceWorker' in navigator) || !inLocaleSicuro()) return;
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js');
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch(e){}
+    aggiornaStatoApp();
+  } catch(e) { /* senza service worker l'app funziona comunque, solo non offline */ }
+}
+async function statoApp(){
+  const r = {sicuro: inLocaleSicuro(), sw: false, pronta: false, persistente: null,
+    installata: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true};
+  try {
+    if ('serviceWorker' in navigator && r.sicuro) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      r.sw = !!(reg && reg.active);
+      let ok = r.sw;
+      for (const f of ['index.html', 'libs/jspdf.umd.min.js', 'libs/pdf.min.js', 'libs/pdf.worker.min.js', 'libs/pdf-lib.min.js']) {
+        if (ok && !(await caches.match(new URL(f, location.href).href))) ok = false;
+      }
+      r.pronta = ok;
+    }
+  } catch(e){}
+  try { if (navigator.storage && navigator.storage.persisted) r.persistente = await navigator.storage.persisted(); } catch(e){}
+  return r;
+}
+async function aggiornaStatoApp(){
+  const box = $('#stato-app'); if (!box) return;
+  const r = await statoApp();
+  const riga = (t, ok) => `<p class="aiuto" style="margin:0 0 6px"><b style="color:${ok === true ? 'var(--ok)' : ok === false ? 'var(--fiamma)' : 'var(--inchiostro)'}">${t[0]}</b> ${t[1]}</p>`;
+  let h = riga(['Versione', esc(VERSIONE_APP)], null);
+  if (!r.sicuro) h += riga(['Uso senza campo: non disponibile.', 'L\'app deve stare su un indirizzo https (non aperta da file).'], false);
+  else if (r.pronta) h += riga(['Uso senza campo: pronto.', 'L\'app e gli strumenti per i PDF sono memorizzati su questo dispositivo.'], true);
+  else h += riga(['Uso senza campo: non ancora pronto.', 'Tieni l\'app aperta con la connessione per qualche secondo, poi ricontrolla.'], false);
+  if (r.installata) h += riga(['Installata', 'sulla schermata Home di questo dispositivo.'], true);
+  else if (richiestaInstalla) h += riga(['Non ancora installata.', 'Toccando il pulsante qui sotto compare l\'icona sulla schermata Home.'], false);
+  else if (èiOS()) h += riga(['Per installarla su iPhone e iPad:', 'tocca Condividi in Safari, poi <b>Aggiungi alla schermata Home</b>.'], false);
+  else h += riga(['Per installarla:', 'dal menu del browser scegli <b>Installa app</b> o <b>Aggiungi a schermata Home</b>.'], false);
+  if (r.persistente === true) h += riga(['Dati protetti:', 'il browser non li cancella da solo.'], true);
+  else if (r.persistente === false) h += riga(['Dati non protetti:', 'se il telefono ha poco spazio il browser potrebbe cancellarli. Invia le schede e i file appena puoi.'], false);
+  box.innerHTML = h;
+  $('#b-installa').hidden = !richiestaInstalla;
+}
+async function installaApp(){
+  if (!richiestaInstalla) return;
+  try { richiestaInstalla.prompt(); await richiestaInstalla.userChoice; } catch(e){}
+  richiestaInstalla = null; aggiornaStatoApp();
+}
+
+/* ==================================================================
+   AVVIO
+   ================================================================== */
+function avvia(){
+  appuntamenti = caricaAppuntamenti();
+  $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
+  $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
+  $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
+  $('#b-nuovo').onclick = apriSchedaManuale;
+  $('#b-indietro-scheda').onclick = indietro;
+  $('#b-pdf').onclick = creaPdf;
+  $('#b-impostazioni').onclick = () => {
+    $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico;
+    const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
+    document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
+    document.querySelectorAll('input[name="stampa-dpi"]').forEach(r => r.checked = (+r.value === +st.dpi));
+    mostra('impostazioni'); aggiornaTile(); preparaFirmaTec(); aggiornaStatoApp();
+  };
+  const salvaStampa = () => { const r = document.querySelector('input[name="stampa-formato"]:checked'), d = document.querySelector('input[name="stampa-dpi"]:checked'); impostazioni.stampa = {formato: r ? r.value : 'pdf', bn: $('#stampa-bn').checked, dpi: d ? +d.value : 200}; salvaImpostazioni(); aggiornaTile(); };
+  document.querySelectorAll('input[name="stampa-formato"],input[name="stampa-dpi"]').forEach(r => r.onchange = salvaStampa); $('#stampa-bn').onchange = salvaStampa;
+  $('#b-indietro-imp').onclick = indietro;
+  $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
+  $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
+  $('#b-azzera').onclick = async () => { if (confirm('Cancello tutte le schede salvate su questo telefono (comprese le foto)?')) { bozze = {}; salvaBozze(); try { await cancellaTutteLeFoto(); } catch(e){} disegnaAgenda(); } };
+  $('#in-pacchetto').onchange = e => { const f = e.target.files[0]; if (f) caricaPacchetto(f); e.target.value = ''; };
+  $('#b-ufficio').onclick = () => { $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
+  $('#b-indietro-uff').onclick = indietro;
+  $('#b-scegli').onclick = () => $('#in-levante').click();
+  $('#in-levante').onchange = async e => { const fl = [...e.target.files]; if (fl.length) await leggiFileLevante(fl); e.target.value = ''; };
+  $('#b-prova').onclick = () => { store.set('ass_dati', null); esitoImport = ''; appuntamenti = caricaAppuntamenti(); mostra('agenda', false); disegnaAgenda(); };
+  caricaModificati();
+  $('#b-installa').onclick = installaApp;
+  $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } location.reload(); };
+  registraServiceWorker();
+  $('#vm-mic-slot').outerHTML = bottoneMic('vm');
+  $('#in-foto').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length && lavoro) await aggiungiFoto(fl); };
+  $('#in-foto-gal').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length && lavoro) await aggiungiFoto(fl); };
+  $('#dett-fine').onclick = fermaDettatura;
+  $('#vm-annulla').onclick = chiudiMaterialiVoce; $('#vm-aggiungi').onclick = aggiungiMaterialiVoce;
+  $('#vm-testo').oninput = interpretaDaTesto;
+  $('#vm-modale').addEventListener('input', e => { const d = e.target.dataset; if (d.vm !== undefined && vmRighe[+d.vm]) vmRighe[+d.vm][d.c] = e.target.value; });
+  $('#vm-modale').addEventListener('click', e => { const b = e.target.closest('[data-mic],[data-vm-togli]'); if (!b) return;
+    if (b.dataset.mic) avviaDettatura('vm'); else { vmRighe.splice(+b.dataset.vmTogli, 1); const n = vmRighe.length; interpretaDaRighe(); } });
+  $('#in-doc-mod').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f && docModTarget) { const t = docModTarget; docModTarget = null; await caricaVersioneModificata(t, f); } };
+  document.querySelectorAll('.ed-str[data-str]').forEach(b => b.onclick = () => { if (ed) { ed.str = b.dataset.str; aggiornaBarraEditor(); } });
+  document.querySelectorAll('.ed-col').forEach(b => b.onclick = () => { if (ed) { ed.col = b.dataset.col; aggiornaBarraEditor(); } });
+  document.querySelectorAll('.ed-dim').forEach(b => b.onclick = () => { if (ed) { ed.dim = +b.dataset.dim; aggiornaBarraEditor(); } });
+  $('#b-ed-annulla').onclick = annullaUltimo; $('#b-ed-salva').onclick = salvaEditor; $('#b-ed-chiudi').onclick = chiudiEditor;
+  $('#b-ed-testo-ok').onclick = confermaTesto; $('#b-ed-testo-no').onclick = () => { $('#ed-modale').hidden = true; edTestoPos = null; };
+  // se la pagina viene chiusa o nascosta mentre una modifica aspetta di essere salvata, la salvo subito
+  const salvaSubito = () => { if (timer && lavoro) { clearTimeout(timer); salvaBozza(); } };
+  window.addEventListener('pagehide', salvaSubito);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') salvaSubito(); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-stampa-ancora]'); if (b) stampaPronta_(); });
+  collegaForm(); collegaFirmaTec();
+  document.body.dataset.vista = 'agenda';
+  disegnaAgenda();
+}
+avvia();
+</script>
+</body>
+</html>

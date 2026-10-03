@@ -1,0 +1,62 @@
+/* Assistenza impianti - service worker
+   Serve a far funzionare l'app anche senza connessione: i file dell'app e le librerie per i PDF
+   vengono memorizzati sul dispositivo la prima volta che si apre l'app con la connessione.
+   - la pagina (index.html) si prende SEMPRE dalla rete quando c'e' campo (cosi' gli aggiornamenti
+     arrivano da soli); se la rete manca o e' troppo lenta si usa la copia memorizzata;
+   - il resto (icone, librerie) si usa dalla copia memorizzata.
+   Se aggiungi file nuovi all'app, cambia VERSIONE qui sotto e aggiungili all'elenco. */
+const VERSIONE = 'v1';
+const CACHE_APP = 'assistenza-app-' + VERSIONE;
+const FILE_APP = [
+  './', './index.html', './manifest.webmanifest',
+  './icona-192.png', './icona-512.png', './icona-maskable-512.png', './apple-touch-icon.png',
+  './libs/jspdf.umd.min.js', './libs/pdf.min.js', './libs/pdf.worker.min.js', './libs/pdf-lib.min.js'
+];
+const ATTESA_RETE_MS = 4000;
+
+self.addEventListener('install', e => {
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE_APP);
+    await c.addAll(FILE_APP);
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil((async () => {
+    for (const nome of await caches.keys()) if (nome.startsWith('assistenza-') && nome !== CACHE_APP) await caches.delete(nome);
+    await self.clients.claim();
+  })());
+});
+
+async function paginaDallaRete(req) {
+  const cache = await caches.open(CACHE_APP);
+  // 'no-cache' = chiede sempre al server se la pagina e' cambiata (senza, il browser potrebbe riusare per alcuni minuti
+  // una copia che ha gia' e l'aggiornamento arriverebbe in ritardo)
+  const rete = fetch('./index.html', {cache: 'no-cache'}).then(r => { if (r && r.ok) cache.put('./index.html', r.clone()); return r; });
+  try {
+    return await Promise.race([rete, new Promise((_, ko) => setTimeout(() => ko(new Error('lenta')), ATTESA_RETE_MS))]);
+  } catch (err) {
+    const copia = await cache.match('./index.html', {ignoreSearch: true});
+    if (copia) { rete.catch(() => {}); return copia; }
+    return rete;
+  }
+}
+
+async function dallaCopiaEPoiRete(req) {
+  const cache = await caches.open(CACHE_APP);
+  const copia = await cache.match(req, {ignoreSearch: true});
+  const rete = fetch(req).then(r => { if (r && r.ok) cache.put(req, r.clone()); return r; }).catch(() => null);
+  return copia || (await rete) || new Response('', {status: 504, statusText: 'Offline'});
+}
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;                     // niente servizi esterni: tutto e' dentro l'app
+  const èPagina = req.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);
+  e.respondWith(èPagina ? paginaDallaRete(req) : dallaCopiaEPoiRete(req));
+});
+
+self.addEventListener('message', e => { if (e.data === 'SKIP_WAITING') self.skipWaiting(); });

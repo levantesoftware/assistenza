@@ -1,0 +1,17 @@
+{
+  "name": "Assistenza impianti",
+  "short_name": "Assistenza",
+  "description": "Appuntamenti, schede intervento, RCEE, foto e documenti per i tecnici",
+  "lang": "it",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#EEF2F3",
+  "theme_color": "#0E5A6B",
+  "icons": [
+    {"src": "icona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icona-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
