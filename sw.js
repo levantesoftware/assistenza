@@ -5,12 +5,12 @@
      arrivano da soli); se la rete manca o e' troppo lenta si usa la copia memorizzata;
    - il resto (icone, librerie) si usa dalla copia memorizzata.
    Se aggiungi file nuovi all'app, cambia VERSIONE qui sotto e aggiungili all'elenco. */
-const VERSIONE = 'v1';
+const VERSIONE = 'v2';
 const CACHE_APP = 'assistenza-app-' + VERSIONE;
 const FILE_APP = [
   './', './index.html', './manifest.webmanifest',
   './icona-192.png', './icona-512.png', './icona-maskable-512.png', './apple-touch-icon.png',
-  './libs/jspdf.umd.min.js', './libs/pdf.min.js', './libs/pdf.worker.min.js', './libs/pdf-lib.min.js'
+  './jspdf.umd.min.js', './pdf.min.js', './pdf.worker.min.js', './pdf-lib.min.js'
 ];
 const ATTESA_RETE_MS = 4000;
 

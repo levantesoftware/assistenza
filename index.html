@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Assistenza">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script src="libs/jspdf.umd.min.js"></script>
+<script src="jspdf.umd.min.js"></script>
 <script>window.jspdf || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>');</script>
 <style>
 :root{
@@ -413,13 +413,14 @@ button,a,label,summary,select{touch-action:manipulation}
     <div class="campo"><span class="etichetta">La tua firma per l'RCEE (si fa una volta sola)</span>
       <div class="firma"><canvas id="firma-tec"></canvas><div class="linea"></div></div>
       <div class="strumenti"><span>Firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma-tec" type="button">Cancella firma</button></div></div>
-    <p class="aiuto">Le modifiche si salvano da sole. Schede e impostazioni restano su questo telefono.</p>
+    <p class="aiuto">Le modifiche si salvano da sole. Schede e impostazioni restano su questo dispositivo.</p>
     <h2 class="giorno" style="margin-top:26px">App sul dispositivo</h2>
     <div id="stato-app"></div>
     <button class="btn pieno" id="b-installa" type="button" hidden style="margin-bottom:8px">Installa l'app</button>
+    <button class="btn sec pieno" id="b-ricontrolla" type="button" style="margin-bottom:8px">Ricontrolla lo stato</button>
     <button class="btn sec pieno" id="b-ricarica" type="button">Aggiorna l'app (serve la connessione)</button>
     <h2 class="giorno" style="margin-top:26px">Stampante</h2>
-    <p class="aiuto" style="margin-bottom:10px">Premendo <b>Stampa</b> si apre il menu del telefono: scegli l'app della tua stampante Bluetooth e il documento si carica lì.</p>
+    <p class="aiuto" style="margin-bottom:10px">Premendo <b>Stampa</b> si apre il menu di condivisione del dispositivo: scegli l'app della tua stampante Bluetooth e il documento si carica lì.</p>
     <label class="tile"><input type="radio" name="stampa-formato" value="pdf"><span>Manda il PDF<small>va bene per la maggior parte delle app</small></span></label>
     <label class="tile"><input type="radio" name="stampa-formato" value="img"><span>Manda le immagini (una per pagina)<small>se l'app della stampante non compare nel menu con il PDF</small></span></label>
     <label class="tile"><input type="checkbox" id="stampa-bn"><span>Bianco e nero ad alto contrasto<small>solo per le immagini: testo più nitido sulla carta termica</small></span></label>
@@ -736,7 +737,7 @@ function guidaAltroProgramma(){
   }
   return `<ol class="aiuto" style="padding-left:20px;margin:4px 0 8px;line-height:1.55">${passi.map(x => '<li>' + x + '</li>').join('')}</ol>
     <p class="aiuto" style="margin:0 0 6px">Da quel momento il documento risulta "Modificato" e lo puoi allegare all'invio.${chiusa ? ' ' + chiusa : ''}</p>
-    <p class="aiuto" style="margin:0">Il modo più rapido da telefono resta <b>Modifica qui</b>: scrivi e disegni con il dito, senza uscire dall'app (la prima volta serve la connessione).</p>`;
+    <p class="aiuto" style="margin:0">Da telefono e tablet il modo più rapido resta <b>Modifica qui</b>: scrivi e disegni con il dito, senza uscire dall'app (la prima volta serve la connessione).</p>`;
 }
 function sezioneDocumenti(a){
   const docs = a.docs || []; if (!docs.length) return '';
@@ -1766,7 +1767,7 @@ async function apriDocumento(id, nome, originale){
   try {
     const m = originale ? null : await leggiModificato(id);
     const f = m || await leggiFile(id);
-    if (!f) { area.textContent = 'File non trovato su questo telefono: chiedi all\'ufficio di rimandare i dati.'; return; }
+    if (!f) { area.textContent = 'File non trovato su questo dispositivo: chiedi all\'ufficio di rimandare i dati.'; return; }
     const bytes0 = bytesDaB64(f.b64);
     const mime = f.mime || 'application/octet-stream';
     let bytes = bytes0;
@@ -1791,9 +1792,9 @@ async function apriDocumento(id, nome, originale){
    fuse nel PDF e si crea una nuova versione ("... (modificato).pdf"). L'originale resta intatto.
    Le due librerie (lettura e scrittura dei PDF) si scaricano solo la prima volta che si usa l'editor.
    ================================================================== */
-const LIB_PDFJS = ['libs/pdf.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'];
-const LIB_PDFJS_WORKER = ['libs/pdf.worker.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'];
-const LIB_PDFLIB = ['libs/pdf-lib.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'];
+const LIB_PDFJS = ['pdf.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'];
+const LIB_PDFJS_WORKER = ['pdf.worker.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'];
+const LIB_PDFLIB = ['pdf-lib.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'];
 let pdfjsDaLocale = true;
 function caricaScript(indirizzi){
   const lista = Array.isArray(indirizzi) ? indirizzi : [indirizzi];
@@ -1823,7 +1824,7 @@ async function apriEditor(id, nome){
     await preparaLibrerieEditor();
     const m = await leggiModificato(id);
     const f = m || await leggiFile(id);
-    if (!f) { if (msg) msg.textContent = 'File non trovato su questo telefono: chiedi all\'ufficio di rimandare i dati.'; return; }
+    if (!f) { if (msg) msg.textContent = 'File non trovato su questo dispositivo: chiedi all\'ufficio di rimandare i dati.'; return; }
     let bytes = bytesDaB64(f.b64);
     const i0 = inizioPdf(bytes);
     if (i0 < 0) { if (msg) msg.textContent = 'Questo file non è un PDF valido: non si può modificare.'; return; }
@@ -2405,7 +2406,7 @@ async function stampaDocumento(id, nome){
   const area = $('#doc-msg');
   let f = docCache.get(id);
   if (!f) { try { const m = await leggiModificato(id), r = m || await leggiFile(id); if (r) f = new File([bytesDaB64(r.b64)], m ? (m.nome || nome) : nome, {type: r.mime || 'application/octet-stream'}); } catch(e){} }
-  if (!f) { area.textContent = 'File non trovato su questo telefono: chiedi all\'ufficio di rimandare i dati.'; return; }
+  if (!f) { area.textContent = 'File non trovato su questo dispositivo: chiedi all\'ufficio di rimandare i dati.'; return; }
   await stampaFile(f, area);
 }
 
@@ -2612,6 +2613,8 @@ async function caricaPacchetto(file){
    ================================================================== */
 const VERSIONE_APP = '1.0 (03/10/2026)';
 let richiestaInstalla = null;
+let erroreSW = '', tentativiStato = 0, timerStato = null;
+const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); richiestaInstalla = e; aggiornaStatoApp(); });
 window.addEventListener('appinstalled', () => { richiestaInstalla = null; aggiornaStatoApp(); });
 function inLocaleSicuro(){ return location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); }
@@ -2619,23 +2622,34 @@ async function registraServiceWorker(){
   if (!('serviceWorker' in navigator) || !inLocaleSicuro()) return;
   try {
     const reg = await navigator.serviceWorker.register('sw.js');
+    erroreSW = '';
+    navigator.serviceWorker.addEventListener('controllerchange', () => aggiornaStatoApp());
+    const segui = w => { if (w) w.addEventListener('statechange', () => aggiornaStatoApp()); };
+    segui(reg.installing); reg.addEventListener('updatefound', () => segui(reg.installing));
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
     try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch(e){}
     aggiornaStatoApp();
-  } catch(e) { /* senza service worker l'app funziona comunque, solo non offline */ }
+  } catch(e) { erroreSW = (e && e.message) || String(e); aggiornaStatoApp(); }
 }
 async function statoApp(){
-  const r = {sicuro: inLocaleSicuro(), sw: false, pronta: false, persistente: null,
+  const r = {sicuro: inLocaleSicuro(), sw: 'assente', memorizzati: 0, totale: FILE_OFFLINE.length, mancanti: [], assentiSulSito: null, pronta: false, persistente: null,
     installata: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true};
   try {
     if ('serviceWorker' in navigator && r.sicuro) {
       const reg = await navigator.serviceWorker.getRegistration();
-      r.sw = !!(reg && reg.active);
-      let ok = r.sw;
-      for (const f of ['index.html', 'libs/jspdf.umd.min.js', 'libs/pdf.min.js', 'libs/pdf.worker.min.js', 'libs/pdf-lib.min.js']) {
-        if (ok && !(await caches.match(new URL(f, location.href).href))) ok = false;
+      if (reg) r.sw = reg.active ? 'attivo' : reg.installing ? 'installazione' : reg.waiting ? 'attesa' : 'assente';
+      else if (erroreSW) r.sw = 'errore';
+      for (const f of FILE_OFFLINE) {
+        if (await caches.match(new URL(f, location.href).href)) r.memorizzati++; else r.mancanti.push(f);
       }
-      r.pronta = ok;
+      r.pronta = r.sw === 'attivo' && r.mancanti.length === 0;
+      if (!r.pronta && navigator.onLine !== false) {          // quali file non esistono proprio sul sito?
+        const assenti = [];
+        await Promise.all(FILE_OFFLINE.concat(['sw.js']).map(async f => {
+          try { const x = await fetch(new URL(f, location.href).href, {method: 'HEAD', cache: 'no-store'}); if (!x.ok) assenti.push(f); } catch(e){}
+        }));
+        r.assentiSulSito = assenti.sort();
+      }
     }
   } catch(e){}
   try { if (navigator.storage && navigator.storage.persisted) r.persistente = await navigator.storage.persisted(); } catch(e){}
@@ -2645,18 +2659,32 @@ async function aggiornaStatoApp(){
   const box = $('#stato-app'); if (!box) return;
   const r = await statoApp();
   const riga = (t, ok) => `<p class="aiuto" style="margin:0 0 6px"><b style="color:${ok === true ? 'var(--ok)' : ok === false ? 'var(--fiamma)' : 'var(--inchiostro)'}">${t[0]}</b> ${t[1]}</p>`;
+  const ua = navigator.userAgent, èMac = /Mac/.test(navigator.platform) && navigator.maxTouchPoints < 2;
+  const èSafariMac = èMac && /safari/i.test(ua) && !/chrome|crios|edg|fxios/i.test(ua);
   let h = riga(['Versione', esc(VERSIONE_APP)], null);
-  if (!r.sicuro) h += riga(['Uso senza campo: non disponibile.', 'L\'app deve stare su un indirizzo https (non aperta da file).'], false);
+  if (!r.sicuro) h += riga(['Uso senza campo: non disponibile.', 'L\'app deve stare su un indirizzo https: aperta da un file del computer non può funzionare offline.'], false);
   else if (r.pronta) h += riga(['Uso senza campo: pronto.', 'L\'app e gli strumenti per i PDF sono memorizzati su questo dispositivo.'], true);
-  else h += riga(['Uso senza campo: non ancora pronto.', 'Tieni l\'app aperta con la connessione per qualche secondo, poi ricontrolla.'], false);
-  if (r.installata) h += riga(['Installata', 'sulla schermata Home di questo dispositivo.'], true);
-  else if (richiestaInstalla) h += riga(['Non ancora installata.', 'Toccando il pulsante qui sotto compare l\'icona sulla schermata Home.'], false);
-  else if (èiOS()) h += riga(['Per installarla su iPhone e iPad:', 'tocca Condividi in Safari, poi <b>Aggiungi alla schermata Home</b>.'], false);
-  else h += riga(['Per installarla:', 'dal menu del browser scegli <b>Installa app</b> o <b>Aggiungi a schermata Home</b>.'], false);
+  else {
+    h += riga(['Uso senza campo: non ancora pronto.', ''], false);
+    const nomiSW = {attivo: 'attivo', installazione: 'sta scaricando i file, attendi qualche secondo', attesa: 'in attesa di partire: chiudi e riapri l\'app', errore: (r.assentiSulSito && r.assentiSulSito.includes('sw.js')) ? 'non è partito: il file sw.js non si trova sul sito' : 'non è partito (' + esc(erroreSW) + ')', assente: 'non ancora partito'};
+    h += `<p class="aiuto" style="margin:0 0 4px">Memoria offline: <b>${nomiSW[r.sw]}</b>. File memorizzati: <b>${r.memorizzati} su ${r.totale}</b>.</p>`;
+    if (r.assentiSulSito && r.assentiSulSito.length) h += riga(['Sul sito mancano questi file:', esc(r.assentiSulSito.join(', ')) + '. Caricali nella stessa cartella di index.html (su GitHub: Add file, Upload files) e ricontrolla: finché ne manca anche solo uno la memoria offline non parte.'], false);
+    else if (r.mancanti.length && r.sw === 'attivo') h += riga(['Mancano ancora in memoria:', esc(r.mancanti.join(', ')) + '. Ricarica la pagina con la connessione.'], false);
+    else if (r.sw === 'assente' && !erroreSW) h += riga(['Cosa fare:', 'ricarica la pagina una volta con la connessione (tasto di aggiornamento del browser) e riapri queste impostazioni.'], null);
+  }
+  if (r.installata) h += riga(['Installata', 'su questo dispositivo.'], true);
+  else if (richiestaInstalla) h += riga(['Non ancora installata.', 'Premi il pulsante qui sotto per installarla: compare l\'icona.'], false);
+  else if (èiOS()) h += riga(['Per installarla su iPhone e iPad:', 'in Safari tocca Condividi, poi <b>Aggiungi alla schermata Home</b>.'], false);
+  else if (èSafariMac) h += riga(['Per installarla su Mac con Safari:', 'dal menu <b>File</b> scegli <b>Aggiungi al Dock</b>.'], false);
+  else if (/Android/i.test(ua)) h += riga(['Per installarla su Android:', 'dal menu del browser scegli <b>Installa app</b> o <b>Aggiungi a schermata Home</b>.'], false);
+  else h += riga(['Per installarla su computer:', 'in Chrome o Edge usa l\'icona di installazione nella barra dell\'indirizzo oppure, dal menu del browser, <b>Installa app</b>.'], false);
   if (r.persistente === true) h += riga(['Dati protetti:', 'il browser non li cancella da solo.'], true);
-  else if (r.persistente === false) h += riga(['Dati non protetti:', 'se il telefono ha poco spazio il browser potrebbe cancellarli. Invia le schede e i file appena puoi.'], false);
+  else if (r.persistente === false) h += riga(['Dati non protetti:', 'se il dispositivo ha poco spazio il browser potrebbe cancellarli. Invia le schede e i file appena puoi.'], false);
   box.innerHTML = h;
   $('#b-installa').hidden = !richiestaInstalla;
+  // finche' non e' pronto, ricontrolla da solo ogni due secondi (per mezzo minuto) se le impostazioni sono aperte
+  clearTimeout(timerStato);
+  if (!r.pronta && r.sicuro && tentativiStato < 15 && typeof vistaCorrente !== 'undefined' && vistaCorrente === 'impostazioni') { tentativiStato++; timerStato = setTimeout(aggiornaStatoApp, 2000); }
 }
 async function installaApp(){
   if (!richiestaInstalla) return;
@@ -2680,14 +2708,14 @@ function avvia(){
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
     document.querySelectorAll('input[name="stampa-dpi"]').forEach(r => r.checked = (+r.value === +st.dpi));
-    mostra('impostazioni'); aggiornaTile(); preparaFirmaTec(); aggiornaStatoApp();
+    mostra('impostazioni'); aggiornaTile(); preparaFirmaTec(); tentativiStato = 0; aggiornaStatoApp();
   };
   const salvaStampa = () => { const r = document.querySelector('input[name="stampa-formato"]:checked'), d = document.querySelector('input[name="stampa-dpi"]:checked'); impostazioni.stampa = {formato: r ? r.value : 'pdf', bn: $('#stampa-bn').checked, dpi: d ? +d.value : 200}; salvaImpostazioni(); aggiornaTile(); };
   document.querySelectorAll('input[name="stampa-formato"],input[name="stampa-dpi"]').forEach(r => r.onchange = salvaStampa); $('#stampa-bn').onchange = salvaStampa;
   $('#b-indietro-imp').onclick = indietro;
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
-  $('#b-azzera').onclick = async () => { if (confirm('Cancello tutte le schede salvate su questo telefono (comprese le foto)?')) { bozze = {}; salvaBozze(); try { await cancellaTutteLeFoto(); } catch(e){} disegnaAgenda(); } };
+  $('#b-azzera').onclick = async () => { if (confirm('Cancello tutte le schede salvate su questo dispositivo (comprese le foto)?')) { bozze = {}; salvaBozze(); try { await cancellaTutteLeFoto(); } catch(e){} disegnaAgenda(); } };
   $('#in-pacchetto').onchange = e => { const f = e.target.files[0]; if (f) caricaPacchetto(f); e.target.value = ''; };
   $('#b-ufficio').onclick = () => { $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
   $('#b-indietro-uff').onclick = indietro;
@@ -2696,6 +2724,7 @@ function avvia(){
   $('#b-prova').onclick = () => { store.set('ass_dati', null); esitoImport = ''; appuntamenti = caricaAppuntamenti(); mostra('agenda', false); disegnaAgenda(); };
   caricaModificati();
   $('#b-installa').onclick = installaApp;
+  $('#b-ricontrolla').onclick = () => { tentativiStato = 0; aggiornaStatoApp(); };
   $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } location.reload(); };
   registraServiceWorker();
   $('#vm-mic-slot').outerHTML = bottoneMic('vm');

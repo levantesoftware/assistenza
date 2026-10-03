@@ -6,15 +6,19 @@ COSA C'E' IN QUESTA CARTELLA
   sw.js                   memorizza l'app sul dispositivo, cosi' funziona anche senza connessione
   manifest.webmanifest    nome e icona dell'app
   icona-192.png, icona-512.png, icona-maskable-512.png, apple-touch-icon.png    le icone
-  libs/                   le librerie per creare, leggere e modificare i PDF (incluse: non servono siti esterni)
+  jspdf.umd.min.js, pdf.min.js, pdf.worker.min.js, pdf-lib.min.js    le librerie per creare, leggere e modificare i PDF
+                          (incluse: non servono siti esterni)
+  LICENZE-librerie.txt    le licenze delle librerie
+
+  NESSUNA CARTELLA: tutti i file stanno nello stesso posto, uno accanto all'altro.
 
 COME METTERLA ONLINE SU GITHUB (si fa una volta sola)
   1. Crea un account gratuito su github.com.
   2. Crea un nuovo repository (il "+" in alto a destra, poi "New repository"), per esempio con nome "assistenza",
      impostato come Public.
-  3. Nel repository: "Add file" > "Upload files". Trascina TUTTO il contenuto di questa cartella (compresa la
-     cartella libs) e premi "Commit changes".
-     Controlla che index.html, sw.js e manifest.webmanifest stiano nella pagina principale del repository.
+  3. Nel repository: "Add file" > "Upload files". Trascina TUTTI i file di questa cartella (non ci sono sottocartelle)
+     e premi "Commit changes".
+     Controlla che nella pagina principale del repository ci siano tutti i file dell'elenco qui sopra.
   4. Settings > Pages > Source: "Deploy from a branch", ramo "main", cartella "/ (root)", poi Save.
   5. Dopo circa un minuto l'app e' all'indirizzo  https://NOMEUTENTE.github.io/NOME-REPOSITORY/
 
@@ -30,7 +34,7 @@ COME SI INSTALLA SUI DISPOSITIVI
 COME SI AGGIORNA
   - Per una versione nuova basta caricare di nuovo index.html con lo stesso nome ("Add file" > "Upload files": sostituisce
     quello vecchio). Chi ha campo trova la versione nuova alla prima apertura; senza campo resta quella precedente.
-  - Se cambiano anche altri file (sw.js, libs, icone) ricaricali insieme. Se si aggiungono file nuovi, in sw.js si cambia
+  - Se cambiano anche altri file (sw.js, librerie, icone) ricaricali insieme. Se si aggiungono file nuovi, in sw.js si cambia
     VERSIONE (per esempio da 'v1' a 'v2') e si aggiungono all'elenco FILE_APP.
 
 COSE DA SAPERE

@@ -1,0 +1,5 @@
+Librerie incluse (software libero, ridistribuibile):
+- jsPDF 2.5.1 (jspdf.umd.min.js) - licenza MIT - https://github.com/parallax/jsPDF
+- PDF.js 3.11.174 (pdf.min.js, pdf.worker.min.js) - licenza Apache 2.0 - Mozilla - https://github.com/mozilla/pdf.js
+- pdf-lib 1.17.1 (pdf-lib.min.js) - licenza MIT - https://github.com/Hopding/pdf-lib
+Servono per creare, leggere e modificare i PDF direttamente sul dispositivo.
