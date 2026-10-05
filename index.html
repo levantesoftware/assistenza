@@ -133,7 +133,7 @@ details.altre summary{cursor:pointer;color:var(--petrolio);font-weight:600;paddi
 .campo{margin:0 0 14px}
 .campo>label,.etichetta{display:block;font-size:14px;font-weight:650;margin-bottom:5px}
 .campo .conta{float:right;font-weight:400;color:var(--tenue)}
-input[type=text],input[type=date],input[type=time],input[type=number],input[type=tel],textarea,select{
+input[type=text],input[type=email],input[type=date],input[type=time],input[type=number],input[type=tel],textarea,select{
   width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid #A9B8BE;border-radius:8px;background:#fff;font:inherit;font-size:16px;color:var(--inchiostro)}
 textarea{min-height:96px;resize:vertical}
 textarea.alta{min-height:150px}
@@ -314,6 +314,11 @@ button,a,label,summary,select{touch-action:manipulation}
 #novita-modale[hidden]{display:none}
 #novita-modale .ed-fogli{max-height:88vh;overflow:auto}
 .chip.nov{background:#FFE3BD;color:#7A3E00;font-weight:700}
+
+/* invio: a chi */
+.dest{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dest button{min-height:48px;border-radius:10px;border:1.5px solid var(--riga);background:#fff;font-weight:700;cursor:pointer}
+.dest button[aria-pressed="true"]{background:var(--petrolio);border-color:var(--petrolio);color:#fff}
 </style>
 </head>
 <body>
@@ -423,6 +428,7 @@ button,a,label,summary,select{touch-action:manipulation}
     </header>
     <div class="campo"><label for="i-azienda">Nome azienda (in alto nel PDF)</label><input type="text" id="i-azienda"></div>
     <div class="campo"><label for="i-tecnico">Nome del tecnico (precompila la scheda)</label><input type="text" id="i-tecnico"></div>
+    <div class="campo"><label for="i-email-ufficio">Email dell'ufficio (per inviare i documenti)</label><input type="email" id="i-email-ufficio" inputmode="email" autocomplete="off" placeholder="ufficio@tuaazienda.it"></div>
     <div class="campo"><span class="etichetta">La tua firma per l'RCEE (si fa una volta sola)</span>
       <div class="firma"><canvas id="firma-tec"></canvas><div class="linea"></div></div>
       <div class="strumenti"><span>Firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma-tec" type="button">Cancella firma</button></div></div>
@@ -595,7 +601,8 @@ let periodo = 'oggi';
 let corrente = null;     // appuntamento aperto
 let lavoro = null;       // scheda in compilazione
 let ultimoPdf = null;
-let ultimiAllegati = [];      // documenti dell'appuntamento che si possono allegare all'invio
+let ultimiAllegati = [];
+let ultimoPdfCliente = null, destInvio = 'uff';      // documenti dell'appuntamento che si possono allegare all'invio
 
 const salvaImpostazioni = () => store.set('ass_impostazioni', impostazioni);
 const salvaBozze = () => store.set('ass_bozze', bozze);
@@ -857,6 +864,21 @@ const ANALISI_CAMPI = [
 const ESITI = {concluso:'Concluso', da_completare:'Da completare (serve un altro intervento)', non_eseguito:'Non eseguito'};
 const ESITI_TILE = [['concluso','Concluso','','ok'], ['da_completare','Da completare','serve un altro intervento','mezzo'], ['non_eseguito','Non eseguito','scrivi il motivo nelle note','no']];
 
+
+/* ---- email: indirizzi del cliente, controllo e testo dei messaggi ---- */
+const REGEX_EMAIL = /^[^\s@,;<>()]+@[^\s@,;<>()]+\.[^\s@,;<>()]{2,}$/;
+const emailValida = t => REGEX_EMAIL.test(String(t || '').trim());
+function elencoEmail(testo, pec){            // "a@x.it, b@y.it; c@z.it" -> [{a, pec}]
+  const visti = new Set(), out = [];
+  String(testo || '').split(/[\s,;]+/).map(x => x.trim().replace(/^<|>$/g, '')).filter(Boolean).forEach(x => {
+    const k = x.toLowerCase(); if (emailValida(x) && !visti.has(k)) { visti.add(k); out.push({a: x, pec: !!pec}); }
+  });
+  return out;
+}
+function indirizziCliente(c){                  // prima le email normali, poi la PEC
+  const norm = elencoEmail(c.e, false), pec = elencoEmail(c.p, true).filter(x => !norm.some(n => n.a.toLowerCase() === x.a.toLowerCase()));
+  return norm.concat(pec);
+}
 function nuovaScheda(a){
   const r = (a && a.r) || {}, c = r.c || {}, i = r.i || {};
   const w = {
@@ -867,8 +889,10 @@ function nuovaScheda(a){
     impianto: i.d || '', levante: a && r.li ? {li:r.li, mi:r.mi} : null, r: a ? a.r || null : null,
     rc: a && a.rc ? JSON.parse(JSON.stringify(a.rc)) : [],
     ops: {}, ops_extra: [], analisi: {}, orari: [{data: isoGiorno(a ? a.inizio : new Date()), dal: a ? hhmm(a.inizio) : '', al: ''}],
-    relazione:'', osservazioni:'', raccomandazioni:'', prescrizioni:'', km:'', materiali: [], esito:'', note:'', firmaNome:'', firma:''
+    relazione:'', osservazioni:'', raccomandazioni:'', prescrizioni:'', km:'', materiali: [], esito:'', note:'', firmaNome:'', firma:'',
+    email: '', emailOpz: [], consensoEmail: true
   };
+  w.emailOpz = indirizziCliente(c); w.email = w.emailOpz.length ? w.emailOpz[0].a : ''; w.consensoEmail = c.ce !== 'F';
   (r.o || []).forEach(o => { w.ops[o.id] = {fatta:false, nota:''}; });
   // analisi di combustione preparata per gli apparecchi con "analisi fumi" da fare
   (r.o || []).filter(o => o.f && o.a && /(\.AF$|ANALISI FUMI)/i.test(o.c + ' ' + o.d)).forEach(o => { w.analisi[o.a] = {}; });
@@ -1046,6 +1070,14 @@ function sezioneRcee(){
     </div>`;
   }).join('');
 }
+function righeEmailOpz(){
+  const opz = lavoro.emailOpz || [], corr = (lavoro.email || '').trim().toLowerCase();
+  let h = '';
+  if (opz.length > 1) h += '<p class="aiuto" style="margin:-4px 0 6px">Altri indirizzi del cliente: tocca per scegliere</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + opz.map(x => `<button class="btn ${x.a.toLowerCase() === corr ? '' : 'sec '}piccolo" type="button" data-email-sceglie="${esc(x.a)}">${esc(x.a)}${x.pec ? ' (PEC)' : ''}</button>`).join('') + '</div>';
+  if (lavoro.consensoEmail === false) h += '<div class="avviso"><b>Attenzione</b>In Levante questo cliente non ha dato il consenso alle comunicazioni via email.</div>';
+  if ((lavoro.email || '').trim() && !emailValida(lavoro.email)) h += '<p class="aiuto" style="color:var(--rosso);margin:-4px 0 8px">L\'indirizzo non sembra valido: controlla che ci siano la chiocciola e il dominio.</p>';
+  return h;
+}
 function disegnaScheda(){
   const w = lavoro;
   $('#form').innerHTML = `
@@ -1053,6 +1085,8 @@ function disegnaScheda(){
       ${campoTesto('cliente', 'Cliente')}
       ${campoTesto('indirizzo', 'Indirizzo dell\'intervento')}
       <div class="due">${campoTesto('data', 'Data', {tipo:'date'})}${campoTesto('tecnico', 'Tecnico')}</div>
+      ${campoTesto('email', 'Email del cliente (per inviargli i documenti)', {tipo:'email', inputmode:'email'})}
+      <div id="email-opz">${righeEmailOpz()}</div>
     </div>
     <div class="passo"><h2>Guasto o richiesta</h2>${campoTesto('richiesta', 'Cosa ha segnalato il cliente', {area:true})}</div>
     ${sezioneOperazioni()}
@@ -1088,9 +1122,15 @@ function disegnaScheda(){
       <div style="margin-top:12px">${campoTesto('firmaNome', 'Nome di chi firma')}</div>
     </div>
     <div class="fatto" id="pdf-fatto" hidden>
-      <p><strong id="pdf-titolo">PDF creato.</strong></p><div id="pdf-lista"></div><div id="pdf-allegati"></div><p class="aiuto" id="pdf-msg" role="status" style="margin:0 0 10px"></p>
-      <div class="azioni2"><button class="btn" id="b-condividi" type="button" hidden>Invia il PDF</button>
-      <button class="btn sec" id="b-scarica" type="button">Scarica il PDF</button></div></div>`;
+      <p><strong id="pdf-titolo">PDF creato.</strong></p><div id="pdf-lista"></div>
+      <p style="margin:16px 0 6px"><strong>Invia i documenti</strong></p>
+      <div class="dest" id="invio-dest" role="group" aria-label="A chi inviare"><button type="button" data-dest="uff" aria-pressed="true">In ufficio</button><button type="button" data-dest="cli" aria-pressed="false">Al cliente</button></div>
+      <div id="invio-a"></div>
+      <div id="pdf-allegati"></div>
+      <p class="aiuto" id="pdf-msg" role="status" style="margin:6px 0 8px"></p>
+      <p class="aiuto" id="invio-guida" style="margin:0 0 10px"></p>
+      <div class="azioni2"><button class="btn" id="b-condividi" type="button">Invia in ufficio</button>
+      <button class="btn sec" id="b-scarica" type="button">Scarica i file</button></div></div>`;
   if (!lavoro.foto) lavoro.foto = [];
   disegnaFoto();
   aggiornaOre();
@@ -1118,23 +1158,24 @@ function aggiornaOre(){
 
 /* ---- salvataggio automatico ---- */
 let timer = null;
-function bozzaModificata(){
-  lavoro.stato = 'bozza'; lavoro.aggiornata = Date.now();
+function bozzaModificata(senzaInvalidare){      // senzaInvalidare: modifiche che non toccano i PDF gia' creati (come l'email)
+  if (!senzaInvalidare) lavoro.stato = 'bozza';
+  lavoro.aggiornata = Date.now();
   clearTimeout(timer);
-  timer = setTimeout(salvaBozza, 400);
+  timer = setTimeout(() => salvaBozza(senzaInvalidare), 400);
 }
 function catturaFirma(){
   const c = $('#firma');
   lavoro.firma = (firmaHaInchiostro && c) ? c.toDataURL('image/png') : '';
   lavoro.firmaW = c ? c.clientWidth : 0; lavoro.firmaH = c ? c.clientHeight : 0;
 }
-function salvaBozza(){
+function salvaBozza(mantieniPannello){
   timer = null;
   if (!lavoro) return;
   catturaFirma();
   bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
-  const s = $('#salvato'); if (s) s.textContent = 'Bozza salvata su questo telefono';
-  const p = $('#pdf-fatto'); if (p) p.hidden = true;
+  const s = $('#salvato'); if (s && !mantieniPannello) s.textContent = 'Bozza salvata su questo dispositivo';
+  if (!mantieniPannello) { const p = $('#pdf-fatto'); if (p) p.hidden = true; }
 }
 
 /* ---- gestione dei campi (un solo ascoltatore) ---- */
@@ -1142,27 +1183,32 @@ function collegaForm(){
   const f = $('#form');
   f.addEventListener('input', e => {
     const t = e.target, d = t.dataset;
-    if (d.k) { lavoro[d.k] = t.value; const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength'); }
+    if (d.k) { lavoro[d.k] = t.value; const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
+      if (d.k === 'email') { const x = $('#inv-email-cli'); if (x && x !== t) x.value = t.value; const o = $('#email-opz'); if (o) o.innerHTML = righeEmailOpz(); } }
     else if (d.orario !== undefined) { lavoro.orari[+d.orario][d.c] = t.value; aggiornaOre(); }
     else if (d.mat !== undefined) { lavoro.materiali[+d.mat][d.c] = t.value; }
     else if (d.an !== undefined) { (lavoro.analisi[d.an] = lavoro.analisi[d.an] || {})[d.c] = t.value; }
     else if (d.extra !== undefined) { lavoro.ops_extra[+d.extra] = t.value; }
     else if (d.fotoc !== undefined) { const f = (lavoro.foto || []).find(x => x.id === d.fotoc); if (f) f.commento = t.value; }
     else if (d.rci !== undefined) { lavoro.rc[+d.rci][d.rcc] = t.value.replace(',', '.'); }
+    else if (t.id === 'inv-email-cli') { lavoro.email = t.value; const x = $('#f-email'); if (x) x.value = t.value; const o = $('#inv-email-opz'); if (o) o.innerHTML = righeEmailOpz(); const o2 = $('#email-opz'); if (o2) o2.innerHTML = righeEmailOpz(); }
+    else if (t.id === 'inv-email-uff') { impostazioni.emailUfficio = t.value.trim(); salvaImpostazioni(); return; }
     else return;
-    bozzaModificata();
+    bozzaModificata(d.k === 'email' || t.id === 'inv-email-cli');
   });
   f.addEventListener('change', e => {
     const t = e.target, d = t.dataset;
-    if (d.allega !== undefined) { ultimiAllegati[+d.allega].on = t.checked; aggiornaPulsantiInvio(); }
+    if (d.allega !== undefined) { ultimiAllegati[+d.allega][destInvio === 'cli' ? 'onCli' : 'on'] = t.checked; aggiornaPulsantiInvio(); }
     else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); }
     else if (t.name === 'esito') { lavoro.esito = t.value; aggiornaTile(); bozzaModificata(); }
     else if (t.id === 'an-nuova' && t.value) { lavoro.analisi[t.value] = {}; $('#analisi').innerHTML = schedeAnalisi(); bozzaModificata(); }
   });
   f.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+    if (d.dest !== undefined) { destInvio = d.dest; disegnaInvio(); return; }
+    if (d.emailSceglie !== undefined) { lavoro.email = d.emailSceglie; const x = $('#f-email'); if (x) x.value = lavoro.email; const y = $('#inv-email-cli'); if (y) y.value = lavoro.email; ['#email-opz', '#inv-email-opz'].forEach(q => { const o = $(q); if (o) o.innerHTML = righeEmailOpz(); }); bozzaModificata(true); return; }
     if (d.stampa !== undefined) { const f = ultimoPdf && ultimoPdf[+d.stampa]; if (f) stampaFile(new File([f.blob], f.nome, {type: 'application/pdf'}), $('#pdf-msg')); return; }
-    if (d.stampaAll !== undefined) { const a = ultimiAllegati[+d.stampaAll]; if (a) stampaFile(new File([a.blob], a.nome, {type: a.mime || 'application/octet-stream'}), $('#pdf-msg')); return; }
+    if (d.stampaAll !== undefined) { const a = ultimiAllegati[+d.stampaAll]; if (a) stampaFile(new File([blobDi(a)], a.nome, {type: a.mime || 'application/octet-stream'}), $('#pdf-msg')); return; }
     if (d.stampaAncora !== undefined) { stampaPronta_(); return; }
     if (d.mic !== undefined) { avviaDettatura(d.mic); return; }
     if (d.fotoScatta !== undefined) { $('#in-foto').click(); return; }
@@ -1349,7 +1395,7 @@ function costruisciPdf(w, ctx){
 
   titolo('Esito');
   serve(10); doc.setFont('helvetica','bold'); doc.setFontSize(11); colore(INK); doc.text(ESITI[w.esito] || '—', M, y + 3); y += 8; doc.setFont('helvetica','normal');
-  blocco('Note per l\'ufficio', w.note);
+  if (!ctx.perCliente) blocco('Note per l\'ufficio', w.note);
 
   titolo('Firma del cliente'); serve(40);
   if (w.firma) { const p = doc.getImageProperties(w.firma), s = Math.min(70 / p.width, 28 / p.height); doc.addImage(w.firma, 'PNG', M, y, p.width * s, p.height * s); }
@@ -1401,6 +1447,8 @@ function creaPdf(){
   if (!lavoro.esito) { alert('Scegli l\'esito dell\'intervento.'); return; }
   if (!lavoro.firma && !confirm('Manca la firma del cliente. Creo il PDF lo stesso?')) return;
   const files = [{blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda}), nome: nomePdf(lavoro), titolo: 'Rapportino'}];
+  ultimoPdfCliente = {blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda, perCliente: true}), nome: nomePdf(lavoro)};
+  destInvio = 'uff';
   if (rcSupportati(lavoro).length) {
     if (!impostazioni.firmaTecnico && !confirm('Manca la tua firma per l\'RCEE (si imposta una volta sola in Impostazioni). Creo i PDF lo stesso?')) return;
     try { files.push({blob: costruisciRcee(lavoro), nome: nomeRcee(lavoro), titolo: 'RCEE'}); }
@@ -1416,43 +1464,77 @@ function creaPdf(){
   $('#pdf-fatto').hidden = false; $('#salvato').textContent = '';
   $('#pdf-fatto').scrollIntoView({behavior:'smooth', block:'center'});
 }
-async function condividiPdf(){
-  const fl = filesDaInviare(); if (!fl.length) return;
-  try { await navigator.share({files: fl, title: fl[0].name}); } catch(e){}
-}
 function scaricaPdf(){
   filesDaInviare().forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
 }
 
 /* ---- cosa si invia: i PDF appena creati + i documenti scelti (quelli modificati sono già spuntati) ---- */
 function filesDaInviare(){
-  const out = (ultimoPdf || []).map(f => new File([f.blob], f.nome, {type: 'application/pdf'}));
-  ultimiAllegati.filter(a => a.on).forEach(a => {
+  const cli = destInvio === 'cli', out = [];
+  ultimiAllegati.filter(a => cli ? a.onCli : a.on).forEach(a => {
     if (a.gruppo) a.gruppo.forEach(g => out.push(new File([g.blob], g.nome, {type: 'image/jpeg'})));
-    else out.push(new File([a.blob], a.nome, {type: a.mime || 'application/octet-stream'}));
+    else out.push(new File([blobDi(a)], a.nome, {type: a.mime || 'application/octet-stream'}));
   });
   return out;
 }
+const blobDi = a => (destInvio === 'cli' && a.blobCli) ? a.blobCli : a.blob;
 function aggiornaPulsantiInvio(){
-  const fl = filesDaInviare(), solo = fl.length === 1 && /pdf/i.test(fl[0].type);
-  $('#b-condividi').textContent = solo ? 'Invia il PDF' : 'Invia i file';
-  $('#b-scarica').textContent = solo ? 'Scarica il PDF' : 'Scarica i file';
+  const cli = destInvio === 'cli', fl = filesDaInviare();
+  const b = $('#b-condividi'), sc = $('#b-scarica'); if (!b) return;
+  b.textContent = cli ? 'Invia al cliente' : 'Invia in ufficio'; b.disabled = !fl.length;
+  sc.textContent = fl.length === 1 ? 'Scarica il file' : 'Scarica i file'; sc.disabled = !fl.length;
   const puo = !!(navigator.canShare && fl.length && navigator.canShare({files: fl}));
-  $('#b-condividi').hidden = !puo;
-  const nonCond = fl.length && !puo && navigator.canShare;
-  const m = $('#pdf-msg'); if (m && !m.innerHTML.includes('<a ')) m.textContent = nonCond ? 'Uno dei file scelti non si può inviare direttamente da questo dispositivo: scaricali e allegali tu al messaggio.' : '';
+  const g = $('#invio-guida');
+  if (g) g.innerHTML = puo
+    ? 'Si apre il menu del dispositivo: scegli la tua app di posta (Mail, Gmail, Outlook…). L\'<b>indirizzo viene copiato</b>: nel campo <b>A</b> tieni premuto e scegli <b>Incolla</b>.'
+    : 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.';
+}
+
+/* ---- messaggio di posta: oggetto e testo pronti ---- */
+function composizioneMail(cli){
+  const az = impostazioni.azienda || '', d = dataIT(lavoro.data), nomi = filesDaInviare().map(f => f.name);
+  if (cli) return {
+    oggetto: 'Rapporto di intervento del ' + d + (az ? ' - ' + az : ''),
+    testo: 'Buongiorno,\n\nin allegato il rapporto di intervento del ' + d + (lavoro.indirizzo ? ' presso ' + lavoro.indirizzo : '') + '.' + (nomi.some(n => /^RCEE/i.test(n)) ? '\nIn allegato anche il rapporto di controllo di efficienza energetica (RCEE).' : '') + '\n\nCordiali saluti\n' + (lavoro.tecnico || '') + (az ? '\n' + az : '')};
+  return {
+    oggetto: 'Intervento ' + d + ' - ' + (lavoro.cliente || '') + (lavoro.indirizzo ? ' - ' + lavoro.indirizzo : ''),
+    testo: 'Intervento del ' + d + '\nCliente: ' + (lavoro.cliente || '') + '\nIndirizzo: ' + (lavoro.indirizzo || '') + '\nEsito: ' + (ESITI[lavoro.esito] || '-') + '\nTecnico: ' + (lavoro.tecnico || '') + (oreTotali() ? '\nOre: ' + fmtOre(oreTotali()) : '') + '\n\nAllegati:\n' + nomi.map(n => '- ' + n).join('\n')};
+}
+function baseAllegati(){
+  const l = [];
+  (ultimoPdf || []).forEach(f => {
+    if (f.titolo === 'Rapportino') l.push({id: 'rapporto', nome: f.nome, blob: f.blob, blobCli: ultimoPdfCliente ? ultimoPdfCliente.blob : null, mime: 'application/pdf', base: true, on: true, onCli: true,
+      etichetta: 'Rapporto di intervento', etichettaCli: 'Rapporto di intervento (copia per il cliente, senza note interne)'});
+    else l.push({id: 'rcee', nome: f.nome, blob: f.blob, mime: 'application/pdf', base: true, on: true, onCli: true, etichetta: 'RCEE (rapporto di controllo di efficienza energetica)'});
+  });
+  return l;
+}
+function disegnaInvio(){
+  const box = $('#pdf-allegati'); if (!box) return;
+  const cli = destInvio === 'cli';
+  document.querySelectorAll('#invio-dest [data-dest]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dest === destInvio));
+  $('#invio-a').innerHTML = cli
+    ? `<div class="campo" style="margin-top:10px"><label for="inv-email-cli">Email del cliente</label><input type="email" id="inv-email-cli" inputmode="email" autocomplete="off" value="${esc(lavoro.email || '')}" placeholder="nome@esempio.it"></div><div id="inv-email-opz">${righeEmailOpz()}</div>`
+    : `<div class="campo" style="margin-top:10px"><label for="inv-email-uff">Email dell'ufficio</label><input type="email" id="inv-email-uff" inputmode="email" autocomplete="off" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@tuaazienda.it"><span class="aiuto">Si ricorda per le prossime volte.</span></div>`;
+  const nf = (lavoro.foto || []).length;
+  box.innerHTML = ultimiAllegati.length ? '<p style="margin:12px 0 4px"><strong>File da inviare ' + (cli ? 'al cliente' : 'in ufficio') + '</strong></p>' + ultimiAllegati.map((a, n) => {
+    const on = cli ? a.onCli : a.on, et = (cli && a.etichettaCli) ? a.etichettaCli : (a.etichetta || a.nome);
+    const chip = (a.foto || a.base) ? '' : (a.modificato ? ' <span class="chip pdf">Modificato</span>' : ' <span class="chip">Originale</span>');
+    return `<label class="allega"><input type="checkbox" data-allega="${n}"${on ? ' checked' : ''}><span>${esc(et)}${chip}</span>${a.gruppo ? '' : `<button class="btn sec piccolo" type="button" data-apri-all="${n}">Apri</button><button class="btn piccolo" type="button" data-stampa-all="${n}">Stampa</button>`}</label>`;
+  }).join('') + (nf ? '<p class="aiuto" style="margin:8px 0 0">Dopo l\'invio puoi liberare spazio: <button class="btn chiaro piccolo" type="button" data-foto-cancella>Cancella le foto da questo dispositivo</button></p>' : '') : '';
+  aggiornaPulsantiInvio();
 }
 async function preparaAllegati(){
-  const box = $('#pdf-allegati'); const docs = ((corrente && corrente.docs) || []).filter(d => !d.altro);
-  ultimiAllegati = [];
+  const docs = ((corrente && corrente.docs) || []).filter(d => !d.altro);
+  const lista = baseAllegati(); ultimiAllegati = lista; disegnaInvio();
   const nf = (lavoro.foto || []).length;
   if (nf) {
     try {
       const blob = await costruisciPdfFoto(lavoro), sl = slugNome(lavoro.cliente || 'intervento');
-      ultimiAllegati.push({id: 'foto-pdf', nome: `Foto_${sl}_${lavoro.data || isoGiorno(new Date())}.pdf`, mime: 'application/pdf', blob, on: true, foto: true, etichetta: `Documentazione fotografica (${nf} ${nf === 1 ? 'foto' : 'foto'})`});
+      lista.push({id: 'foto-pdf', nome: `Foto_${sl}_${lavoro.data || isoGiorno(new Date())}.pdf`, mime: 'application/pdf', blob, on: true, onCli: false, foto: true, etichetta: `Documentazione fotografica (${nf} ${nf === 1 ? 'foto' : 'foto'})`});
       const singole = [];
       for (let i = 0; i < nf; i++) { const rec = await leggiFotoRec(chiaveFoto(lavoro.id, lavoro.foto[i].id)); if (rec) singole.push({nome: `Foto_${sl}_${i + 1}.jpg`, blob: new Blob([rec.dati], {type: 'image/jpeg'})}); }
-      if (singole.length) ultimiAllegati.push({id: 'foto-singole', gruppo: singole, mime: 'image/jpeg', on: false, foto: true, etichetta: `Anche le foto singole (${singole.length} file JPG)`});
+      if (singole.length) lista.push({id: 'foto-singole', gruppo: singole, mime: 'image/jpeg', on: false, onCli: false, foto: true, etichetta: `Anche le foto singole (${singole.length} file JPG)`});
     } catch(e) { const m = $('#pdf-msg'); if (m) m.textContent = 'Non sono riuscito a preparare le foto (' + e.message + ').'; }
   }
   for (const d of docs) {
@@ -1460,14 +1542,37 @@ async function preparaAllegati(){
       const mod = docModificati.get(d.id), rec = mod ? await leggiModificato(d.id) : await leggiFile(d.id);
       if (!rec) continue;
       const bytes = bytesDaB64(rec.b64), mime = rec.mime || d.mime || 'application/octet-stream';
-      ultimiAllegati.push({id: d.id, nome: mod ? (rec.nome || d.nome) : d.nome, mime, modificato: !!mod, blob: new Blob([bytes], {type: mime}), on: !!mod});
+      lista.push({id: d.id, nome: mod ? (rec.nome || d.nome) : d.nome, mime, modificato: !!mod, blob: new Blob([bytes], {type: mime}), on: !!mod, onCli: false});
     } catch(e) {}
   }
-  if (!ultimiAllegati.length) { box.innerHTML = ''; aggiornaPulsantiInvio(); return; }
-  box.innerHTML = '<p style="margin:12px 0 4px"><strong>Allega anche questi file</strong></p>' + ultimiAllegati.map((a, n) =>
-    `<label class="allega"><input type="checkbox" data-allega="${n}"${a.on ? ' checked' : ''}><span>${esc(a.etichetta || a.nome)}${a.foto ? '' : (a.modificato ? ' <span class="chip pdf">Modificato</span>' : ' <span class="chip">Originale</span>')}</span>${a.gruppo ? '' : `<button class="btn sec piccolo" type="button" data-apri-all="${n}">Apri</button><button class="btn piccolo" type="button" data-stampa-all="${n}">Stampa</button>`}</label>`).join('')
-    + (nf ? '<p class="aiuto" style="margin:8px 0 0">Dopo l\'invio puoi liberare spazio: <button class="btn chiaro piccolo" type="button" data-foto-cancella>Cancella le foto da questo dispositivo</button></p>' : '');
-  aggiornaPulsantiInvio();
+  if (ultimiAllegati === lista) disegnaInvio();
+}
+async function condividiPdf(){
+  const cli = destInvio === 'cli', fl = filesDaInviare(), m = $('#pdf-msg');
+  if (!fl.length) { m.textContent = 'Scegli almeno un file da inviare.'; return; }
+  const ind = String(cli ? lavoro.email : impostazioni.emailUfficio || '').trim();
+  if (!ind) { m.textContent = cli ? 'Scrivi l\'email del cliente qui sopra.' : 'Scrivi l\'email dell\'ufficio qui sopra.'; const x = $(cli ? '#inv-email-cli' : '#inv-email-uff'); if (x) x.focus(); return; }
+  if (!emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
+  if (cli && lavoro.consensoEmail === false && !confirm('In Levante questo cliente non ha dato il consenso alle comunicazioni via email. Invio lo stesso?')) return;
+  const {oggetto, testo} = composizioneMail(cli);
+  if (navigator.canShare && navigator.canShare({files: fl})) {
+    // l'indirizzo si copia e il menu di condivisione si apre nello stesso tocco (serve per essere accettati dal telefono)
+    let copia = Promise.resolve(false);
+    try { copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e){}
+    try {
+      await navigator.share({files: fl, title: oggetto, text: testo});
+      m.textContent = (await copia) ? 'Indirizzo copiato (' + ind + '): nella mail, nel campo A, tieni premuto e scegli Incolla.' : 'Indirizzo del destinatario: ' + ind;
+      return;
+    } catch(e) { if (e && e.name === 'AbortError') return; }
+  }
+  // senza menu di condivisione (per esempio un computer): scarico i file e apro la mail con destinatario, oggetto e testo
+  scaricaPdf();
+  setTimeout(() => {
+    const a = document.createElement('a');
+    a.href = 'mailto:' + encodeURIComponent(ind).replace('%40', '@') + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(testo + '\n\n(Allega i file scaricati.)');
+    document.body.appendChild(a); a.click(); a.remove();
+  }, 500 + fl.length * 400);
+  m.textContent = 'Ho scaricato ' + (fl.length === 1 ? 'il file' : 'i file') + ' e aperto la mail per ' + ind + ': allega ' + (fl.length === 1 ? 'il file scaricato' : 'i file scaricati') + '.';
 }
 function slugNome(t){ return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'intervento'; }
 async function cancellaFotoInviate(){
@@ -1479,7 +1584,7 @@ async function cancellaFotoInviate(){
 }
 function apriAllegato(n){
   const a = ultimiAllegati[n]; if (!a) return;
-  const r = mostraFile(a.blob, a.nome, a.mime); const m = $('#pdf-msg'); if (!m) return;
+  const r = mostraFile(blobDi(a), a.nome, a.mime); const m = $('#pdf-msg'); if (!m) return;
   if (r.html) m.innerHTML = r.testo; else m.textContent = r.testo;
 }
 
@@ -2576,7 +2681,7 @@ function costruisciDaLevante(T){
     const opsApp = opa[a.ID] || [], selOp = {}, selApp = new Set();
     opsApp.forEach(o => { selOp[o.IDOPPRATICA] = o; if (o.IDAPPARECCHIOPRAT && o.IDAPPARECCHIOPRAT !== '0') selApp.add(o.IDAPPARECCHIOPRAT); });
     const r = {v:'1', li:a.ID, mi:a.MASTER_ID, tp:tipoInt(a.TIPOINTERVENTO)};
-    r.c = senzaVuoti(c0 ? {k:c0.CODICE, n:c0.RAGIONESOCIALE || a.RAGSOCCLI, t:c0.TELEFONO, m:c0.CELLULARE, e:c0.EMAIL} : {k:a.CLIENTE, n:a.RAGSOCCLI});
+    r.c = senzaVuoti(c0 ? {k:c0.CODICE, n:c0.RAGIONESOCIALE || a.RAGSOCCLI, t:c0.TELEFONO, m:c0.CELLULARE, e:c0.EMAIL, p:c0.PEC, ce:(c0.COM_EMAIL || '').toUpperCase() === 'F' ? 'F' : ''} : {k:a.CLIENTE, n:a.RAGSOCCLI});
     if (i0) {
       r.i = senzaVuoti({id:i0.ID, d:i0.DESCRIZIONE, u:ubicazioneDa(i0), z:i0.UBICAZ_ZONA, tp:i0.TIPOIMPIANTO, pv:dt10(i0.PROXVISITAENTRO),
         ct:i0.CONTRATTO_STATO, tel:i0.TELEFONOCLI || i0.CELLULARECLI, nt:(i0.NOTE || '').slice(0, 300)});
@@ -2828,7 +2933,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.1 (04/10/2026)';
+const VERSIONE_APP = '1.2 (05/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -2921,7 +3026,7 @@ function avvia(){
   $('#b-indietro-scheda').onclick = indietro;
   $('#b-pdf').onclick = creaPdf;
   $('#b-impostazioni').onclick = () => {
-    $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico;
+    $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || '';
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
     document.querySelectorAll('input[name="stampa-dpi"]').forEach(r => r.checked = (+r.value === +st.dpi));
@@ -2932,6 +3037,7 @@ function avvia(){
   $('#b-indietro-imp').onclick = indietro;
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
+  $('#i-email-ufficio').oninput = e => { impostazioni.emailUfficio = e.target.value.trim(); salvaImpostazioni(); };
   $('#b-azzera').onclick = async () => { if (confirm('Cancello tutte le schede salvate su questo dispositivo (comprese le foto)?')) { bozze = {}; salvaBozze(); try { await cancellaTutteLeFoto(); } catch(e){} disegnaAgenda(); } };
   $('#in-pacchetto').onchange = e => { const f = e.target.files[0]; if (f) caricaPacchetto(f); e.target.value = ''; };
   $('#b-ufficio').onclick = () => { $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
