@@ -308,6 +308,12 @@ button,a,label,summary,select{touch-action:manipulation}
 #vm-modale{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
 #vm-modale[hidden]{display:none}
 #vm-modale .ed-fogli{max-height:88vh;overflow:auto}
+
+/* novita' */
+#novita-modale{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#novita-modale[hidden]{display:none}
+#novita-modale .ed-fogli{max-height:88vh;overflow:auto}
+.chip.nov{background:#FFE3BD;color:#7A3E00;font-weight:700}
 </style>
 </head>
 <body>
@@ -340,6 +346,13 @@ button,a,label,summary,select{touch-action:manipulation}
   <!-- DETTAGLIO APPUNTAMENTO -->
   <section id="v-dettaglio" class="view"></section>
   <input type="file" id="in-doc-mod" hidden>
+  <div id="novita-modale" hidden>
+    <div class="ed-fogli">
+      <h2 id="novita-titolo" style="margin:0 0 4px">Novità dall'ufficio</h2>
+      <div id="novita-corpo"></div>
+      <div class="azioni" style="margin-top:14px"><button class="btn pieno" id="b-novita-ok" type="button" style="grid-column:1 / -1">Ho letto</button></div>
+    </div>
+  </div>
   <input type="file" id="in-foto" accept="image/*" capture="environment" hidden>
   <input type="file" id="in-foto-gal" accept="image/*" multiple hidden>
   <div id="dett-barra" hidden role="status" aria-live="polite"><span id="dett-testo"></span><button type="button" id="dett-fine" class="btn piccolo">Fine</button></div>
@@ -442,9 +455,14 @@ button,a,label,summary,select{touch-action:manipulation}
     </header>
     <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
       <li>Sul PC di Levante lancia <b>Esporta_Levante.bat</b>.</li>
-      <li>Apri la cartella che si crea (con data e ora) e scegli qui <b>tutti i file</b> (.csv e .json).</li>
-      <li>Manda a ogni tecnico il suo file (è un file di testo <b>.txt</b>: il tecnico lo apre dall'app con "Carica i dati").</li>
+      <li>Tocca <b>Leggi l'ultima esportazione</b> (Chrome o Edge sul computer), oppure apri la cartella che si crea (con data e ora) e scegli qui <b>tutti i file</b> (.csv e .json).</li>
+      <li>Per ogni tecnico vedi cosa è cambiato dall'ultimo invio: manda il file solo a chi ha novità (è un file di testo <b>.txt</b>: il tecnico lo apre dall'app con "Carica i dati" e vede subito cosa è nuovo, spostato o annullato).</li>
     </ol>
+    <div id="blocco-ultima" hidden>
+      <button class="btn pieno" id="b-ultima" type="button">Leggi l'ultima esportazione</button>
+      <p class="aiuto" id="msg-cartella" role="status" style="margin:6px 0 10px"></p>
+      <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
+    </div>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
     <input type="file" id="in-levante" accept=".csv,.json,text/csv,application/json" multiple hidden>
     <div id="esito-uff"></div>
@@ -651,7 +669,7 @@ function apriBozza(id){
   disegnaScheda(); mostra('scheda'); preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH);
 }
 function disegnaAgenda(){
-  disegnaBanner(); disegnaDaCompletare();
+  disegnaBanner(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
   $('#s-sett').setAttribute('aria-pressed', periodo === 'sett');
@@ -682,6 +700,8 @@ function disegnaAgenda(){
     if (st === 'pdf') chips.push('<span class="chip pdf">PDF creato</span>');
     else if (st === 'bozza') chips.push('<span class="chip bozza">Bozza</span>');
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
+    const fl = flagNovita[a.id];
+    if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
     html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${a.fatto ? 'chiuso ' : ''}${st}" type="button" data-id="${esc(a.id)}">
       <span class="ora">${hhmm(a.inizio)}<small>${hhmm(a.fine)}</small></span>
       <span class="corpo"><span class="nome">${esc(a.titolo)}</span>
@@ -758,7 +778,7 @@ function apriDettaglio(id, push = true){
   const a = appuntamenti.find(x => x.id === id);
   if (!a) return;
   if (timer) { clearTimeout(timer); salvaBozza(); }
-  corrente = a;
+  corrente = a; tolgiFlag(a.id);
   const r = a.r || {}, c = r.c || {}, i = r.i || {};
   const tel = telefonoPrincipale(r);
   const st = stato(a.id);
@@ -1665,22 +1685,23 @@ const DB_NOME = 'assistenza_file';
 function apriDb(){
   return new Promise((ok, ko) => {
     if (!window.indexedDB) { ko(new Error('IndexedDB non disponibile')); return; }
-    const r = indexedDB.open(DB_NOME, 3);
+    const r = indexedDB.open(DB_NOME, 4);
     r.onupgradeneeded = () => {
       const db = r.result;
       if (!db.objectStoreNames.contains('file')) db.createObjectStore('file');
       if (!db.objectStoreNames.contains('modificati')) db.createObjectStore('modificati');
-      if (!db.objectStoreNames.contains('foto')) db.createObjectStore('foto');                       // le foto scattate dal tecnico   // le versioni modificate NON si cancellano quando arrivano dati nuovi
+      if (!db.objectStoreNames.contains('foto')) db.createObjectStore('foto');                       // le foto scattate dal tecnico
+      if (!db.objectStoreNames.contains('cartelle')) db.createObjectStore('cartelle');               // la cartella delle esportazioni (ufficio)   // le versioni modificate NON si cancellano quando arrivano dati nuovi
     };
     r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
   });
 }
-async function salvaFiles(files){          // files: {id: {mime, b64, nome}}; sostituisce tutto l'archivio
+async function salvaFiles(files, unisci){          // files: {id: {mime, b64, nome}}; senza "unisci" sostituisce tutto l'archivio
   try {
     const db = await apriDb();
     await new Promise((ok, ko) => {
       const tx = db.transaction('file', 'readwrite'), st = tx.objectStore('file');
-      st.clear();
+      if (!unisci) st.clear();
       Object.keys(files || {}).forEach(id => st.put(files[id], id));
       tx.oncomplete = ok; tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error);
     });
@@ -1937,6 +1958,7 @@ function annullaUltimo(){
 
 /* ---- versione modificata caricata da file (modificata con Edge, Excel, Anteprima...) ---- */
 let docModTarget = null;
+let novitaDaMostrare = false;
 async function caricaVersioneModificata(t, f){
   const msg = () => $('#doc-msg');
   try {
@@ -2410,6 +2432,97 @@ async function stampaDocumento(id, nome){
   await stampaFile(f, area);
 }
 
+
+/* ==================================================================
+   NOVITA' E VARIAZIONI
+   Si confrontano due agende: l'ultima ricevuta o inviata e quella nuova. Contano solo gli appuntamenti
+   da oggi in poi: nuovi, spostati (giorno o orario), modificati (indirizzo, cliente, richiesta, urgenza)
+   e annullati (spariti dall'agenda).
+   ================================================================== */
+const fmtQuando = iso => { const d = new Date(iso); return maius(d.toLocaleDateString('it-IT', {weekday: 'short', day: 'numeric', month: 'short'}).replace('.', '')) + ' ' + hhmm(d); };
+const nessunaNovita = c => !c.nuovi.length && !c.spostati.length && !c.modificati.length && !c.annullati.length;
+function confrontaAgende(vecchie, nuove, oggiISO){
+  const da = oggiISO + 'T00:00:00';
+  const v = new Map((vecchie || []).filter(a => a.inizio >= da && !a.fatto).map(a => [a.id, a]));
+  const tutteNuove = new Map((nuove || []).filter(a => a.inizio >= da).map(a => [a.id, a]));
+  const c = {nuovi: [], spostati: [], modificati: [], annullati: []};
+  tutteNuove.forEach((a, id) => {
+    if (a.fatto) return;
+    const p = v.get(id);
+    if (!p) { c.nuovi.push(a); return; }
+    if (p.inizio !== a.inizio || p.fine !== a.fine) { c.spostati.push({a, prima: p}); return; }
+    const cosa = [];
+    if ((p.luogo || '') !== (a.luogo || '')) cosa.push('indirizzo');
+    if ((p.titolo || '') !== (a.titolo || '')) cosa.push('cliente');
+    if ((p.messaggio || '') !== (a.messaggio || '')) cosa.push('richiesta');
+    if (!!p.urgente !== !!a.urgente) cosa.push(a.urgente ? 'ora urgente' : 'non più urgente');
+    if (cosa.length) c.modificati.push({a, prima: p, cosa});
+  });
+  v.forEach((p, id) => { if (!tutteNuove.has(id)) c.annullati.push(p); });
+  const perOra = (x, y) => (x.a || x).inizio.localeCompare((y.a || y).inizio);
+  ['nuovi', 'spostati', 'modificati', 'annullati'].forEach(k => c[k].sort(perOra));
+  return c;
+}
+function riassuntoNovita(c){
+  const t = [];
+  if (c.nuovi.length) t.push(c.nuovi.length + (c.nuovi.length === 1 ? ' nuovo' : ' nuovi'));
+  if (c.spostati.length) t.push(c.spostati.length + (c.spostati.length === 1 ? ' spostato' : ' spostati'));
+  if (c.modificati.length) t.push(c.modificati.length + (c.modificati.length === 1 ? ' modificato' : ' modificati'));
+  if (c.annullati.length) t.push(c.annullati.length + (c.annullati.length === 1 ? ' annullato' : ' annullati'));
+  return t.join(' · ');
+}
+function righeNovita(c, conBozze){
+  const riga = (et, col, a, extra) => `<li><b style="color:${col}">${et}</b> ${esc(fmtQuando(a.inizio))} · ${esc(a.titolo)}${a.luogo ? ' <span class="aiuto">' + esc(a.luogo) + '</span>' : ''}${extra ? '<br><span class="aiuto">' + extra + '</span>' : ''}</li>`;
+  let h = '';
+  c.nuovi.forEach(a => h += riga('Nuovo', 'var(--ok)', a));
+  c.spostati.forEach(x => h += riga('Spostato', 'var(--fiamma)', x.a, 'prima era ' + esc(fmtQuando(x.prima.inizio))));
+  c.modificati.forEach(x => h += riga('Modificato', 'var(--petrolio)', x.a, 'cambiato: ' + esc(x.cosa.join(', '))));
+  c.annullati.forEach(a => h += riga('Annullato', 'var(--rosso)', a, conBozze && bozze[a.id] ? 'Hai una scheda iniziata: resta tra le "Schede da completare".' : ''));
+  return h ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h.replace(/<li>/g, '<li style="padding:6px 0;border-bottom:1px solid var(--riga)">') + '</ul>' : '';
+}
+
+
+/* ---- lato tecnico: cosa e' cambiato dopo un aggiornamento dell'ufficio ---- */
+let flagNovita = store.get('ass_flag', {});        // id appuntamento -> {t: 'nuovo'|'spostato'|'modificato', prima}
+function registraNovita(c, idsPresenti){
+  const attuali = {};
+  Object.keys(flagNovita).forEach(id => { if (idsPresenti.has(id)) attuali[id] = flagNovita[id]; });
+  c.nuovi.forEach(a => attuali[a.id] = {t: 'nuovo'});
+  c.spostati.forEach(x => attuali[x.a.id] = {t: 'spostato', prima: x.prima.inizio});
+  c.modificati.forEach(x => attuali[x.a.id] = {t: 'modificato', cosa: x.cosa.join(', ')});
+  flagNovita = attuali; store.set('ass_flag', flagNovita);
+  const sintesi = a => ({id: a.id, inizio: a.inizio, titolo: a.titolo, luogo: a.luogo});
+  store.set('ass_novita', {quando: new Date().toISOString(), letta: false, c: {
+    nuovi: c.nuovi.map(sintesi),
+    spostati: c.spostati.map(x => Object.assign(sintesi(x.a), {fine: x.a.fine, prima: {inizio: x.prima.inizio}})),
+    modificati: c.modificati.map(x => Object.assign(sintesi(x.a), {cosa: x.cosa})),
+    annullati: c.annullati.map(sintesi)}});
+}
+function tolgiFlag(id){ if (flagNovita[id]) { delete flagNovita[id]; store.set('ass_flag', flagNovita); } }
+function ricostruisciNovita(n){          // dal formato salvato a quello di righeNovita
+  const c = n.c;
+  return {nuovi: c.nuovi, annullati: c.annullati, spostati: c.spostati.map(x => ({a: x, prima: x.prima})), modificati: c.modificati.map(x => ({a: x, cosa: x.cosa}))};
+}
+function disegnaNovita(){
+  let box = $('#novita-box');
+  if (!box) { box = document.createElement('div'); box.id = 'novita-box'; $('#lista').before(box); }
+  const n = store.get('ass_novita', null);
+  if (!n || n.letta) { box.innerHTML = ''; return; }
+  const ora = hhmm(new Date(n.quando));
+  box.innerHTML = `<div class="avviso" style="border-color:var(--fiamma);background:#FFF4E5"><b>Novità dall'ufficio (${ora})</b>${esc(riassuntoNovita(ricostruisciNovita(n)))}<div class="azioni" style="margin-top:10px"><button class="btn piccolo" type="button" id="b-vedi-novita">Vedi cosa è cambiato</button><button class="btn chiaro piccolo" type="button" id="b-letto-novita">Ho letto</button></div></div>`;
+  $('#b-vedi-novita').onclick = apriNovita; $('#b-letto-novita').onclick = segnaNovitaLetta;
+}
+function apriNovita(){
+  const n = store.get('ass_novita', null); if (!n) return;
+  $('#novita-titolo').textContent = 'Novità dall\'ufficio (' + hhmm(new Date(n.quando)) + ')';
+  $('#novita-corpo').innerHTML = righeNovita(ricostruisciNovita(n), true) || '<p class="aiuto">Nessuna variazione.</p>';
+  $('#novita-modale').hidden = false;
+}
+function segnaNovitaLetta(){
+  const n = store.get('ass_novita', null); if (n) { n.letta = true; store.set('ass_novita', n); }
+  $('#novita-modale').hidden = true; disegnaNovita();
+}
+
 /* ==================================================================
    UFFICIO: dai file di Levante ai file per i tecnici
    ================================================================== */
@@ -2503,6 +2616,60 @@ function costruisciDaLevante(T){
   return {appuntamenti: out, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files};
 }
 
+
+/* ---- ufficio: si ricorda cosa e' stato mandato a ogni tecnico, per mostrare le variazioni e mandare aggiornamenti leggeri ---- */
+const leggiInviati = () => store.get('ass_inviati', {});
+function salvaInviato(id, apps){
+  const inv = leggiInviati();
+  inv[id] = {quando: new Date().toISOString(),
+    apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', urgente: !!a.urgente, fatto: !!a.fatto})),
+    docIds: apps.flatMap(a => (a.docs || []).map(d => d.id))};
+  store.set('ass_inviati', inv);
+}
+let infoUff = {trovati: [], mancanti: [], origine: '', messaggio: '', completo: false};
+
+/* ---- ufficio: "Leggi l'ultima esportazione" ricorda la cartella (solo Chrome ed Edge sul computer) ---- */
+let cartellaEsport = null;
+const haSelettoreCartelle = () => typeof window.showDirectoryPicker === 'function';
+async function operaCartelle(modo, fn){
+  const db = await apriDb();
+  const r = await new Promise((ok, ko) => { const tx = db.transaction('cartelle', modo); const out = fn(tx.objectStore('cartelle')); tx.oncomplete = () => ok(out && out.result); tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error); });
+  db.close(); return r;
+}
+const ricordaCartella = h => operaCartelle('readwrite', st => st.put(h, 'esportazioni')).catch(() => {});
+const dimenticaCartella = () => operaCartelle('readwrite', st => st.delete('esportazioni')).catch(() => {});
+const cartellaRicordata = () => operaCartelle('readonly', st => st.get('esportazioni')).catch(() => null);
+async function haAppuntamenti(d){ try { await d.getFileHandle('appuntamenti.csv'); return true; } catch(e){ return false; } }
+async function trovaUltimaEsportazione(h){          // h = la cartella dell'esportazione oppure quella che le contiene
+  if (await haAppuntamenti(h)) return {cartella: h, nome: h.name};
+  const nomi = [];
+  for await (const [n, v] of h.entries()) if (v.kind === 'directory') nomi.push(n);
+  nomi.sort().reverse();                              // i nomi sono data_ora: l'ultimo e' il piu' recente
+  for (const n of nomi) { const d = await h.getDirectoryHandle(n); if (await haAppuntamenti(d)) return {cartella: d, nome: n}; }
+  return null;
+}
+async function leggiUltimaEsportazione(cambia){
+  const msg = $('#msg-cartella');
+  try {
+    if (cambia) { cartellaEsport = null; await dimenticaCartella(); }
+    let h = cartellaEsport || await cartellaRicordata();
+    if (!h) { h = await window.showDirectoryPicker({id: 'esporta-levante', mode: 'read'}); await ricordaCartella(h); }
+    cartellaEsport = h;
+    let perm = h.queryPermission ? await h.queryPermission({mode: 'read'}) : 'granted';
+    if (perm !== 'granted' && h.requestPermission) perm = await h.requestPermission({mode: 'read'});
+    if (perm !== 'granted') { msg.textContent = 'Serve il permesso di leggere la cartella: riprova e consenti.'; return; }
+    const trovata = await trovaUltimaEsportazione(h);
+    if (!trovata) { msg.innerHTML = 'In quella cartella non trovo nessuna esportazione (cerco appuntamenti.csv). Scegli la cartella <b>export_levante</b> creata da Esporta_Levante.bat. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella2">Scegli un\'altra cartella</button>'; $('#b-cambia-cartella2').onclick = () => leggiUltimaEsportazione(true); return; }
+    const files = [];
+    for await (const [nome, voce] of trovata.cartella.entries()) if (voce.kind === 'file' && /\.(csv|json)$/i.test(nome)) files.push(await voce.getFile());
+    msg.textContent = '';
+    infoUff.origine = trovata.nome;
+    await leggiFileLevante(files);
+  } catch(e) {
+    if (e && e.name === 'AbortError') return;
+    if (msg) msg.textContent = 'Non sono riuscito a leggere la cartella (' + (e && e.message) + '). Puoi sempre scegliere i file a mano.';
+  }
+}
 let datiLevante = null;
 const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
@@ -2521,25 +2688,51 @@ async function leggiFileLevante(files){
   const esito = $('#esito-uff');
   if (!T.appuntamenti) { esito.innerHTML = '<div class="avviso rosso" style="margin-top:14px"><b>Manca appuntamenti.csv</b>Scegli tutti i file della cartella creata da Esporta_Levante.bat.</div>'; return; }
   datiLevante = costruisciDaLevante(T);
-  const mancanti = ['impianti','apparecchi','operazioni_pianificate','clienti','tecnici'].filter(n => !trovati.includes(n));
+  infoUff.trovati = trovati;
+  infoUff.mancanti = ['impianti','apparecchi','operazioni_pianificate','clienti','tecnici'].filter(n => !trovati.includes(n));
+  infoUff.messaggio = '';
+  disegnaUfficio();
+}
+function disegnaUfficio(){
+  const esito = $('#esito-uff'); if (!datiLevante) return;
+  const {trovati, mancanti} = infoUff;
   const per = {};
   datiLevante.appuntamenti.forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
   const st = datiLevante.stat, esclusi = [];
   if (st.vecchi) esclusi.push(`${st.vecchi} ${st.vecchi === 1 ? 'precedente' : 'precedenti'} agli ultimi 7 giorni`);
-  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.length} ${datiLevante.appuntamenti.length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.
+  let origine = '';
+  if (infoUff.origine) {
+    const m = infoUff.origine.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})/);
+    if (m) {
+      const quando = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]), minuti = Math.round((Date.now() - quando.getTime()) / 60000);
+      origine = `<br>Esportazione di Levante delle <b>${hhmm(quando)}</b> del ${dataIT(isoGiorno(quando))}.` + (minuti > 60 ? ` <span style="color:var(--rosso);font-weight:650">È vecchia di ${minuti >= 120 ? Math.round(minuti / 60) + ' ore' : minuti + ' minuti'}: per avere le ultime variazioni lancia di nuovo Esporta_Levante.bat e poi tocca di nuovo "Leggi l'ultima esportazione".</span>` : '');
+    }
+  }
+  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.length} ${datiLevante.appuntamenti.length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
     <br>Nel file c'${st.totale === 1 ? 'era 1 appuntamento' : 'erano ' + st.totale + ' appuntamenti'}${esclusi.length ? ': non inclusi ' + esclusi.join(' e ') : ''}${st.fatti ? ' (' + st.fatti + ' già ' + (st.fatti === 1 ? 'chiuso' : 'chiusi') + ' in Levante, li vedi segnati)' : ''}.
     <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}</div>`;
   if (!datiLevante.appuntamenti.length) h += '<p class="aiuto">Non ci sono appuntamenti da oggi in poi nell\'esportazione.</p>';
+  const oggi = isoGiorno(new Date()), inviati = leggiInviati();
   Object.keys(per).forEach(id => {
     const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
+    const inv = inviati[id];
+    let stato = '<span class="chip">Mai inviato da questo dispositivo</span>', dettaglio = '', primario = true, etichetta = 'Invia il file';
+    if (inv) {
+      const c = confrontaAgende(inv.apps, per[id], oggi), ora = hhmm(new Date(inv.quando));
+      if (nessunaNovita(c)) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
+      else { stato = `<span class="chip nov">Novità dall'ultimo invio (${ora}): ${esc(riassuntoNovita(c))}</span>`; dettaglio = righeNovita(c, false); etichetta = 'Invia gli aggiornamenti'; }
+    }
     h += `<div class="sez" style="margin-top:16px"><h2>${esc(nome)}<small>${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}</small></h2>
-      <div class="azioni"><button class="btn" type="button" data-invia="${esc(id)}">Invia il file</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
+      <p style="margin:0 0 4px">${stato}</p>${dettaglio}
+      <div class="azioni" style="margin-top:10px"><button class="btn${primario ? '' : ' sec'}" type="button" data-invia="${esc(id)}">${etichetta}</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
   });
-  h += '<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px"></p>';
+  h += `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-completo"${infoUff.completo ? ' checked' : ''}><span>Invia tutto, anche i documenti già mandati<small>per un dispositivo nuovo, o se il tecnico non vede più i documenti. Senza questa spunta l'aggiornamento è più leggero.</small></span></label>`;
+  h += `<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px">${esc(infoUff.messaggio || '')}</p>`;
   h += `<div class="sez" style="margin-top:22px"><h2>Su questo dispositivo</h2><button class="btn sec pieno" id="b-usa-qui" type="button">Usa questi dati qui (tutti i tecnici)</button></div>`;
   esito.innerHTML = h;
   esito.querySelectorAll('[data-invia]').forEach(b => b.onclick = () => consegna(b.dataset.invia, true));
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
+  $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
   $('#b-usa-qui').onclick = async () => { await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
 }
 function riepilogoDocumenti(){
@@ -2561,48 +2754,72 @@ function riepilogoRcee(){
   if (!datiLevante.azienda) h += '<br>Mancano i dati azienda (azienda.csv): l\'impresa manutentrice resterà vuota.';
   return h;
 }
-function pacchettoPer(id){
+function pacchettoPer(id, completo){
   const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : '';
   const apps = datiLevante.appuntamenti.filter(a => (a.tecnico_id || '') === id);
+  const inv = leggiInviati()[id];
+  const leggero = !!inv && !completo;                         // aggiornamento: i documenti gia' mandati non si rimandano
+  const giaMandati = new Set(leggero ? (inv.docIds || []) : []);
   const modelli = {};
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
-  apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id]) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files};
+  apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files};
 }
-async function salvaDati(d){
+async function salvaDati(d, leggero){
   const files = d.files || {}; const dd = Object.assign({}, d); delete dd.files;
   store.set('ass_dati', dd); appuntamenti = caricaAppuntamenti();
-  const ok = await salvaFiles(files);
+  const ok = await salvaFiles(files, leggero);
   if (!ok && Object.keys(files).length) esitoImport = (esitoImport ? esitoImport + ' ' : '') + 'Attenzione: i documenti non si sono salvati su questo dispositivo.';
 }
 async function consegna(id, condividi){
-  const pk = pacchettoPer(id);
+  const chk = $('#chk-completo'); infoUff.completo = !!(chk && chk.checked);
+  const pk = pacchettoPer(id, infoUff.completo);
   const slug = (pk.tecnico ? pk.tecnico.nome : 'senza_tecnico').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
-  const nome = `appuntamenti_${slug}_${isoGiorno(new Date())}.txt`;
+  const nome = `appuntamenti_${slug}_${isoGiorno(new Date())}_${hhmm(new Date()).replace(':', '')}.txt`;
   const file = new File([JSON.stringify(pk)], nome, {type:'text/plain'});   // testo: i browser lo lasciano condividere
   const msg = $('#msg-consegna');
+  const fatto = testo => { salvaInviato(id, pk.appuntamenti); infoUff.messaggio = testo; disegnaUfficio(); };
   if (file.size > 12 * 1048576 && msg) msg.textContent = 'Attenzione: il file pesa ' + dimStr(file.size) + '. Se WhatsApp lo rifiuta, mandalo per mail o riduci i documenti allegati.';
+  const tipoTxt = pk.tipo === 'aggiornamento' ? 'aggiornamento' : 'file completo';
   if (condividi) {
     if (navigator.canShare && navigator.canShare({files:[file]})) {
-      try { await navigator.share({files:[file], title:nome}); if (msg) msg.textContent = ''; return; }
+      try { await navigator.share({files:[file], title:nome}); fatto('Inviato ' + tipoTxt + ' a ' + (pk.tecnico ? pk.tecnico.nome : 'senza tecnico') + '.'); return; }
       catch(e) { if (e && e.name === 'AbortError') return; }
     }
-    if (msg) msg.textContent = 'Questo dispositivo non apre direttamente WhatsApp o la mail con un file: l\'ho scaricato, allegalo tu al messaggio (per esempio da WhatsApp Web, trascinandolo, o dalla mail).';
-  } else if (msg) msg.textContent = '';
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    fatto('Questo dispositivo non apre direttamente WhatsApp o la mail con un file: l\'ho scaricato (' + nome + '), allegalo tu al messaggio (per esempio da WhatsApp Web, trascinandolo, o dalla mail).');
+    return;
+  }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = nome;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  fatto('Scaricato ' + tipoTxt + ' per ' + (pk.tecnico ? pk.tecnico.nome : 'senza tecnico') + ': ' + nome);
 }
 async function caricaPacchetto(file){
+  esitoImport = '';
   try {
     const d = JSON.parse(await file.text());
     if (!d || d.formato !== 'assistenza-v1' || !Array.isArray(d.appuntamenti)) throw new Error('formato');
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}});
+    const prima = store.get('ass_dati', null);
+    const leggero = d.tipo === 'aggiornamento';
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
     esitoImport = (d.appuntamenti.length === 1 ? 'Caricato 1 appuntamento' : `Caricati ${d.appuntamenti.length} appuntamenti`) + (nd ? ` e ${nd} ${nd === 1 ? 'documento' : 'documenti'}.` : '.') + (esitoImport ? ' ' + esitoImport : '');
+    // cosa e' cambiato rispetto all'agenda che c'era prima (solo se erano dati di Levante dello stesso tecnico)
+    try {
+      const vecchi = prima && Array.isArray(prima.appuntamenti) ? prima.appuntamenti : [];
+      const stesso = prima && prima.tecnico && d.tecnico && String(prima.tecnico.id) === String(d.tecnico.id);
+      if (stesso && vecchi.some(a => String(a.id).startsWith('lev-'))) {
+        const c = confrontaAgende(vecchi, d.appuntamenti, isoGiorno(new Date()));
+        if (!nessunaNovita(c)) { registraNovita(c, new Set(d.appuntamenti.map(a => a.id))); esitoImport += ' Novità: ' + riassuntoNovita(c) + '.'; novitaDaMostrare = true; }
+        else esitoImport += ' Nessuna novità rispetto a prima.';
+      }
+    } catch(e){}
   } catch(e) { esitoImport = 'Il file non è valido: chiedi all\'ufficio di rimandarlo.'; }
   disegnaAgenda();
+  if (novitaDaMostrare) { novitaDaMostrare = false; setTimeout(apriNovita, 200); }
 }
 
 
@@ -2611,7 +2828,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.0 (03/10/2026)';
+const VERSIONE_APP = '1.1 (04/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -2724,6 +2941,11 @@ function avvia(){
   $('#b-prova').onclick = () => { store.set('ass_dati', null); esitoImport = ''; appuntamenti = caricaAppuntamenti(); mostra('agenda', false); disegnaAgenda(); };
   caricaModificati();
   $('#b-installa').onclick = installaApp;
+  if (haSelettoreCartelle()) { $('#blocco-ultima').hidden = false; $('#b-ultima').onclick = () => leggiUltimaEsportazione(false); $('#b-cambia-cartella').onclick = () => leggiUltimaEsportazione(true); }
+  $('#b-novita-ok').onclick = segnaNovitaLetta;
+  // toccando fuori dalla finestra o premendo Esc si chiude senza segnare come letto: il riquadro in agenda resta
+  $('#novita-modale').addEventListener('click', e => { if (e.target.id === 'novita-modale') $('#novita-modale').hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#novita-modale').hidden) $('#novita-modale').hidden = true; });
   $('#b-ricontrolla').onclick = () => { tentativiStato = 0; aggiornaStatoApp(); };
   $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } location.reload(); };
   registraServiceWorker();
