@@ -2971,7 +2971,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.2.1 (05/10/2026)';
+const VERSIONE_APP = '1.3 (05/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3052,6 +3052,9 @@ async function aggiornaStatoApp(){
   else h += riga(['Per installarla su computer:', 'in Chrome o Edge usa l\'icona di installazione nella barra dell\'indirizzo oppure, dal menu del browser, <b>Installa app</b>.'], false);
   const mancano = funzioniMancanti();
   if (mancano.length) h += riga(['Non disponibili su questo dispositivo:', esc(mancano.join('; ')) + '. Il resto funziona. Per averle serve un dispositivo più recente (iPad o iPhone con iOS 15 o successivo, Android recente).'], false);
+  if (/Android/i.test(ua)) h += r.installata
+    ? riga(['Caricare i dati da WhatsApp:', 'tocca il file ricevuto, poi <b>Condividi</b> e scegli <b>Assistenza</b>: i dati si caricano da soli.'], true)
+    : riga(['Da WhatsApp:', 'installa l\'app (vedi sopra): così potrai toccare il file ricevuto, poi <b>Condividi</b> e <b>Assistenza</b>, e i dati si caricano da soli.'], false);
   if (r.persistente === true) h += riga(['Dati protetti:', 'il browser non li cancella da solo.'], true);
   else if (r.persistente === false) h += riga(['Dati non protetti:', 'se il dispositivo ha poco spazio il browser potrebbe cancellarli. Invia le schede e i file appena puoi.'], false);
   box.innerHTML = h;
@@ -3069,6 +3072,24 @@ async function installaApp(){
 /* ==================================================================
    AVVIO
    ================================================================== */
+/* ---- Android: file arrivato dal menu Condividi (la ricezione e' nel service worker) ---- */
+async function ricevutiDaCondivisione(){
+  const n = parseInt(new URLSearchParams(location.search).get('ricevuti') || '', 10);
+  if (isNaN(n)) return;
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  if (!n) { esitoImport = 'Non ho ricevuto nessun file dal menu Condividi: caricalo con "Carica i dati".'; disegnaAgenda(); return; }
+  try {
+    const cache = await caches.open('assistenza-ricevuti'), files = [];
+    for (let i = 0; i < n; i++) {
+      const r = await cache.match(new URL('ricevuto-' + i, location.href).href);
+      if (r) { const blob = await r.blob(); files.push(new File([blob], decodeURIComponent(r.headers.get('X-Nome') || 'dati.txt'), {type: blob.type || 'text/plain'})); }
+    }
+    for (const k of await cache.keys()) await cache.delete(k);
+    if (!files.length) throw new Error('vuoto');
+    for (const f of files) await caricaPacchetto(f);
+    esitoImport = (/non è valido/.test(esitoImport) ? '' : 'Ricevuto dal menu Condividi. ') + esitoImport; disegnaAgenda();
+  } catch(e) { esitoImport = 'Non sono riuscito a leggere il file ricevuto: caricalo con "Carica i dati".'; disegnaAgenda(); }
+}
 function avvia(){
   appuntamenti = caricaAppuntamenti();
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
@@ -3130,6 +3151,7 @@ function avvia(){
   collegaForm(); collegaFirmaTec();
   document.body.dataset.vista = 'agenda';
   disegnaAgenda();
+  ricevutiDaCondivisione();
 }
 avvia();
 </script>

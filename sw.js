@@ -5,8 +5,9 @@
      arrivano da soli); se la rete manca o e' troppo lenta si usa la copia memorizzata;
    - il resto (icone, librerie) si usa dalla copia memorizzata.
    Se aggiungi file nuovi all'app, cambia VERSIONE qui sotto e aggiungili all'elenco. */
-const VERSIONE = 'v2';
+const VERSIONE = 'v3';
 const CACHE_APP = 'assistenza-app-' + VERSIONE;
+const CACHE_RICEVUTI = 'assistenza-ricevuti';       // file arrivati dal menu Condividi di Android (per esempio da WhatsApp)
 const FILE_APP = [
   './', './index.html', './manifest.webmanifest',
   './icona-192.png', './icona-512.png', './icona-maskable-512.png', './apple-touch-icon.png',
@@ -24,7 +25,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const nome of await caches.keys()) if (nome.startsWith('assistenza-') && nome !== CACHE_APP) await caches.delete(nome);
+    for (const nome of await caches.keys()) if (nome.startsWith('assistenza-') && nome !== CACHE_APP && nome !== CACHE_RICEVUTI) await caches.delete(nome);
     await self.clients.claim();
   })());
 });
@@ -50,8 +51,26 @@ async function dallaCopiaEPoiRete(req) {
   return copia || (await rete) || new Response('', {status: 504, statusText: 'Offline'});
 }
 
+/* Android: dal menu Condividi (per esempio da un file ricevuto su WhatsApp) il telefono manda il file all'app con una richiesta POST.
+   Qui lo si mette da parte e si riapre l'app, che lo legge e carica i dati. Funziona anche senza connessione. */
+async function riceviFile(req) {
+  const vai = n => Response.redirect(new URL('./index.html?ricevuti=' + n, self.registration.scope).href, 303);
+  try {
+    const form = await req.formData();
+    const files = form.getAll('file').filter(f => f && typeof f !== 'string');
+    const cache = await caches.open(CACHE_RICEVUTI);
+    for (const k of await cache.keys()) await cache.delete(k);
+    for (let i = 0; i < files.length; i++) {
+      await cache.put(new URL('./ricevuto-' + i, self.registration.scope).href,
+        new Response(files[i], {headers: {'X-Nome': encodeURIComponent(files[i].name || 'dati.txt'), 'Content-Type': files[i].type || 'text/plain'}}));
+    }
+    return vai(files.length);
+  } catch (err) { return vai(0); }
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
+  if (req.method === 'POST' && new URL(req.url).origin === location.origin && /\/ricevi-file\/?$/.test(new URL(req.url).pathname)) { e.respondWith(riceviFile(req)); return; }
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;                     // niente servizi esterni: tutto e' dentro l'app
