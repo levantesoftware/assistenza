@@ -351,6 +351,16 @@ html.no-flexgap .fatto .azioni2>*{margin:0 8px 8px 0}
 html.no-flexgap .ed-barra>*{margin:0 6px 6px 0}
 html.no-flexgap .docazioni>*{margin:0 6px 6px 0}
 html.no-flexgap .chips>*{margin:0 6px 6px 0}
+
+/* compilazione veloce */
+.frasi{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;-webkit-overflow-scrolling:touch}
+.frasi .btn{flex:none;white-space:nowrap}
+html.no-flexgap .frasi>*{margin-right:6px}
+.adesso{margin-top:4px;min-height:36px;width:100%}
+#avviso-basso{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:26;background:var(--inchiostro);color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;max-width:620px;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+#avviso-basso[hidden]{display:none}
+#avviso-testo{flex:1;min-width:0;overflow-wrap:anywhere}
+html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 </style>
 </head>
 <body>
@@ -383,6 +393,7 @@ html.no-flexgap .chips>*{margin:0 6px 6px 0}
   <!-- DETTAGLIO APPUNTAMENTO -->
   <section id="v-dettaglio" class="view"></section>
   <input type="file" id="in-doc-mod" hidden>
+  <div id="avviso-basso" hidden role="status" aria-live="polite"><span id="avviso-testo"></span><button type="button" id="avviso-azione" class="btn piccolo" hidden></button></div>
   <div id="novita-modale" hidden>
     <div class="ed-fogli">
       <h2 id="novita-titolo" style="margin:0 0 4px">Novità dall'ufficio</h2>
@@ -465,6 +476,10 @@ html.no-flexgap .chips>*{margin:0 6px 6px 0}
       <div class="firma"><canvas id="firma-tec"></canvas><div class="linea"></div></div>
       <div class="strumenti"><span>Firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma-tec" type="button">Cancella firma</button></div></div>
     <p class="aiuto">Le modifiche si salvano da sole. Schede e impostazioni restano su questo dispositivo.</p>
+    <h2 class="giorno" style="margin-top:26px">Compilazione veloce</h2>
+    <div class="campo"><label for="i-frasi">Frasi rapide (una per riga)</label><textarea id="i-frasi" rows="7" placeholder="Una frase per riga"></textarea></div>
+    <div class="campo"><label for="i-frase-std">Testo della relazione per "Tutto eseguito come da programma"</label><input type="text" id="i-frase-std"></div>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 6px"><button class="btn chiaro piccolo" type="button" id="b-frasi-default">Ripristina le frasi predefinite</button><button class="btn chiaro piccolo" type="button" id="b-mat-dimentica">Dimentica i materiali ricordati</button></div>
     <h2 class="giorno" style="margin-top:26px">App sul dispositivo</h2>
     <div id="stato-app"></div>
     <button class="btn pieno" id="b-installa" type="button" hidden style="margin-bottom:8px">Installa l'app</button>
@@ -911,6 +926,86 @@ function indirizziCliente(c){                  // prima le email normali, poi la
   const norm = elencoEmail(c.e, false), pec = elencoEmail(c.p, true).filter(x => !norm.some(n => n.a.toLowerCase() === x.a.toLowerCase()));
   return norm.concat(pec);
 }
+
+/* ==================================================================
+   COMPILAZIONE VELOCE (per il tecnico)
+   - "Tutto eseguito come da programma": spunta le operazioni, esito, relazione e ora di fine (si puo' annullare);
+   - frasi rapide per relazione, osservazioni, raccomandazioni e prescrizioni (modificabili nelle Impostazioni);
+   - tasto "Adesso" per le ore; materiali usati di frequente, a un tocco.
+   ================================================================== */
+const FRASI_PREDEFINITE = [
+  'Eseguita la manutenzione ordinaria come da programma.',
+  'Nessuna anomalia riscontrata.',
+  'Eseguita la pulizia del bruciatore e dello scambiatore.',
+  'Controllata la tenuta del circuito gas.',
+  'Verificato il corretto funzionamento dei dispositivi di sicurezza.',
+  'Sostituita la guarnizione.',
+  'Cliente informato delle anomalie riscontrate.',
+  'Si consiglia un intervento di riparazione.'
+];
+const FRASE_TUTTO_PREDEFINITA = 'Eseguita la manutenzione ordinaria come da programma. Nessuna anomalia riscontrata.';
+const frasiRapide = () => (Array.isArray(impostazioni.frasi) && impostazioni.frasi.length) ? impostazioni.frasi : FRASI_PREDEFINITE;
+function chipsFrasi(k){
+  return '<div class="frasi" data-frasi="' + k + '" aria-label="Frasi rapide">' + frasiRapide().map((f, n) => `<button class="btn chiaro piccolo" type="button" data-frase="${n}">${esc(f.length > 42 ? f.slice(0, 40) + '…' : f)}</button>`).join('') + '</div>';
+}
+function inserisciFrase(k, n){
+  const f = frasiRapide()[n], el = $('#f-' + k); if (!f || !el) return;
+  const max = parseInt(el.getAttribute('maxlength') || '0', 10);
+  const cur = el.value.replace(/\s+$/, '');
+  let nuovo = cur ? cur + (/[.!?:;]$/.test(cur) ? ' ' : '. ') + f : f;
+  if (max && nuovo.length > max) { nuovo = nuovo.slice(0, max); }
+  el.value = nuovo; lavoro[k] = nuovo;
+  const c = $('#n-' + k); if (c) c.textContent = nuovo.length + '/' + max;
+  bozzaModificata();
+}
+/* materiali usati di frequente: si ricordano su questo dispositivo */
+const leggiMatUsati = () => store.get('ass_mat_usati', []);
+function registraMatUsati(righe){
+  const elenco = leggiMatUsati(), ora = Date.now();
+  (righe || []).filter(m => m.descr && m.descr.trim()).forEach(m => {
+    const d = m.descr.trim(), k = d.toLowerCase(), voce = elenco.find(x => x.d.toLowerCase() === k);
+    if (voce) { voce.n++; voce.q = m.qta || voce.q; voce.u = m.um || voce.u; voce.t = ora; }
+    else elenco.push({d, u: m.um || 'pz', q: m.qta || '1', n: 1, t: ora});
+  });
+  elenco.sort((a, b) => (b.n - a.n) || (b.t - a.t));
+  store.set('ass_mat_usati', elenco.slice(0, 40));
+}
+function chipsMat(){
+  const e = leggiMatUsati().slice(0, 8);
+  if (!e.length) return '';
+  return '<p class="aiuto" style="margin:0 0 4px">Usati di frequente: tocca per aggiungere</p><div class="frasi">' + e.map((m, n) => `<button class="btn chiaro piccolo" type="button" data-mat-freq="${n}">${esc(m.d.length > 28 ? m.d.slice(0, 26) + '…' : m.d)}</button>`).join('') + '</div>';
+}
+/* avviso in basso, con un'azione (per esempio "Annulla") */
+let timerAvviso = null;
+function mostraAvviso(testo, etichetta, azione, ms){
+  const b = $('#avviso-basso'); if (!b) return;
+  clearTimeout(timerAvviso);
+  $('#avviso-testo').textContent = testo;
+  const bt = $('#avviso-azione'); bt.hidden = !etichetta; bt.textContent = etichetta || '';
+  bt.onclick = () => { b.hidden = true; if (azione) azione(); };
+  b.hidden = false; timerAvviso = setTimeout(() => { b.hidden = true; }, ms || 9000);
+}
+function tuttoEseguito(){
+  const r = rr(), daFare = (r.o || []).filter(o => o.f);
+  const prima = JSON.stringify({ops: lavoro.ops, esito: lavoro.esito, relazione: lavoro.relazione, orari: lavoro.orari});
+  let cambiate = 0;
+  daFare.forEach(o => { const st = (lavoro.ops[o.id] = lavoro.ops[o.id] || {fatta: false, nota: ''}); if (!st.fatta) { st.fatta = true; cambiate++; } const i = document.querySelector('[data-op="' + o.id + '"]'); if (i) i.checked = true; });
+  const cosa = [cambiate + (cambiate === 1 ? ' operazione spuntata' : ' operazioni spuntate')];
+  if (!lavoro.esito) { lavoro.esito = 'concluso'; const rd = document.querySelector('input[name=esito][value=concluso]'); if (rd) rd.checked = true; cosa.push('esito: concluso'); }
+  if (!lavoro.relazione.trim()) {
+    const t = (impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA); lavoro.relazione = t;
+    const el = $('#f-relazione'); if (el) { el.value = t; const c = $('#n-relazione'); if (c) c.textContent = t.length + '/2500'; } cosa.push('relazione');
+  }
+  const u = lavoro.orari[lavoro.orari.length - 1];
+  if (u && u.dal && !u.al && u.data === isoGiorno(new Date()) && minuti(u.dal, hhmm(new Date())) > 0) {
+    u.al = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + (lavoro.orari.length - 1) + '"][data-c="al"]'); if (inp) inp.value = u.al; cosa.push('ora di fine ' + u.al);
+  }
+  aggiornaTile(); aggiornaOre(); bozzaModificata();
+  mostraAvviso('Fatto: ' + cosa.join(', ') + '.', 'Annulla', () => {
+    const v = JSON.parse(prima); lavoro.ops = v.ops; lavoro.esito = v.esito; lavoro.relazione = v.relazione; lavoro.orari = v.orari;
+    const y = window.scrollY; disegnaScheda(); preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH); window.scrollTo(0, y); bozzaModificata();
+  }, 12000);
+}
 function nuovaScheda(a){
   const r = (a && a.r) || {}, c = r.c || {}, i = r.i || {};
   const w = {
@@ -951,13 +1046,13 @@ function campoTesto(k, etichetta, opzioni = {}){
     ? `<div class="cbox"><textarea id="f-${k}" data-k="${k}"${opzioni.max ? ` maxlength="${opzioni.max}"` : ''}${opzioni.alta ? ' class="alta"' : ''}${opzioni.ph ? ` placeholder="${esc(opzioni.ph)}"` : ''}>${esc(v)}</textarea>${bottoneMic('k:' + k)}</div>`
     : `<input type="${opzioni.tipo || 'text'}" id="f-${k}" data-k="${k}" value="${esc(v)}"${opzioni.inputmode ? ` inputmode="${opzioni.inputmode}"` : ''}>`;
   const conta = opzioni.max ? `<span class="conta" id="n-${k}">${v.length}/${opzioni.max}</span>` : '';
-  return `<div class="campo"><label for="f-${k}">${etichetta}${conta}</label>${tag}</div>`;
+  return `<div class="campo"><label for="f-${k}">${etichetta}${conta}</label>${tag}${opzioni.frasi ? chipsFrasi(k) : ''}</div>`;
 }
 function righeOrari(){
   return lavoro.orari.map((o, n) => `<div class="riga-orario">
     <div><label>Giorno</label><input type="date" data-orario="${n}" data-c="data" value="${esc(o.data)}"></div>
-    <div><label>Dalle</label><input type="time" data-orario="${n}" data-c="dal" value="${esc(o.dal)}"></div>
-    <div><label>Alle</label><input type="time" data-orario="${n}" data-c="al" value="${esc(o.al)}"></div>
+    <div><label>Dalle</label><input type="time" data-orario="${n}" data-c="dal" value="${esc(o.dal)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|dal">Adesso</button></div>
+    <div><label>Alle</label><input type="time" data-orario="${n}" data-c="al" value="${esc(o.al)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|al">Adesso</button></div>
     ${lavoro.orari.length > 1 ? `<button class="togli" type="button" data-togli-orario="${n}" aria-label="Togli questa fascia">×</button>` : '<span></span>'}</div>`).join('');
 }
 function righeMateriali(){
@@ -1000,6 +1095,7 @@ function sezioneOperazioni(){
   };
   const daFare = elenco.filter(o => o.f), altre = elenco.filter(o => !o.f);
   let h = '<div class="passo"><h2>Operazioni eseguite</h2><p class="aiuto">Spunta quelle che hai fatto.</p>';
+  if (daFare.length) h += '<button class="btn pieno" type="button" data-tutto-fatto style="margin-bottom:12px">Tutto eseguito come da programma</button>';
   h += daFare.length ? daFare.map(riga).join('') : '<p class="aiuto">Nessuna operazione era pianificata per questa visita.</p>';
   if (altre.length) h += `<details class="altre"><summary>Altre operazioni dell'impianto (${altre.length})</summary>${altre.map(riga).join('')}</details>`;
   h += '</div>';
@@ -1127,10 +1223,10 @@ function disegnaScheda(){
       <button class="btn sec piccolo" type="button" id="b-add-extra">Aggiungi un lavoro</button></div>
     ${rcSupportati(w).length ? '<div id="rcee">' + sezioneRcee() + '</div>' : '<div class="passo"><h2>Analisi di combustione</h2><div id="analisi">' + schedeAnalisi() + '</div></div>'}
     <div class="passo"><h2>Relazione</h2>
-      ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, ph:'Cosa hai trovato e cosa hai fatto.'})}
-      ${campoTesto('osservazioni', 'Osservazioni', {area:true, max:255})}
-      ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, ph:'Lavori consigliati al cliente.'})}
-      ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, ph:'Interventi obbligatori per la sicurezza.'})}
+      ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
+      ${campoTesto('osservazioni', 'Osservazioni', {area:true, max:255, frasi:true})}
+      ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, frasi:true, ph:'Lavori consigliati al cliente.'})}
+      ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, frasi:true, ph:'Interventi obbligatori per la sicurezza.'})}
     </div>
     <div class="passo"><h2>Orari e viaggio</h2><p class="aiuto">Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
@@ -1138,7 +1234,7 @@ function disegnaScheda(){
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
     </div>
-    <div class="passo"><h2>Materiali</h2><div id="materiali">${righeMateriali()}</div>
+    <div class="passo"><h2>Materiali</h2><div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn sec piccolo" type="button" id="b-add-mat">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce>${ICONA_MIC} Detta i materiali</button></div></div>
     <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
       <div id="foto-lista"></div>
@@ -1242,6 +1338,10 @@ function collegaForm(){
     if (d.stampa !== undefined) { const f = ultimoPdf && ultimoPdf[+d.stampa]; if (f) stampaFile(new File([f.blob], f.nome, {type: 'application/pdf'}), $('#pdf-msg')); return; }
     if (d.stampaAll !== undefined) { const a = ultimiAllegati[+d.stampaAll]; if (a) stampaFile(new File([blobDi(a)], a.nome, {type: a.mime || 'application/octet-stream'}), $('#pdf-msg')); return; }
     if (d.stampaAncora !== undefined) { stampaPronta_(); return; }
+    if (d.tuttoFatto !== undefined) { tuttoEseguito(); return; }
+    if (d.frase !== undefined) { const k = b.closest('[data-frasi]').dataset.frasi; inserisciFrase(k, +d.frase); return; }
+    if (d.adesso !== undefined) { const [n, c] = d.adesso.split('|'); const o = lavoro.orari[+n]; if (o) { o[c] = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + n + '"][data-c="' + c + '"]'); if (inp) inp.value = o[c]; aggiornaOre(); bozzaModificata(); } return; }
+    if (d.matFreq !== undefined) { const m = leggiMatUsati()[+d.matFreq]; if (m) { lavoro.materiali.push({descr: m.d, codice: '', qta: m.q || '1', um: m.u || 'pz'}); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); } return; }
     if (d.mic !== undefined) { avviaDettatura(d.mic); return; }
     if (d.fotoScatta !== undefined) { $('#in-foto').click(); return; }
     if (d.fotoGalleria !== undefined) { $('#in-foto-gal').click(); return; }
@@ -1478,6 +1578,12 @@ function creaPdf(){
   if (!lavoro.cliente.trim()) { alert('Scrivi il nome del cliente prima di creare il PDF.'); $('#f-cliente').focus(); return; }
   if (!lavoro.esito) { alert('Scegli l\'esito dell\'intervento.'); return; }
   if (!lavoro.firma && !confirm('Manca la firma del cliente. Creo il PDF lo stesso?')) return;
+  const ultOra = lavoro.orari[lavoro.orari.length - 1];                       // ora di fine mancante: si propone "adesso" solo se si compila lo stesso giorno
+  if (ultOra && ultOra.dal && !ultOra.al && ultOra.data === isoGiorno(new Date()) && minuti(ultOra.dal, hhmm(new Date())) > 0) {
+    ultOra.al = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + (lavoro.orari.length - 1) + '"][data-c="al"]'); if (inp) inp.value = ultOra.al; aggiornaOre();
+    mostraAvviso('Ora di fine impostata alle ' + ultOra.al + ': se non è giusta correggila e rifai il PDF.', '', null, 8000);
+  }
+  registraMatUsati(lavoro.materiali);
   const files = [{blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda}), nome: nomePdf(lavoro), titolo: 'Rapportino'}];
   ultimoPdfCliente = {blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda, perCliente: true}), nome: nomePdf(lavoro)};
   destInvio = 'uff';
@@ -2971,7 +3077,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.3 (05/10/2026)';
+const VERSIONE_APP = '1.4 (05/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3100,6 +3206,7 @@ function avvia(){
   $('#b-pdf').onclick = creaPdf;
   $('#b-impostazioni').onclick = () => {
     $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || '';
+    $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
     document.querySelectorAll('input[name="stampa-dpi"]').forEach(r => r.checked = (+r.value === +st.dpi));
@@ -3111,6 +3218,10 @@ function avvia(){
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-email-ufficio').oninput = e => { impostazioni.emailUfficio = e.target.value.trim(); salvaImpostazioni(); };
+  $('#i-frasi').oninput = e => { const f = e.target.value.split('\n').map(x => x.trim()).filter(Boolean); impostazioni.frasi = f.length ? f : undefined; salvaImpostazioni(); };
+  $('#i-frase-std').oninput = e => { impostazioni.fraseStandard = e.target.value.trim() || undefined; salvaImpostazioni(); };
+  $('#b-frasi-default').onclick = () => { impostazioni.frasi = undefined; impostazioni.fraseStandard = undefined; salvaImpostazioni(); $('#i-frasi').value = FRASI_PREDEFINITE.join('\n'); $('#i-frase-std').value = FRASE_TUTTO_PREDEFINITA; };
+  $('#b-mat-dimentica').onclick = () => { if (confirm('Dimentico i materiali ricordati su questo dispositivo?')) store.set('ass_mat_usati', []); };
   $('#b-azzera').onclick = async () => { if (confirm('Cancello tutte le schede salvate su questo dispositivo (comprese le foto)?')) { bozze = {}; salvaBozze(); try { await cancellaTutteLeFoto(); } catch(e){} disegnaAgenda(); } };
   $('#in-pacchetto').onchange = e => { const f = e.target.files[0]; if (f) caricaPacchetto(f); e.target.value = ''; };
   $('#b-ufficio').onclick = () => { $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
