@@ -6,6 +6,20 @@
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#0E5A6B">
 <title>Assistenza impianti</title>
+<script>
+/* compatibilita' con browser piu' vecchi (per esempio Safari di iOS 12) */
+(function(){
+  function leggi(blob, metodo){ return new Promise(function(ok, ko){ var r = new FileReader(); r.onload = function(){ ok(r.result); }; r.onerror = function(){ ko(r.error); }; r[metodo](blob); }); }
+  if (window.Blob && !Blob.prototype.text) Blob.prototype.text = function(){ return leggi(this, 'readAsText'); };
+  if (window.Blob && !Blob.prototype.arrayBuffer) Blob.prototype.arrayBuffer = function(){ return leggi(this, 'readAsArrayBuffer'); };
+  document.addEventListener('DOMContentLoaded', function(){        // la spaziatura "gap" dei layout flessibili non c'e' prima di Safari 14.1
+    var f = document.createElement('div'); f.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+    f.appendChild(document.createElement('i')); f.appendChild(document.createElement('i')); document.body.appendChild(f);
+    var ok = f.scrollHeight === 1; document.body.removeChild(f);
+    if (!ok) document.documentElement.className += ' no-flexgap';
+  });
+})();
+</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icona-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -43,7 +57,7 @@ h1,h2,h3,p{margin:0}
 .barra{display:flex;align-items:center;gap:10px;padding:14px 0 12px}
 .barra h1{font-size:25px;line-height:1.1;letter-spacing:-.015em;flex:1;min-width:0}
 .barra .sotto{font-size:14px;color:var(--tenue);margin-top:3px}
-.barra.fissa{position:sticky;top:0;z-index:5;background:var(--carta);border-bottom:1px solid var(--riga);margin:0 -16px 12px;padding:10px 16px}
+.barra.fissa{position:-webkit-sticky;position:sticky;top:0;z-index:5;background:var(--carta);border-bottom:1px solid var(--riga);margin:0 -16px 12px;padding:10px 16px}
 .barra.fissa h1{font-size:19px}
 
 /* pulsanti */
@@ -236,7 +250,7 @@ button,a,label,summary,select{touch-action:manipulation}
   #destra{display:block;height:100%;overflow-y:auto;overflow-x:hidden}
   #destra .view{max-width:780px;margin:0 auto;padding-bottom:28px}
   body[data-vista="agenda"] #v-vuoto{display:block}
-  .barra-azione{position:sticky;left:auto;right:auto;bottom:0;margin:24px -24px 0;max-width:none}
+  .barra-azione{position:-webkit-sticky;position:sticky;left:auto;right:auto;bottom:0;margin:24px -24px 0;max-width:none}
   .barra-azione .dentro{max-width:none}
   #b-indietro-det{display:none}
 }
@@ -265,7 +279,7 @@ button,a,label,summary,select{touch-action:manipulation}
 .visita.chiuso .nome,.visita.chiuso .dove{color:var(--tenue)}
 
 /* editor dei documenti */
-.ed-testata{position:sticky;top:0;z-index:7;background:var(--carta);border-bottom:1px solid var(--riga);margin:0 -16px 10px;padding:0 16px 4px}
+.ed-testata{position:-webkit-sticky;position:sticky;top:0;z-index:7;background:var(--carta);border-bottom:1px solid var(--riga);margin:0 -16px 10px;padding:0 16px 4px}
 .ed-barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0}
 .ed-str,.ed-dim{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;border:1.5px solid var(--riga);background:#fff;font-weight:650;cursor:pointer}
 .ed-str[aria-pressed="true"],.ed-dim[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
@@ -279,7 +293,7 @@ button,a,label,summary,select{touch-action:manipulation}
 .ed-sul-testo .ed-ov{touch-action:none;cursor:text}
 .ed-sul-disegno .ed-ov{touch-action:none;cursor:crosshair}
 .ed-scorri .ed-ov{pointer-events:none}
-#ed-modale{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#ed-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
 #ed-modale[hidden]{display:none}
 .ed-fogli{background:var(--carta);width:100%;max-width:640px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));border-radius:14px 14px 0 0}
 .ed-fogli textarea{margin:8px 0 12px}
@@ -305,12 +319,12 @@ button,a,label,summary,select{touch-action:manipulation}
 #dett-barra{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:25;background:var(--inchiostro);color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;max-width:620px;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 #dett-barra[hidden]{display:none}
 #dett-testo{flex:1;min-width:0;overflow-wrap:anywhere}
-#vm-modale{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#vm-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
 #vm-modale[hidden]{display:none}
 #vm-modale .ed-fogli{max-height:88vh;overflow:auto}
 
 /* novita' */
-#novita-modale{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#novita-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
 #novita-modale[hidden]{display:none}
 #novita-modale .ed-fogli{max-height:88vh;overflow:auto}
 .chip.nov{background:#FFE3BD;color:#7A3E00;font-weight:700}
@@ -319,6 +333,24 @@ button,a,label,summary,select{touch-action:manipulation}
 .dest{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .dest button{min-height:48px;border-radius:10px;border:1.5px solid var(--riga);background:#fff;font-weight:700;cursor:pointer}
 .dest button[aria-pressed="true"]{background:var(--petrolio);border-color:var(--petrolio);color:#fff}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+/* browser senza "gap" nei layout flessibili (Safari prima del 14.1): si usano i margini */
+html.no-flexgap .barra>*+*{margin-left:10px}
+html.no-flexgap .seg>*+*{margin-left:8px}
+html.no-flexgap .tile>*+*{margin-left:12px}
+html.no-flexgap .barra-azione .dentro>*+*{margin-left:8px}
+html.no-flexgap .controllo>*+*{margin-left:10px}
+html.no-flexgap .tris>*+*{margin-left:6px}
+html.no-flexgap .doc>*+*{margin-left:12px}
+html.no-flexgap .allega>*+*{margin-left:10px}
+html.no-flexgap .fotocard>*+*{margin-left:10px}
+html.no-flexgap #dett-barra>*+*{margin-left:10px}
+html.no-flexgap .visita .riga>*{margin:0 6px 6px 0}
+html.no-flexgap .fatto .azioni2>*{margin:0 8px 8px 0}
+html.no-flexgap .ed-barra>*{margin:0 6px 6px 0}
+html.no-flexgap .docazioni>*{margin:0 6px 6px 0}
+html.no-flexgap .chips>*{margin:0 6px 6px 0}
 </style>
 </head>
 <body>
@@ -773,7 +805,7 @@ function sezioneDocumenti(a){
     const mod = docModificati.get(d.id);
     const extra = d.altro ? ' · ' + (d.altro === 'impianto' ? 'dell\'impianto' : 'del cliente') : '';
     return `<div class="docbox"><button class="doc" type="button" data-doc="${esc(d.id)}" data-nome="${esc(d.nome)}">${icoDoc(d)}<span class="docn">${esc(d.nome)}${mod ? ' <span class="chip pdf">Modificato</span>' : ''}<small>${dimStr(d.size || 0)}${extra}</small></span><span class="docapri">Apri</span></button>
-      <div class="docazioni">${(èPdf(d) || /^image\//i.test(d.mime || '') || /^(png|jpe?g)$/i.test(d.ext || '')) ? `<button class="btn piccolo" type="button" data-stampa-doc="${esc(d.id)}" data-nome="${esc(d.nome)}">Stampa</button>` : ''}${èPdf(d) ? `<button class="btn sec piccolo" type="button" data-modifica="${esc(d.id)}" data-nome="${esc(d.nome)}">${mod ? 'Modifica ancora qui' : 'Modifica qui'}</button>` : ''}<button class="btn sec piccolo" type="button" data-carica-mod="${esc(d.id)}" data-nome="${esc(d.nome)}" data-mime="${esc(d.mime || '')}" data-ext="${esc(d.ext || '')}">Carica file modificato</button>${mod ? `<button class="btn chiaro piccolo" type="button" data-orig="${esc(d.id)}" data-nome="${esc(d.nome)}">Apri originale</button><button class="btn chiaro piccolo" type="button" data-ripristina="${esc(d.id)}">Ripristina originale</button>` : ''}</div></div>`;
+      <div class="docazioni">${(èPdf(d) || /^image\//i.test(d.mime || '') || /^(png|jpe?g)$/i.test(d.ext || '')) ? `<button class="btn piccolo" type="button" data-stampa-doc="${esc(d.id)}" data-nome="${esc(d.nome)}">Stampa</button>` : ''}${(èPdf(d) && puoUsarePdfJs()) ? `<button class="btn sec piccolo" type="button" data-modifica="${esc(d.id)}" data-nome="${esc(d.nome)}">${mod ? 'Modifica ancora qui' : 'Modifica qui'}</button>` : ''}<button class="btn sec piccolo" type="button" data-carica-mod="${esc(d.id)}" data-nome="${esc(d.nome)}" data-mime="${esc(d.mime || '')}" data-ext="${esc(d.ext || '')}">Carica file modificato</button>${mod ? `<button class="btn chiaro piccolo" type="button" data-orig="${esc(d.id)}" data-nome="${esc(d.nome)}">Apri originale</button><button class="btn chiaro piccolo" type="button" data-ripristina="${esc(d.id)}">Ripristina originale</button>` : ''}</div></div>`;
   };
   const mie = docs.filter(d => !d.altro), altri = docs.filter(d => d.altro);
   return `<div class="sez"><h2>Documenti<small>${mie.length || docs.length}</small></h2>${mie.map(riga).join('')}
@@ -1073,7 +1105,7 @@ function sezioneRcee(){
 function righeEmailOpz(){
   const opz = lavoro.emailOpz || [], corr = (lavoro.email || '').trim().toLowerCase();
   let h = '';
-  if (opz.length > 1) h += '<p class="aiuto" style="margin:-4px 0 6px">Altri indirizzi del cliente: tocca per scegliere</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + opz.map(x => `<button class="btn ${x.a.toLowerCase() === corr ? '' : 'sec '}piccolo" type="button" data-email-sceglie="${esc(x.a)}">${esc(x.a)}${x.pec ? ' (PEC)' : ''}</button>`).join('') + '</div>';
+  if (opz.length > 1) h += '<p class="aiuto" style="margin:-4px 0 6px">Altri indirizzi del cliente: tocca per scegliere</p><div class="chips" style="margin-bottom:10px">' + opz.map(x => `<button class="btn ${x.a.toLowerCase() === corr ? '' : 'sec '}piccolo" type="button" data-email-sceglie="${esc(x.a)}">${esc(x.a)}${x.pec ? ' (PEC)' : ''}</button>`).join('') + '</div>';
   if (lavoro.consensoEmail === false) h += '<div class="avviso"><b>Attenzione</b>In Levante questo cliente non ha dato il consenso alle comunicazioni via email.</div>';
   if ((lavoro.email || '').trim() && !emailValida(lavoro.email)) h += '<p class="aiuto" style="color:var(--rosso);margin:-4px 0 8px">L\'indirizzo non sembra valido: controlla che ci siano la chiocciola e il dominio.</p>';
   return h;
@@ -1487,7 +1519,7 @@ function aggiornaPulsantiInvio(){
   const g = $('#invio-guida');
   if (g) g.innerHTML = puo
     ? 'Si apre il menu del dispositivo: scegli la tua app di posta (Mail, Gmail, Outlook…). L\'<b>indirizzo viene copiato</b>: nel campo <b>A</b> tieni premuto e scegli <b>Incolla</b>.'
-    : 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.';
+    : (scaricaPossibile ? 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.' : 'Su questo dispositivo l\'invio automatico non è disponibile: apri ogni file con <b>Apri</b>, poi <b>Condividi</b> e scegli <b>Mail</b> (o l\'app della stampante).');
 }
 
 /* ---- messaggio di posta: oggetto e testo pronti ---- */
@@ -1564,6 +1596,10 @@ async function condividiPdf(){
       m.textContent = (await copia) ? 'Indirizzo copiato (' + ind + '): nella mail, nel campo A, tieni premuto e scegli Incolla.' : 'Indirizzo del destinatario: ' + ind;
       return;
     } catch(e) { if (e && e.name === 'AbortError') return; }
+  }
+  if (!scaricaPossibile) {            // iPad e iPhone con iOS vecchio: niente invio automatico
+    m.innerHTML = 'Questo dispositivo è troppo vecchio per l\'invio automatico. Per ogni file: tocca <b>Apri</b>, poi nel visualizzatore tocca <b>Condividi</b> e scegli <b>Mail</b>. Destinatario: <b>' + esc(ind) + '</b>';
+    return;
   }
   // senza menu di condivisione (per esempio un computer): scarico i file e apro la mail con destinatario, oggetto e testo
   scaricaPdf();
@@ -1867,8 +1903,10 @@ function sappiMostrarePdf(){
   if (navigator.pdfViewerEnabled === false) return false;
   return èiOS() || !/Android/i.test(navigator.userAgent);
 }
+const scaricaPossibile = 'download' in document.createElement('a');
 function scaricaBlob(blob, nome){
   const url = URL.createObjectURL(blob);
+  if (!scaricaPossibile) { window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 120000); return; }   // iOS vecchi: si apre in una scheda e da li' si condivide
   const a = document.createElement('a'); a.href = url; a.download = nome;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 120000);
@@ -2206,7 +2244,7 @@ function leggiNumeroIniziale(parole){
   else { const n = parolaNumero(p0); if (n !== null) { v = n; usate = 1; } }
   if (v === null) return null;
   const p1 = (parole[1] || '').toLowerCase(), p2 = (parole[2] || '').toLowerCase();
-  if (p1 === 'virgola' && /^\d+$/.test(p2.replace(/\D/g, '')) && p2) { v = parseFloat(String(Math.trunc(v)) + '.' + (parolaNumero(p2) ?? p2.replace(/\D/g, ''))); usate += 2; }
+  if (p1 === 'virgola' && /^\d+$/.test(p2.replace(/\D/g, '')) && p2) { v = parseFloat(String(Math.trunc(v)) + '.' + (parolaNumero(p2) !== null ? parolaNumero(p2) : p2.replace(/\D/g, ''))); usate += 2; }
   else if (p1 === 'virgola' && parolaNumero(p2) !== null) { v = parseFloat(String(Math.trunc(v)) + '.' + parolaNumero(p2)); usate += 2; }
   return {valore: v, usate};
 }
@@ -2933,7 +2971,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.2 (05/10/2026)';
+const VERSIONE_APP = '1.2.1 (05/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -2952,6 +2990,18 @@ async function registraServiceWorker(){
     try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch(e){}
     aggiornaStatoApp();
   } catch(e) { erroreSW = (e && e.message) || String(e); aggiornaStatoApp(); }
+}
+
+/* ---- quali funzioni ha questo dispositivo ---- */
+function puoUsarePdfJs(){ try { new Function('var a={b:1};return a?.b'); return true; } catch(e) { return false; } }   // le librerie dei PDF richiedono un browser del 2020 o piu' recente
+function funzioniMancanti(){
+  const m = [];
+  let share = false; try { share = !!(navigator.canShare && navigator.canShare({files: [new File(['a'], 'a.txt', {type: 'text/plain'})]})); } catch(e){}
+  if (!share) m.push('invio e stampa diretti dal menu di condivisione (si usa Apri e poi Condividi)');
+  if (!SR) m.push('dettatura con il microfono');
+  if (!puoUsarePdfJs()) m.push('modifica dei PDF nell\'app e stampa come immagini');
+  if (!(navigator.clipboard && navigator.clipboard.writeText)) m.push('copia automatica dell\'indirizzo email');
+  return m;
 }
 async function statoApp(){
   const r = {sicuro: inLocaleSicuro(), sw: 'assente', memorizzati: 0, totale: FILE_OFFLINE.length, mancanti: [], assentiSulSito: null, pronta: false, persistente: null,
@@ -3000,6 +3050,8 @@ async function aggiornaStatoApp(){
   else if (èSafariMac) h += riga(['Per installarla su Mac con Safari:', 'dal menu <b>File</b> scegli <b>Aggiungi al Dock</b>.'], false);
   else if (/Android/i.test(ua)) h += riga(['Per installarla su Android:', 'dal menu del browser scegli <b>Installa app</b> o <b>Aggiungi a schermata Home</b>.'], false);
   else h += riga(['Per installarla su computer:', 'in Chrome o Edge usa l\'icona di installazione nella barra dell\'indirizzo oppure, dal menu del browser, <b>Installa app</b>.'], false);
+  const mancano = funzioniMancanti();
+  if (mancano.length) h += riga(['Non disponibili su questo dispositivo:', esc(mancano.join('; ')) + '. Il resto funziona. Per averle serve un dispositivo più recente (iPad o iPhone con iOS 15 o successivo, Android recente).'], false);
   if (r.persistente === true) h += riga(['Dati protetti:', 'il browser non li cancella da solo.'], true);
   else if (r.persistente === false) h += riga(['Dati non protetti:', 'se il dispositivo ha poco spazio il browser potrebbe cancellarli. Invia le schede e i file appena puoi.'], false);
   box.innerHTML = h;
