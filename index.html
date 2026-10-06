@@ -2855,7 +2855,7 @@ function costruisciDaLevante(T){
       for (const [sg, col] of COL_MODELLO) { if (tipo.startsWith(sg)) { o._tipo = sg; o._tpl = (row[col] || '').trim(); break; } }
       return o;
     });
-    const fatto = (a.FATTO || '').toUpperCase() === 'T'; if (fatto) stat.fatti++;
+    const fatto = (a.FATTO || '').toUpperCase() === 'T' || (a.TIPOIMPEGNO || '') === 'Intervento'; if (fatto) stat.fatti++;      // Levante non segna FATTO: l'appuntamento diventa di tipo "Intervento" quando l'ufficio lo registra con F12
     out.push({id:'lev-' + a.ID, fatto: fatto || undefined, rc: rcs.length ? rcs : undefined, docs: (docsApp.length || docsAltri.length) ? docsApp.concat(docsAltri) : undefined, inizio, fine, titolo:(c0 && c0.RAGIONESOCIALE) || a.RAGSOCCLI || 'Appuntamento', luogo, messaggio:a.EVENTMESSAGE || '',
       urgente:(a.URGENTE || '').toUpperCase() === 'T', tecnico_id:a.RESOURCEID || '', tecnico_nome:tecnici[a.RESOURCEID] || '', r});
   });
@@ -3077,7 +3077,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.4 (05/10/2026)';
+const VERSIONE_APP = '1.4.1 (05/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
