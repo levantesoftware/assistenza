@@ -8,6 +8,32 @@
 <title>Assistenza impianti</title>
 <script>
 /* compatibilita' con browser piu' vecchi (per esempio Safari di iOS 12) */
+/* Eventi "pointer" per i browser che non li hanno (Safari su iOS 12 e precedenti): si ricavano da touch e mouse.
+   Servono alla firma e all'editor dei PDF. */
+(function(){
+  if (window.PointerEvent) return;
+  var ultimoTocco = 0;
+  function emetti(tipo, e, t, id, tocco){
+    var ev = document.createEvent('Event'); ev.initEvent(tipo, true, true);
+    ev.clientX = t.clientX; ev.clientY = t.clientY; ev.pageX = t.pageX; ev.pageY = t.pageY; ev.pointerId = id; ev.pointerType = tocco ? 'touch' : 'mouse';
+    ev.isPrimary = true; ev.button = 0; ev.pressure = tipo === 'pointerup' ? 0 : 0.5; ev.buttons = tipo === 'pointerup' ? 0 : 1;
+    (t.target || e.target).dispatchEvent(ev);
+    return ev.defaultPrevented;
+  }
+  function daTocco(nome, tipo){
+    document.addEventListener(nome, function(e){
+      ultimoTocco = Date.now(); var blocca = false;
+      for (var i = 0; i < e.changedTouches.length; i++) { var t = e.changedTouches[i]; if (emetti(tipo, e, t, 100 + t.identifier, true)) blocca = true; }
+      if (blocca && e.cancelable) e.preventDefault();
+    }, {passive: false, capture: true});
+  }
+  daTocco('touchstart', 'pointerdown'); daTocco('touchmove', 'pointermove'); daTocco('touchend', 'pointerup'); daTocco('touchcancel', 'pointercancel');
+  var premuto = null;
+  document.addEventListener('mousedown', function(e){ if (Date.now() - ultimoTocco < 800) return; premuto = e.target; emetti('pointerdown', e, e, 1, false); }, true);
+  document.addEventListener('mousemove', function(e){ if (!premuto || Date.now() - ultimoTocco < 800) return; emetti('pointermove', e, {clientX: e.clientX, clientY: e.clientY, pageX: e.pageX, pageY: e.pageY, target: premuto}, 1, false); }, true);
+  document.addEventListener('mouseup', function(e){ if (!premuto) return; var b = premuto; premuto = null; emetti('pointerup', e, {clientX: e.clientX, clientY: e.clientY, pageX: e.pageX, pageY: e.pageY, target: b}, 1, false); }, true);
+  if (!Element.prototype.setPointerCapture) { Element.prototype.setPointerCapture = function(){}; Element.prototype.releasePointerCapture = function(){}; }
+})();
 (function(){
   function leggi(blob, metodo){ return new Promise(function(ok, ko){ var r = new FileReader(); r.onload = function(){ ok(r.result); }; r.onerror = function(){ ko(r.error); }; r[metodo](blob); }); }
   if (window.Blob && !Blob.prototype.text) Blob.prototype.text = function(){ return leggi(this, 'readAsText'); };
@@ -3369,7 +3395,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.5.0 (06/10/2026)';
+const VERSIONE_APP = '1.5.1 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
