@@ -529,6 +529,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <h2 class="giorno" style="margin-top:26px">Ufficio</h2>
     <p class="aiuto" style="margin-bottom:10px">Da qui si caricano i file esportati da Levante e si preparano i file da mandare ai tecnici.</p>
     <button class="btn pieno" id="b-ufficio" type="button">Prepara i file da Levante</button>
+    <button class="btn pieno" id="b-posta" type="button" style="margin-top:10px">Posta in arrivo (interventi dei tecnici)</button>
     <button class="btn sec pieno" id="b-azzera" type="button" style="margin-top:18px">Cancella le schede salvate</button>
     <button class="btn sec pieno" id="b-prova" type="button" style="margin-top:10px">Torna ai dati di prova</button>
   </section>
@@ -553,6 +554,32 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <input type="file" id="in-levante" accept=".csv,.json,text/csv,application/json" multiple hidden>
     <div id="esito-uff"></div>
     <p class="aiuto" style="margin-top:18px">I file contengono dati dei clienti: mandali solo ai tecnici.</p>
+  </section>
+
+  <!-- UFFICIO: POSTA IN ARRIVO -->
+  <section id="v-posta" class="view">
+    <header class="barra fissa">
+      <button class="btn chiaro piccolo" id="b-indietro-posta" type="button">Indietro</button>
+      <h1>Posta in arrivo</h1>
+    </header>
+    <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
+      <li>Dalla mail salva gli allegati dei tecnici (PDF e file <b>Dati_…txt</b>).</li>
+      <li>Tocca il pulsante qui sotto e scegli <b>tutti i file insieme</b>: gli interventi si raggruppano da soli.</li>
+      <li>Per ogni intervento trovi cosa registrare in Levante (ore, testi da copiare, km, materiali) e il file <b>CSV</b> da caricare con «carica file di testo».</li>
+    </ol>
+    <button class="btn pieno" id="b-posta-carica" type="button">Scegli i file ricevuti</button>
+    <input type="file" id="in-posta" accept=".txt,.json,.pdf,text/plain,application/json,application/pdf" multiple hidden>
+    <p class="aiuto" id="posta-msg" role="status" style="margin:8px 0"></p>
+    <label class="spunta"><input type="checkbox" id="posta-fatti"> Mostra anche gli interventi già registrati</label>
+    <div id="posta-elenco" style="margin-top:12px"></div>
+    <details style="margin-top:18px"><summary><b>Impostazioni del file CSV per Levante</b></summary>
+      <div class="campo"><label for="csv-cod">Codice della manodopera</label><input type="text" id="csv-cod"></div>
+      <div class="campo"><label for="csv-desc">Descrizione della manodopera</label><input type="text" id="csv-desc"></div>
+      <div class="campo"><label for="csv-um">Unità di misura della manodopera</label><input type="text" id="csv-um"></div>
+      <div class="campo"><label class="spunta"><input type="checkbox" id="csv-virgola"> Decimali con la virgola (1,5) invece del punto</label></div>
+      <div class="campo"><label class="spunta"><input type="checkbox" id="csv-intest"> Prima riga con i nomi dei campi</label></div>
+      <div class="campo"><label class="spunta"><input type="checkbox" id="csv-win"> Codifica Windows (accenti corretti in Levante); se tolto, UTF-8</label></div>
+    </details>
   </section>
   </div>
 </div>
@@ -1746,6 +1773,7 @@ function baseAllegati(){
       etichetta: 'Rapporto di intervento', etichettaCli: 'Rapporto di intervento (copia per il cliente, senza note interne)'});
     else l.push({id: 'rcee', nome: f.nome, blob: f.blob, mime: 'application/pdf', base: true, on: true, onCli: true, etichetta: 'RCEE (rapporto di controllo di efficienza energetica)'});
   });
+  try { l.push({id: 'dati', nome: nomeDati(lavoro), blob: new Blob([JSON.stringify(datiIntervento(lavoro, (ultimoPdf || []).map(f => f.nome)))], {type: 'text/plain'}), mime: 'text/plain', base: true, on: true, onCli: false, etichetta: 'Dati dell\'intervento (per la posta in arrivo dell\'ufficio)'}); } catch(e) {}
   return l;
 }
 function disegnaInvio(){
@@ -3457,7 +3485,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.7.2 (06/10/2026)';
+const VERSIONE_APP = '1.8.0 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3576,8 +3604,116 @@ async function ricevutiDaCondivisione(){
     esitoImport = (/non è valido/.test(esitoImport) ? '' : 'Ricevuto dal menu Condividi. ') + esitoImport; disegnaAgenda();
   } catch(e) { esitoImport = 'Non sono riuscito a leggere il file ricevuto: caricalo con "Carica i dati".'; disegnaAgenda(); }
 }
+/* ==================================================================
+   POSTA IN ARRIVO (ufficio) e CSV per Levante
+   ================================================================== */
+function nomeDati(w){ return 'Dati_' + slugNome(w.cliente) + '_' + (w.data || isoGiorno(new Date())) + '.txt'; }
+function datiIntervento(w, pdf){
+  return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
+    li: (w.levante && w.levante.li) || '',
+    orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})),
+    km: w.km || '', relazione: w.relazione || '', osservazioni: w.osservazioni || '', raccomandazioni: w.raccomandazioni || '', prescrizioni: w.prescrizioni || '', note: w.note || '',
+    materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || ''})),
+    rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
+    file: pdf || [], inviato: Date.now()};
+}
+let posta = store.get('ass_posta', []);
+const pdfPosta = {};                       // PDF ricevuti in questa sessione (non si salvano: pesano)
+const salvaPosta = () => store.set('ass_posta', posta);
+const CSV_BASE = {cod: 'M0', desc: 'Manodopera', um: 'h', virgola: true, intest: false, win: true};
+const csvImp = () => Object.assign({}, CSV_BASE, impostazioni.csv || {});
+function minutiTotali(r){ return (r.orari || []).reduce((s, o) => s + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0); }
+function csvNum(v, virg){
+  let s = String(v == null ? '' : v).trim(); if (!s) return '';
+  const n = parseFloat(s.replace(',', '.')); if (isNaN(n) || !/^[\d.,\s]+$/.test(s)) return s.replace(/[;\r\n]+/g, ' ');
+  s = String(Math.round(n * 100) / 100); return virg ? s.replace('.', ',') : s;
+}
+function righeCsv(r){
+  const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), rows = [];
+  if (c.intest) rows.push(['codice', 'descrizione', 'unità di misura', 'quantità', 'prezzo unitario']);
+  const min = minutiTotali(r);
+  if (min > 0) rows.push([cp(c.cod), cp(c.desc), cp(c.um), csvNum(min / 60, c.virgola), '']);
+  (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), '']));   // il prezzo resta vuoto: Levante lo evidenzia in rosso
+  return rows;
+}
+function bytesWin(s){
+  const M = {'€':0x80,'‚':0x82,'„':0x84,'…':0x85,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97};
+  const o = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) { const k = s.charCodeAt(i); o[i] = k < 256 ? k : (M[s.charAt(i)] || 63); }
+  return o;
+}
+function blobCsv(r){
+  const t = righeCsv(r).map(x => x.join(';')).join('\r\n') + '\r\n';
+  return csvImp().win ? new Blob([bytesWin(t)], {type: 'text/csv'}) : new Blob([t], {type: 'text/csv;charset=utf-8'});
+}
+function copiaTesto(t){
+  const ok = () => mostraAvviso ? mostraAvviso('Copiato.', '', null, 1500) : 0;
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(ok, () => copiaVecchio(t)); return; } } catch(e){}
+  copiaVecchio(t);
+}
+function copiaVecchio(t){
+  const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(a); a.focus(); a.select(); a.setSelectionRange(0, t.length);
+  try { document.execCommand('copy'); } catch(e){} a.remove();
+}
+const chiavePosta = r => (r.id || '') + '|' + (r.data || '') + '|' + (r.cliente || '');
+function disegnaPosta(){
+  const box = $('#posta-elenco'); if (!box) return;
+  const tutti = $('#posta-fatti').checked, lista = posta.map((r, i) => ({r, i})).filter(x => tutti || !x.r.fatto)
+    .sort((a, b) => String(a.r.data).localeCompare(String(b.r.data)) || String(a.r.cliente).localeCompare(String(b.r.cliente)));
+  if (!lista.length) { box.innerHTML = '<p class="aiuto">Nessun intervento da registrare.</p>'; return; }
+  const blocco = (tit, t, i, k) => t ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${tit}</b><button class="btn sec piccolo" type="button" data-copia="${i}|${k}">Copia</button></div><div style="white-space:pre-wrap">${esc(t)}</div></div>` : '';
+  box.innerHTML = lista.map(({r, i}) => {
+    const min = minutiTotali(r), h = min ? fmtOre(min) : '';
+    const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
+    const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
+    const pdf = (r.file || []).map(n => pdfPosta[n] ? `<button class="btn sec piccolo" type="button" data-pdf="${esc(n)}">${esc(n)}</button>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
+    return `<details class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b> · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}</summary>
+      <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · impianto ' + esc(r.li) : ''}</p>
+      <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}</p>
+      ${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
+      ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
+      ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
+      <p style="margin:8px 0">${pdf}</p>
+      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div></details>`;
+  }).join('');
+}
+const ESITI_BREVI = {concluso: 'Concluso', da_completare: 'Da completare', non_eseguito: 'Non eseguito'};
+async function leggiPosta(files){
+  let nuovi = 0, agg = 0, pdf = 0, altri = 0;
+  for (const f of files) {
+    if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name] = f; pdf++; continue; }
+    try {
+      const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
+      if (!o || o.assist !== 'intervento') { altri++; continue; }
+      const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
+      if (i >= 0) { o.fatto = posta[i].fatto; posta[i] = o; agg++; } else { posta.push(o); nuovi++; }
+    } catch(e) { altri++; }
+  }
+  salvaPosta();
+  $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.';
+  disegnaPosta();
+}
+function avviaPosta(){
+  $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; disegnaPosta(); mostra('posta'); };
+  $('#b-indietro-posta').onclick = indietro;
+  $('#b-posta-carica').onclick = () => $('#in-posta').click();
+  $('#in-posta').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) await leggiPosta(fl); };
+  $('#posta-fatti').onchange = disegnaPosta;
+  const c = csvImp(); $('#csv-cod').value = c.cod; $('#csv-desc').value = c.desc; $('#csv-um').value = c.um; $('#csv-virgola').checked = c.virgola; $('#csv-intest').checked = c.intest; $('#csv-win').checked = c.win;
+  const salva = () => { impostazioni.csv = {cod: $('#csv-cod').value.trim(), desc: $('#csv-desc').value.trim(), um: $('#csv-um').value.trim(), virgola: $('#csv-virgola').checked, intest: $('#csv-intest').checked, win: $('#csv-win').checked}; salvaImpostazioni(); };
+  ['#csv-cod', '#csv-desc', '#csv-um'].forEach(s => $(s).oninput = salva); ['#csv-virgola', '#csv-intest', '#csv-win'].forEach(s => $(s).onchange = salva);
+  $('#posta-elenco').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+    if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); }
+    else if (d.csv !== undefined) { const r = posta[+d.csv]; scaricaBlob(blobCsv(r), 'Levante_' + slugNome(r.cliente) + '_' + (r.data || '') + '.csv'); }
+    else if (d.pdf !== undefined) { const f = pdfPosta[d.pdf]; if (f) scaricaBlob(f, d.pdf); }
+    else if (d.togliPosta !== undefined) { if (confirm('Elimino questo intervento dalla posta in arrivo?')) { posta.splice(+d.togliPosta, 1); salvaPosta(); disegnaPosta(); } }
+  });
+  $('#posta-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); setTimeout(disegnaPosta, 250); } });
+}
 function avvia(){
   appuntamenti = caricaAppuntamenti();
+  avviaPosta();
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
