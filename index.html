@@ -286,6 +286,9 @@ button,a,label,summary,select{touch-action:manipulation}
 }
 
 /* allegato RCEE */
+.spunta{display:flex;gap:10px;align-items:flex-start;font-weight:600;line-height:1.35}
+.spunta input{width:22px;height:22px;flex:none;margin-top:1px}
+a.pos{display:block;margin-top:4px;font-size:13px;color:var(--petrolio)}
 .sottotit{font-size:15px;margin:18px 0 6px;color:var(--petrolio)}
 .sotto{font-size:12px;margin:14px 0 6px;color:var(--petrolio);text-transform:uppercase;letter-spacing:.04em}
 .controllo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--riga2)}
@@ -498,6 +501,8 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     </header>
     <div class="campo"><label for="i-azienda">Nome azienda (in alto nel PDF)</label><input type="text" id="i-azienda"></div>
     <div class="campo"><label for="i-tecnico">Nome del tecnico (precompila la scheda)</label><input type="text" id="i-tecnico"></div>
+    <div class="campo"><label class="spunta"><input type="checkbox" id="i-posizione"> Registra la posizione quando tocco «Adesso» su arrivo e fine</label>
+      <p class="aiuto" style="margin:4px 0 0">Il telefono chiede il permesso la prima volta. La posizione si legge solo in quel momento, non in continuo, e resta nel rapportino per l'ufficio.</p></div>
     <div class="campo"><label for="i-email-ufficio">Email dell'ufficio (per inviare i documenti)</label><input type="email" id="i-email-ufficio" inputmode="email" autocomplete="off" placeholder="ufficio@tuaazienda.it"></div>
     <div class="campo"><span class="etichetta">La tua firma per l'RCEE (si fa una volta sola)</span>
       <div class="firma"><canvas id="firma-tec"></canvas><div class="linea"></div></div>
@@ -1075,11 +1080,22 @@ function campoTesto(k, etichetta, opzioni = {}){
   const conta = opzioni.max ? `<span class="conta" id="n-${k}">${v.length}/${opzioni.max}</span>` : '';
   return `<div class="campo"><label for="f-${k}">${etichetta}${conta}</label>${tag}${opzioni.frasi ? chipsFrasi(k) : ''}</div>`;
 }
+/* ---- posizione registrata a arrivo e fine (solo se attivata nelle Impostazioni) ---- */
+function leggiPosizione(ok, ko){
+  if (!navigator.geolocation) { ko('Questo dispositivo non fornisce la posizione.'); return; }
+  navigator.geolocation.getCurrentPosition(function(p){
+    ok({la: +p.coords.latitude.toFixed(5), lo: +p.coords.longitude.toFixed(5), pr: Math.round(p.coords.accuracy || 0)});
+  }, function(e){
+    ko(e && e.code === 1 ? 'Posizione non registrata: il permesso è stato negato. Si riattiva dalle impostazioni del browser.' : 'Posizione non disponibile in questo momento.');
+  }, {enableHighAccuracy: true, timeout: 12000, maximumAge: 60000});
+}
+const linkMappa = q => 'https://www.google.com/maps/search/?api=1&query=' + q.la + ',' + q.lo;
+const indPos = (o, c) => o['p_' + c] ? `<a class="aiuto pos" href="${linkMappa(o['p_' + c])}" target="_blank" rel="noopener">Posizione registrata${o['p_' + c].pr ? ' (±' + o['p_' + c].pr + ' m)' : ''}</a>` : '';
 function righeOrari(){
   return lavoro.orari.map((o, n) => `<div class="riga-orario">
     <div><label>Giorno</label><input type="date" data-orario="${n}" data-c="data" value="${esc(o.data)}"></div>
-    <div><label>Dalle</label><input type="time" data-orario="${n}" data-c="dal" value="${esc(o.dal)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|dal">Adesso</button></div>
-    <div><label>Alle</label><input type="time" data-orario="${n}" data-c="al" value="${esc(o.al)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|al">Adesso</button></div>
+    <div><label>Dalle</label><input type="time" data-orario="${n}" data-c="dal" value="${esc(o.dal)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|dal">Adesso</button>${indPos(o, 'dal')}</div>
+    <div><label>Alle</label><input type="time" data-orario="${n}" data-c="al" value="${esc(o.al)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|al">Adesso</button>${indPos(o, 'al')}</div>
     ${lavoro.orari.length > 1 ? `<button class="togli" type="button" data-togli-orario="${n}" aria-label="Togli questa fascia">×</button>` : '<span></span>'}</div>`).join('');
 }
 function righeMateriali(){
@@ -1372,7 +1388,8 @@ function collegaForm(){
     if (d.stampaAncora !== undefined) { stampaPronta_(); return; }
     if (d.tuttoFatto !== undefined) { tuttoEseguito(); return; }
     if (d.frase !== undefined) { const k = b.closest('[data-frasi]').dataset.frasi; inserisciFrase(k, +d.frase); return; }
-    if (d.adesso !== undefined) { const [n, c] = d.adesso.split('|'); const o = lavoro.orari[+n]; if (o) { o[c] = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + n + '"][data-c="' + c + '"]'); if (inp) inp.value = o[c]; aggiornaOre(); bozzaModificata(); } return; }
+    if (d.adesso !== undefined) { const [n, c] = d.adesso.split('|'); const o = lavoro.orari[+n]; if (o) { o[c] = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + n + '"][data-c="' + c + '"]'); if (inp) inp.value = o[c]; aggiornaOre(); bozzaModificata();
+      if (impostazioni.posizione) { const orario = o; leggiPosizione(function(q){ orario['p_' + c] = q; if (lavoro && lavoro.orari.indexOf(orario) >= 0) { disegnaOrari(); } }, function(m){ mostraAvviso(m, '', null, 6000); }); } } return; }
     if (d.matFreq !== undefined) { const m = leggiMatUsati()[+d.matFreq]; if (m) { lavoro.materiali.push({descr: m.d, codice: '', qta: m.q || '1', um: m.u || 'pz'}); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); } return; }
     if (d.mic !== undefined) { avviaDettatura(d.mic); return; }
     if (d.fotoScatta !== undefined) { $('#in-foto').click(); return; }
@@ -1541,7 +1558,7 @@ function costruisciPdf(w, ctx){
 
   const tot = w.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0);
   titolo('Orari');
-  w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—'), '', ''));
+  w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—'), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
   coppia('Ore totali', tot ? fmtOre(tot) : '', 'Km percorsi', w.km);
 
   titolo('Materiali');
@@ -3395,7 +3412,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.5.1 (06/10/2026)';
+const VERSIONE_APP = '1.6.0 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3523,7 +3540,7 @@ function avvia(){
   $('#b-indietro-scheda').onclick = indietro;
   $('#b-pdf').onclick = creaPdf;
   $('#b-impostazioni').onclick = () => {
-    $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || '';
+    $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || ''; $('#i-posizione').checked = !!impostazioni.posizione;
     $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
@@ -3534,6 +3551,7 @@ function avvia(){
   document.querySelectorAll('input[name="stampa-formato"],input[name="stampa-dpi"]').forEach(r => r.onchange = salvaStampa); $('#stampa-bn').onchange = salvaStampa;
   $('#b-indietro-imp').onclick = indietro;
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
+  $('#i-posizione').onchange = e => { impostazioni.posizione = e.target.checked; salvaImpostazioni(); if (e.target.checked) leggiPosizione(function(){}, function(m){ alert(m); }); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-email-ufficio').oninput = e => { impostazioni.emailUfficio = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-frasi').oninput = e => { const f = e.target.value.split('\n').map(x => x.trim()).filter(Boolean); impostazioni.frasi = f.length ? f : undefined; salvaImpostazioni(); };
