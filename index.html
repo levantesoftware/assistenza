@@ -577,6 +577,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="campo"><label for="csv-desc">Descrizione della manodopera</label><input type="text" id="csv-desc"></div>
       <div class="campo"><label for="csv-um">Unità di misura della manodopera</label><input type="text" id="csv-um"></div>
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-virgola"> Decimali con la virgola (1,5) invece del punto</label></div>
+      <div class="campo"><label class="spunta"><input type="checkbox" id="csv-prezzo"> Metti il prezzo degli articoli scelti dai preferiti</label></div>
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-intest"> Prima riga con i nomi dei campi</label></div>
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-win"> Codifica Windows (accenti corretti in Levante); se tolto, UTF-8</label></div>
     </details>
@@ -1343,7 +1344,7 @@ function disegnaScheda(){
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
     </div>
-    <div class="passo"><h2>Materiali</h2><div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
+    <div class="passo"><h2>Materiali</h2>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn sec piccolo" type="button" id="b-add-mat">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce>${ICONA_MIC} Detta i materiali</button></div></div>
     <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
       <div id="foto-lista"></div>
@@ -3272,7 +3273,8 @@ function costruisciDaLevante(T){
   out.sort((x, y) => x.inizio.localeCompare(y.inizio));
   const files = {};
   (T.docfiles || []).forEach(d => { files[d.id] = {mime: d.mime, b64: d.b64, nome: d.nome}; });
-  return {appuntamenti: out, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files};
+  return {appuntamenti: out, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
+    articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || ''])};
 }
 
 
@@ -3330,7 +3332,7 @@ async function leggiUltimaEsportazione(cambia){
   }
 }
 let datiLevante = null;
-const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda'];
+const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 async function leggiFileLevante(files){
   const T = {}, trovati = [];
@@ -3369,7 +3371,7 @@ function disegnaUfficio(){
   }
   let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.length} ${datiLevante.appuntamenti.length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
     <br>Nel file c'${st.totale === 1 ? 'era 1 appuntamento' : 'erano ' + st.totale + ' appuntamenti'}${esclusi.length ? ': non inclusi ' + esclusi.join(' e ') : ''}${st.fatti ? ' (' + st.fatti + ' già ' + (st.fatti === 1 ? 'chiuso' : 'chiusi') + ' in Levante, li vedi segnati)' : ''}.
-    <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}</div>`;
+    <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}${riepilogoArticoli()}</div>`;
   if (!datiLevante.appuntamenti.length) h += '<p class="aiuto">Non ci sono appuntamenti da oggi in poi nell\'esportazione.</p>';
   const oggi = isoGiorno(new Date()), inviati = leggiInviati();
   Object.keys(per).forEach(id => {
@@ -3392,7 +3394,7 @@ function disegnaUfficio(){
   esito.querySelectorAll('[data-invia]').forEach(b => b.onclick = () => consegna(b.dataset.invia, true));
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
-  $('#b-usa-qui').onclick = async () => { await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
+  $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
 }
 function riepilogoDocumenti(){
   const n = datiLevante.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
@@ -3423,7 +3425,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files};
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || []};
 }
 async function salvaDati(d, leggero){
   const files = d.files || {}; const dd = Object.assign({}, d); delete dd.files;
@@ -3462,6 +3464,7 @@ async function caricaPacchetto(file){
     if (!d || d.formato !== 'assistenza-v1' || !Array.isArray(d.appuntamenti)) throw new Error('formato');
     const prima = store.get('ass_dati', null);
     const leggero = d.tipo === 'aggiornamento';
+    salvaArticoli(d.articoli);
     await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
@@ -3487,7 +3490,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.8.1 (06/10/2026)';
+const VERSIONE_APP = '1.9.0 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3607,6 +3610,38 @@ async function ricevutiDaCondivisione(){
   } catch(e) { esitoImport = 'Non sono riuscito a leggere il file ricevuto: caricalo con "Carica i dati".'; disegnaAgenda(); }
 }
 /* ==================================================================
+   ARTICOLI PREFERITI (da Levante, campo PREFERITO): ricerca nei materiali
+   ================================================================== */
+let articoli = null;                                   // [[codice, descrizione, um, prezzo]]
+function leggiArticoli(){ if (articoli === null) articoli = store.get('ass_articoli', []) || []; return articoli; }
+function salvaArticoli(l){ if (Array.isArray(l) && l.length) { articoli = l; store.set('ass_articoli', l); } }
+function riepilogoArticoli(){ const n = (datiLevante && datiLevante.articoli || []).length; return n ? `<br>Articoli preferiti: <b>${n}</b>` : '<br>Articoli preferiti: nessuno nell\'esportazione (controlla articoli_diagnosi.txt).'; }
+function cercaMatHtml(){
+  const n = leggiArticoli().length; if (!n) return '';
+  return `<div class="campo" style="margin:0 0 10px"><label for="mat-cerca">Cerca tra i tuoi articoli (${n})</label><input type="search" id="mat-cerca" autocomplete="off" placeholder="Codice o parte della descrizione"><div id="mat-cerca-ris"></div></div>`;
+}
+function risultatiArticoli(q){
+  const parole = String(q || '').toLowerCase().split(/\s+/).filter(Boolean); if (!parole.length) return [];
+  const out = [], tutti = leggiArticoli();
+  for (let i = 0; i < tutti.length && out.length < 8; i++) { const a = tutti[i], t = (a[0] + ' ' + a[1]).toLowerCase(); if (parole.every(p => t.indexOf(p) >= 0)) out.push(i); }
+  return out;
+}
+function avviaArticoli(){
+  document.addEventListener('input', e => {
+    if (!e.target || e.target.id !== 'mat-cerca') return;
+    const tutti = leggiArticoli(), box = $('#mat-cerca-ris');
+    box.innerHTML = risultatiArticoli(e.target.value).map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(a[3]) : ''}</button>`; }).join('');
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-art]'); if (!b || !lavoro) return;
+    const a = leggiArticoli()[+b.dataset.art]; if (!a) return;
+    lavoro.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
+    $('#materiali').innerHTML = righeMateriali(); $('#mat-cerca').value = ''; $('#mat-cerca-ris').innerHTML = '';
+    const l = document.querySelectorAll('#materiali input[data-c="qta"]'); if (l.length) { l[l.length - 1].focus(); l[l.length - 1].select(); }
+    bozzaModificata();
+  });
+}
+/* ==================================================================
    POSTA IN ARRIVO (ufficio) e CSV per Levante
    ================================================================== */
 function nomeDati(w){ return 'Dati_' + slugNome(w.cliente) + '_' + (w.data || isoGiorno(new Date())) + '.txt'; }
@@ -3615,14 +3650,14 @@ function datiIntervento(w, pdf){
     li: (w.levante && w.levante.li) || '',
     orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})),
     km: w.km || '', relazione: w.relazione || '', osservazioni: w.osservazioni || '', raccomandazioni: w.raccomandazioni || '', prescrizioni: w.prescrizioni || '', note: w.note || '',
-    materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || ''})),
+    materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     file: pdf || [], inviato: Date.now()};
 }
 let posta = store.get('ass_posta', []);
 const pdfPosta = {};                       // PDF ricevuti in questa sessione (non si salvano: pesano)
 const salvaPosta = () => store.set('ass_posta', posta);
-const CSV_BASE = {cod: 'M0', desc: 'Manodopera', um: 'h', virgola: true, intest: false, win: true};
+const CSV_BASE = {cod: 'M0', desc: 'Manodopera', um: 'h', virgola: true, intest: false, win: true, prezzo: true};
 const csvImp = () => Object.assign({}, CSV_BASE, impostazioni.csv || {});
 function minutiTotali(r){ return (r.orari || []).reduce((s, o) => s + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0); }
 function csvNum(v, virg){
@@ -3630,12 +3665,13 @@ function csvNum(v, virg){
   const n = parseFloat(s.replace(',', '.')); if (isNaN(n) || !/^[\d.,\s]+$/.test(s)) return s.replace(/[;\r\n]+/g, ' ');
   s = String(Math.round(n * 100) / 100); return virg ? s.replace('.', ',') : s;
 }
+function csvPrezzo(v, virg){ const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); if (isNaN(n) || n <= 0) return ''; const t = n.toFixed(2); return virg ? t.replace('.', ',') : t; }
 function righeCsv(r){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), rows = [];
   if (c.intest) rows.push(['codice', 'descrizione', 'unità di misura', 'quantità', 'prezzo unitario']);
   const min = minutiTotali(r);
   if (min > 0) rows.push([cp(c.cod), cp(c.desc), cp(c.um), csvNum(min / 60, c.virgola), '']);
-  (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), '']));   // il prezzo resta vuoto: Levante lo evidenzia in rosso
+  (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), c.prezzo ? csvPrezzo(m.prezzo, c.virgola) : '']));   // senza prezzo il campo resta vuoto: Levante lo evidenzia in rosso
   return rows;
 }
 function bytesWin(s){
@@ -3701,9 +3737,9 @@ function avviaPosta(){
   $('#b-posta-carica').onclick = () => $('#in-posta').click();
   $('#in-posta').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) await leggiPosta(fl); };
   $('#posta-fatti').onchange = disegnaPosta;
-  const c = csvImp(); $('#csv-cod').value = c.cod; $('#csv-desc').value = c.desc; $('#csv-um').value = c.um; $('#csv-virgola').checked = c.virgola; $('#csv-intest').checked = c.intest; $('#csv-win').checked = c.win;
-  const salva = () => { impostazioni.csv = {cod: $('#csv-cod').value.trim(), desc: $('#csv-desc').value.trim(), um: $('#csv-um').value.trim(), virgola: $('#csv-virgola').checked, intest: $('#csv-intest').checked, win: $('#csv-win').checked}; salvaImpostazioni(); };
-  ['#csv-cod', '#csv-desc', '#csv-um'].forEach(s => $(s).oninput = salva); ['#csv-virgola', '#csv-intest', '#csv-win'].forEach(s => $(s).onchange = salva);
+  const c = csvImp(); $('#csv-cod').value = c.cod; $('#csv-desc').value = c.desc; $('#csv-um').value = c.um; $('#csv-virgola').checked = c.virgola; $('#csv-intest').checked = c.intest; $('#csv-prezzo').checked = c.prezzo !== false; $('#csv-win').checked = c.win;
+  const salva = () => { impostazioni.csv = {cod: $('#csv-cod').value.trim(), desc: $('#csv-desc').value.trim(), um: $('#csv-um').value.trim(), virgola: $('#csv-virgola').checked, intest: $('#csv-intest').checked, prezzo: $('#csv-prezzo').checked, win: $('#csv-win').checked}; salvaImpostazioni(); };
+  ['#csv-cod', '#csv-desc', '#csv-um'].forEach(s => $(s).oninput = salva); ['#csv-virgola', '#csv-intest', '#csv-prezzo', '#csv-win'].forEach(s => $(s).onchange = salva);
   $('#posta-elenco').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
     if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); }
@@ -3715,7 +3751,7 @@ function avviaPosta(){
 }
 function avvia(){
   appuntamenti = caricaAppuntamenti();
-  avviaPosta();
+  avviaPosta(); avviaArticoli();
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
