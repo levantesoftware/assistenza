@@ -1752,7 +1752,7 @@ function aggiornaPulsantiInvio(){
   const puo = !!(navigator.canShare && fl.length && navigator.canShare({files: fl}));
   const g = $('#invio-guida');
   if (g) g.innerHTML = puo
-    ? 'Si apre il menu del dispositivo: scegli la tua app di posta (Mail, Gmail, Outlook…). L\'<b>indirizzo viene copiato</b>: nel campo <b>A</b> tieni premuto e scegli <b>Incolla</b>.'
+    ? 'Si apre il menu del dispositivo: scegli <b>WhatsApp</b> (e il contatto dell\'ufficio) oppure la tua app di posta. Per la posta l\'<b>indirizzo viene copiato</b>: nel campo <b>A</b> tieni premuto e scegli <b>Incolla</b>.'
     : (scaricaPossibile ? 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.' : 'Su questo dispositivo l\'invio automatico non è disponibile: apri ogni file con <b>Apri</b>, poi <b>Condividi</b> e scegli <b>Mail</b> (o l\'app della stampante).');
 }
 
@@ -1818,16 +1818,18 @@ async function condividiPdf(){
   const cli = destInvio === 'cli', fl = filesDaInviare(), m = $('#pdf-msg');
   if (!fl.length) { m.textContent = 'Scegli almeno un file da inviare.'; return; }
   const ind = String(cli ? lavoro.email : impostazioni.emailUfficio || '').trim();
-  if (!ind) { m.textContent = cli ? 'Scrivi l\'email del cliente qui sopra.' : 'Scrivi l\'email dell\'ufficio qui sopra.'; const x = $(cli ? '#inv-email-cli' : '#inv-email-uff'); if (x) x.focus(); return; }
-  if (!emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
+  const puoMenu = !!(navigator.canShare && navigator.canShare({files: fl}));      // col menu di condivisione (WhatsApp, Mail...) l'email non serve
+  if (!ind && !puoMenu) { m.textContent = cli ? 'Scrivi l\'email del cliente qui sopra.' : 'Scrivi l\'email dell\'ufficio qui sopra.'; const x = $(cli ? '#inv-email-cli' : '#inv-email-uff'); if (x) x.focus(); return; }
+  if (ind && !emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
   if (cli && lavoro.consensoEmail === false && !confirm('In Levante questo cliente non ha dato il consenso alle comunicazioni via email. Invio lo stesso?')) return;
   const {oggetto, testo} = composizioneMail(cli);
   if (navigator.canShare && navigator.canShare({files: fl})) {
     // l'indirizzo si copia e il menu di condivisione si apre nello stesso tocco (serve per essere accettati dal telefono)
     let copia = Promise.resolve(false);
-    try { copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e){}
+    try { if (ind) copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e){}
     try {
       await navigator.share({files: fl, title: oggetto, text: testo});
+      if (!ind) { m.textContent = ''; return; }
       m.textContent = (await copia) ? 'Indirizzo copiato (' + ind + '): nella mail, nel campo A, tieni premuto e scegli Incolla.' : 'Indirizzo del destinatario: ' + ind;
       return;
     } catch(e) { if (e && e.name === 'AbortError') return; }
@@ -3485,7 +3487,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.8.0 (06/10/2026)';
+const VERSIONE_APP = '1.8.1 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
