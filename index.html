@@ -784,7 +784,7 @@ function disegnaAgenda(){
     const nDoc = (a.docs || []).filter(d => !d.altro).length;
     if (nDoc) chips.push(`<span class="chip info">${nDoc} ${nDoc === 1 ? 'documento' : 'documenti'}</span>`);
     if (st === 'pdf') chips.push('<span class="chip pdf">PDF creato</span>');
-    else if (st === 'bozza') chips.push('<span class="chip bozza">Bozza</span>');
+    else if (st === 'bozza') chips.push(bozze[a.id].inCorso ? '<span class="chip bozza">In corso dalle ' + esc(bozze[a.id].inizioOra || '') + '</span>' : '<span class="chip bozza">Bozza</span>');
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
@@ -912,7 +912,7 @@ function apriDettaglio(id, push = true){
       ${c.m ? `<dt>Cellulare</dt><dd><a href="tel:${esc(soloCifre(c.m))}">${esc(c.m)}</a></dd>` : ''}
       ${c.e ? `<dt>Email</dt><dd>${esc(c.e)}</dd>` : ''}</dl></div>`;
   }
-  h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-inizia" type="button">${st === 'pdf' ? 'Rivedi la scheda' : st === 'bozza' ? 'Continua la scheda' : 'Inizia l\'intervento'}</button></div></div>`;
+  h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-inizia" type="button">${st === 'pdf' ? 'Rivedi la scheda' : (bozze[a.id] && bozze[a.id].inCorso) ? 'Continua l\'intervento (iniziato alle ' + esc(bozze[a.id].inizioOra || '') + ')' : st === 'bozza' ? 'Continua la scheda' : 'Inizia l\'intervento'}</button>${(bozze[a.id] && !bozze[a.id].inCorso && st !== '' && bozze[a.id].orari && bozze[a.id].orari.some(o => o.dal && o.al)) ? '<button class="btn sec" id="b-nuova-visita" type="button" style="margin-top:8px">Nuova visita: inizia adesso</button>' : ''}</div></div>`;
   $('#v-dettaglio').innerHTML = h;
   $('#b-indietro-det').onclick = indietro;
   $('#v-dettaglio').querySelectorAll('[data-doc]').forEach(b => b.onclick = () => apriDocumento(b.dataset.doc, b.dataset.nome));
@@ -925,7 +925,8 @@ function apriDettaglio(id, push = true){
     if (!confirm('Torno al documento originale? Le tue modifiche a questo documento andranno perse.')) return;
     await cancellaModificato(b.dataset.ripristina); apriDettaglio(corrente.id, false);
   });
-  $('#b-inizia').onclick = () => apriScheda(a);
+  $('#b-inizia').onclick = () => { const b = bozze[a.id]; if (!b || b.stato === 'nuova') iniziaIntervento(a); else apriScheda(a); };
+  const nv = $('#b-nuova-visita'); if (nv) nv.onclick = () => iniziaIntervento(a, true);
   mostra('dettaglio', push);
   disegnaAgenda();
 }
@@ -1029,8 +1030,8 @@ function tuttoEseguito(){
     const el = $('#f-relazione'); if (el) { el.value = t; const c = $('#n-relazione'); if (c) c.textContent = t.length + '/2500'; } cosa.push('relazione');
   }
   const u = lavoro.orari[lavoro.orari.length - 1];
-  if (u && u.dal && !u.al && u.data === isoGiorno(new Date()) && minuti(u.dal, hhmm(new Date())) > 0) {
-    u.al = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + (lavoro.orari.length - 1) + '"][data-c="al"]'); if (inp) inp.value = u.al; cosa.push('ora di fine ' + u.al);
+  if (u && u.dal && !u.al && u.data === isoGiorno(new Date()) && (lavoro.inCorso || minuti(u.dal, hhmm(new Date())) > 0)) {
+    u.al = hhmm(new Date()); lavoro.inCorso = false; registraPos(u, 'al'); const inp = document.querySelector('[data-orario="' + (lavoro.orari.length - 1) + '"][data-c="al"]'); if (inp) inp.value = u.al; cosa.push('ora di fine ' + u.al);
   }
   aggiornaTile(); aggiornaOre(); bozzaModificata();
   mostraAvviso('Fatto: ' + cosa.join(', ') + '.', 'Annulla', () => {
@@ -1091,6 +1092,37 @@ function leggiPosizione(ok, ko){
 }
 const linkMappa = q => 'https://www.google.com/maps/search/?api=1&query=' + q.la + ',' + q.lo;
 const indPos = (o, c) => o['p_' + c] ? `<a class="aiuto pos" href="${linkMappa(o['p_' + c])}" target="_blank" rel="noopener">Posizione registrata${o['p_' + c].pr ? ' (±' + o['p_' + c].pr + ' m)' : ''}</a>` : '';
+function registraPos(u, c){
+  if (!impostazioni.posizione) return;
+  const w = lavoro;
+  leggiPosizione(function(q){ u['p_' + c] = q; if (lavoro === w && w.orari.indexOf(u) >= 0) disegnaOrari(); else { w.aggiornata = Date.now(); salvaBozze(); } },
+                 function(m){ mostraAvviso(m, '', null, 6000); });
+}
+/* ---- arrivo: si registra con "Inizia l'intervento" nel dettaglio; fine: quando si sceglie l'esito ---- */
+function iniziaIntervento(a, nuovaVisita){
+  const gia = bozze[a.id];
+  if (gia && gia.inCorso) { apriScheda(a); return; }
+  const w = gia || nuovaScheda(a), oggi = isoGiorno(new Date()), ora = hhmm(new Date());
+  let u = w.orari[w.orari.length - 1];
+  if (!u || nuovaVisita || (u.dal && u.al && u.data !== oggi)) { u = {data: oggi, dal: '', al: ''}; w.orari.push(u); if (w.orari.length > 5) w.orari.shift(); }
+  u.data = oggi; u.dal = ora; u.al = ''; delete u.p_dal; delete u.p_al;
+  w.inCorso = true; w.inizioOra = ora; w.stato = 'bozza'; w.aggiornata = Date.now();
+  bozze[a.id] = w; salvaBozze();
+  apriScheda(a);
+  registraPos(u, 'dal');
+}
+function fineAutomatica(){
+  const u = lavoro.orari[lavoro.orari.length - 1], eraInCorso = !!lavoro.inCorso;
+  if (!u || !u.dal || u.al) { lavoro.inCorso = false; return; }
+  const oggi = isoGiorno(new Date()), ora = hhmm(new Date());
+  if (u.data !== oggi || (!eraInCorso && minuti(u.dal, ora) <= 0)) return;
+  u.al = ora; lavoro.inCorso = false;
+  const inp = document.querySelector('[data-orario="' + (lavoro.orari.length - 1) + '"][data-c="al"]'); if (inp) inp.value = u.al;
+  aggiornaOre(); registraPos(u, 'al');
+  mostraAvviso('Ora di fine registrata alle ' + ora + '. Puoi correggerla in "Orari e viaggio".', 'Annulla', () => {
+    u.al = ''; delete u.p_al; lavoro.inCorso = eraInCorso; disegnaOrari();
+  }, 9000);
+}
 function righeOrari(){
   return lavoro.orari.map((o, n) => `<div class="riga-orario">
     <div><label>Giorno</label><input type="date" data-orario="${n}" data-c="data" value="${esc(o.data)}"></div>
@@ -1252,6 +1284,7 @@ function righeEmailOpz(){
 function disegnaScheda(){
   const w = lavoro;
   $('#form').innerHTML = `
+    ${w.inCorso ? '<div class="avviso"><b>Intervento in corso</b>Iniziato alle ' + esc(w.inizioOra || '') + '. Quando scegli l\'esito, l\'ora di fine si registra da sola.</div>' : ''}
     <div class="passo"><h2>Chi e dove</h2>
       ${campoTesto('cliente', 'Cliente')}
       ${campoTesto('indirizzo', 'Indirizzo dell\'intervento')}
@@ -1273,7 +1306,7 @@ function disegnaScheda(){
       ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, frasi:true, ph:'Lavori consigliati al cliente.'})}
       ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, frasi:true, ph:'Interventi obbligatori per la sicurezza.'})}
     </div>
-    <div class="passo"><h2>Orari e viaggio</h2><p class="aiuto">Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
+    <div class="passo"><h2>Orari e viaggio</h2><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
       <div class="totale" id="ore-tot"></div>
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
@@ -1374,7 +1407,7 @@ function collegaForm(){
     const t = e.target, d = t.dataset;
     if (d.allega !== undefined) { ultimiAllegati[+d.allega][destInvio === 'cli' ? 'onCli' : 'on'] = t.checked; aggiornaPulsantiInvio(); }
     else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); }
-    else if (t.name === 'esito') { lavoro.esito = t.value; aggiornaTile(); bozzaModificata(); }
+    else if (t.name === 'esito') { const primo = !lavoro.esito; lavoro.esito = t.value; aggiornaTile(); if (primo) fineAutomatica(); bozzaModificata(); }
     else if (d.rcapp !== undefined) { const r = lavoro.rc[+d.rcapp]; r._app = t.value; const tp = modelloLibero(r); if (tp) applicaDatiLibero(r, tp, false, true); const y = window.scrollY; disegnaLiberi(); window.scrollTo(0, y); bozzaModificata(); }
     else if (d.rcmod !== undefined) { const r = lavoro.rc[+d.rcmod]; Object.keys(r).forEach(k => { if (k[0] !== '_') delete r[k]; }); r._tpl = t.value; const tp = modelloLibero(r); if (tp) applicaDatiLibero(r, tp, false, false); const y = window.scrollY; disegnaLiberi(); window.scrollTo(0, y); bozzaModificata(); }
     else if (t.id === 'an-nuova' && t.value) { lavoro.analisi[t.value] = {}; $('#analisi').innerHTML = schedeAnalisi(); bozzaModificata(); }
@@ -1389,7 +1422,7 @@ function collegaForm(){
     if (d.tuttoFatto !== undefined) { tuttoEseguito(); return; }
     if (d.frase !== undefined) { const k = b.closest('[data-frasi]').dataset.frasi; inserisciFrase(k, +d.frase); return; }
     if (d.adesso !== undefined) { const [n, c] = d.adesso.split('|'); const o = lavoro.orari[+n]; if (o) { o[c] = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + n + '"][data-c="' + c + '"]'); if (inp) inp.value = o[c]; aggiornaOre(); bozzaModificata();
-      if (impostazioni.posizione) { const orario = o; leggiPosizione(function(q){ orario['p_' + c] = q; if (lavoro && lavoro.orari.indexOf(orario) >= 0) { disegnaOrari(); } }, function(m){ mostraAvviso(m, '', null, 6000); }); } } return; }
+      registraPos(o, c); if (c === 'al') lavoro.inCorso = false; } return; }
     if (d.matFreq !== undefined) { const m = leggiMatUsati()[+d.matFreq]; if (m) { lavoro.materiali.push({descr: m.d, codice: '', qta: m.q || '1', um: m.u || 'pz'}); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); } return; }
     if (d.mic !== undefined) { avviaDettatura(d.mic); return; }
     if (d.fotoScatta !== undefined) { $('#in-foto').click(); return; }
@@ -3412,7 +3445,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.6.0 (06/10/2026)';
+const VERSIONE_APP = '1.7.0 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
