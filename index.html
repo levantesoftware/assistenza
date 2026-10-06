@@ -1592,6 +1592,13 @@ function costruisciPdf(w, ctx){
   const tot = w.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0);
   titolo('Orari');
   w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—'), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
+  if (!ctx.perCliente) w.orari.forEach(o => {
+    const L = [[o.p_dal, 'Apri la posizione di arrivo in Google Maps'], [o.p_al, 'Apri la posizione di fine in Google Maps']].filter(x => x[0]);
+    if (!L.length) return;
+    serve(6 * L.length + 2); doc.setFont('helvetica','normal'); doc.setFontSize(9); colore(PET);
+    L.forEach(x => { doc.textWithLink(x[1], M, y + 3, {url: linkMappa(x[0])}); y += 5.5; });
+    y += 1;
+  });
   coppia('Ore totali', tot ? fmtOre(tot) : '', 'Km percorsi', w.km);
 
   titolo('Materiali');
@@ -3445,7 +3452,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.7.0 (06/10/2026)';
+const VERSIONE_APP = '1.7.1 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
