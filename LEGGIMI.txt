@@ -31,6 +31,13 @@ COME SI INSTALLA SUI DISPOSITIVI
        PC (Edge o Chrome):  icona di installazione nella barra dell'indirizzo
   4. Da quel momento si apre dall'icona, come un'app, anche senza campo.
 
+CARICARE I DATI DA WHATSAPP SU ANDROID
+  Con l'app installata (Chrome), il file ricevuto su WhatsApp si apre cosi': tocca il file, poi Condividi e scegli
+  "Assistenza". I dati si caricano da soli, anche senza connessione. Su iPhone e iPad non esiste questa scorciatoia:
+  tocca il file, Condividi, "Salva in File", poi nell'app "Carica i dati" e scegli il file.
+  Per attivarlo su un Android che ha gia' l'app installata: aggiorna i file su GitHub (index.html, sw.js,
+  manifest.webmanifest), poi disinstalla e reinstalla l'app dal browser (o aspetta uno o due giorni: Chrome aggiorna da solo).
+
 COME SI AGGIORNA
   - Per una versione nuova basta caricare di nuovo index.html con lo stesso nome ("Add file" > "Upload files": sostituisce
     quello vecchio). Chi ha campo trova la versione nuova alla prima apertura; senza campo resta quella precedente.
