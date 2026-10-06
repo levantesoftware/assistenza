@@ -542,7 +542,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     </header>
     <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
       <li>Sul PC di Levante lancia <b>Esporta_Levante.bat</b>.</li>
-      <li>Tocca <b>Leggi l'ultima esportazione</b> (Chrome o Edge sul computer), oppure apri la cartella che si crea (con data e ora) e scegli qui <b>tutti i file</b> (.csv e .json).</li>
+      <li>Il .bat crea anche un unico file <b>Esportazione_….zip</b>: tocca <b>Scegli i file di Levante</b> e scegli solo quello. Oppure tocca <b>Leggi l'ultima esportazione</b> (Chrome o Edge sul computer), oppure apri la cartella che si crea (con data e ora) e scegli qui <b>tutti i file</b> (.csv e .json).</li>
       <li>Per ogni tecnico vedi cosa è cambiato dall'ultimo invio: manda il file solo a chi ha novità (è un file di testo <b>.txt</b>: il tecnico lo apre dall'app con "Carica i dati" e vede subito cosa è nuovo, spostato o annullato).</li>
     </ol>
     <div id="blocco-ultima" hidden>
@@ -551,7 +551,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
     </div>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
-    <input type="file" id="in-levante" accept=".csv,.json,text/csv,application/json" multiple hidden>
+    <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
     <div id="esito-uff"></div>
     <p class="aiuto" style="margin-top:18px">I file contengono dati dei clienti: mandali solo ai tecnici.</p>
   </section>
@@ -764,6 +764,7 @@ function disegnaBanner(){
   }
   $('#b-carica').onclick = () => $('#in-pacchetto').click();
 }
+function chipEsito(b){ return b && b.esito === 'da_completare' ? '<span class="chip bozza">Da completare</span>' : b && b.esito === 'non_eseguito' ? '<span class="chip urg">Non eseguito</span>' : ''; }
 function disegnaDaCompletare(){
   const ids = new Set(appuntamenti.map(a => a.id));
   const aperte = Object.values(bozze).filter(b => b.stato === 'bozza' && (b.manuale || !ids.has(b.id))).sort((x, y) => y.aggiornata - x.aggiornata);
@@ -773,7 +774,7 @@ function disegnaDaCompletare(){
     <span class="ora" style="font-size:16px">${esc(dataIT(b.data).slice(0, 5))}</span>
     <span class="corpo"><span class="nome">${esc(b.titolo || b.cliente || 'Intervento')}</span>
       <span class="dove" style="display:block">${b.manuale ? 'Senza appuntamento' : 'Non è più nell\'elenco degli appuntamenti'}</span>
-      <span class="riga"><span class="chip bozza">Bozza</span></span></span></button>`).join('');
+      <span class="riga"><span class="chip bozza">Bozza</span>${chipEsito(b)}</span></span></button>`).join('');
   box.querySelectorAll('[data-bozza]').forEach(x => x.onclick = () => apriBozza(x.dataset.bozza));
 }
 function apriBozza(id){
@@ -814,6 +815,7 @@ function disegnaAgenda(){
     if (nDoc) chips.push(`<span class="chip info">${nDoc} ${nDoc === 1 ? 'documento' : 'documenti'}</span>`);
     if (st === 'pdf') chips.push('<span class="chip pdf">PDF creato</span>');
     else if (st === 'bozza') chips.push(bozze[a.id].inCorso ? '<span class="chip bozza">In corso dalle ' + esc(bozze[a.id].inizioOra || '') + '</span>' : '<span class="chip bozza">Bozza</span>');
+    if (st === 'pdf' || st === 'bozza') { const ce = chipEsito(bozze[a.id]); if (ce) chips.push(ce); }
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
@@ -3334,7 +3336,38 @@ async function leggiUltimaEsportazione(cambia){
 let datiLevante = null;
 const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
+/* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
+async function espandiZip(file){
+  const buf = new Uint8Array(await new Response(file).arrayBuffer()), dv = new DataView(buf.buffer), dec = new TextDecoder('utf-8'), out = [];
+  let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('zip non valido');
+  let n = dv.getUint16(e + 10, true), q = dv.getUint32(e + 16, true);
+  while (n-- > 0 && dv.getUint32(q, true) === 0x02014b50) {
+    const met = dv.getUint16(q + 10, true), csz = dv.getUint32(q + 20, true), nl = dv.getUint16(q + 28, true), el = dv.getUint16(q + 30, true), cl = dv.getUint16(q + 32, true), off = dv.getUint32(q + 42, true);
+    const nome = dec.decode(buf.subarray(q + 46, q + 46 + nl)).split('/').pop();
+    q += 46 + nl + el + cl;
+    if (!nome) continue;
+    const ini = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), dati = buf.subarray(ini, ini + csz);
+    let byte;
+    if (met === 0) byte = dati;
+    else if (met === 8) {
+      if (typeof DecompressionStream === 'undefined') throw new Error('Questo browser non apre gli zip: usa Chrome o Edge aggiornati, oppure scegli i file singoli.');
+      byte = new Uint8Array(await new Response(new Blob([dati]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    } else continue;
+    out.push(new File([byte], nome));
+  }
+  return out;
+}
 async function leggiFileLevante(files){
+  const zip = files.filter(f => /\.zip$/i.test(f.name));
+  if (zip.length) {
+    try {
+      const mz = zip[0].name.match(/(\d{4}-\d{2}-\d{2}_\d{4})/);
+      let tutti = files.filter(f => !/\.zip$/i.test(f.name));
+      for (const z of zip) tutti = tutti.concat(await espandiZip(z));
+      files = tutti; if (mz) infoUff.origine = mz[1];
+    } catch(e) { $('#esito-uff').innerHTML = '<div class="avviso rosso" style="margin-top:14px"><b>Non riesco ad aprire lo zip</b>' + esc(e.message || '') + '</div>'; return; }
+  }
   const T = {}, trovati = [];
   for (const f of files) {
     const nome = f.name.replace(/\.csv$/i, '').toLowerCase();
@@ -3490,7 +3523,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.9.0 (06/10/2026)';
+const VERSIONE_APP = '1.10.0 (06/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
