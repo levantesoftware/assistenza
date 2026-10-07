@@ -551,6 +551,10 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
     </div>
     <p class="avviso info" id="uff-servizio" role="status" hidden style="margin:0 0 12px"></p>
+    <div id="uff-azioni" hidden style="margin:0 0 12px">
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn" id="b-esporta-ora" type="button">Esporta ora da Levante</button><button class="btn sec" id="b-apri-esport" type="button">Apri la cartella delle esportazioni</button></div>
+      <p class="aiuto" id="msg-esporta" role="status" style="margin:6px 0 0"></p>
+    </div>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
     <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
     <div id="esito-uff"></div>
@@ -574,9 +578,14 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <label class="spunta"><input type="checkbox" id="posta-fatti"> Mostra anche gli interventi già registrati</label>
     <div id="posta-elenco" style="margin-top:12px"></div>
     <details style="margin-top:18px"><summary><b>Impostazioni del file CSV per Levante</b></summary>
-      <div class="campo"><label for="csv-cod">Codice della manodopera</label><input type="text" id="csv-cod"></div>
-      <div class="campo"><label for="csv-desc">Descrizione della manodopera</label><input type="text" id="csv-desc"></div>
+      <p class="aiuto">Manodopera: scrivi i codici che usate in Levante e come li chiamate (es. M0 «Ordinaria», M1 «Specializzato», M2 «Festiva»). Lascia vuoti quelli che non usate. Il primo è quello proposto di norma.</p>
+      <div id="csv-man"></div>
       <div class="campo"><label for="csv-um">Unità di misura della manodopera</label><input type="text" id="csv-um"></div>
+      <p class="aiuto">Chilometri e diritto di chiamata finiscono nel CSV solo se qui scrivi il codice dell'articolo creato in Levante (es. KM, DIRCH). Senza codice la riga non viene scritta.</p>
+      <div class="campo"><label for="csv-kmcod">Codice dei chilometri</label><input type="text" id="csv-kmcod"></div>
+      <div class="campo"><label for="csv-kmdesc">Descrizione dei chilometri</label><input type="text" id="csv-kmdesc"></div>
+      <div class="campo"><label for="csv-dccod">Codice del diritto di chiamata</label><input type="text" id="csv-dccod"></div>
+      <div class="campo"><label for="csv-dcdesc">Descrizione del diritto di chiamata</label><input type="text" id="csv-dcdesc"></div>
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-virgola"> Decimali con la virgola (1,5) invece del punto</label></div>
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-prezzo"> Metti il prezzo degli articoli scelti dai preferiti</label></div>
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-intest"> Prima riga con i nomi dei campi</label></div>
@@ -1081,7 +1090,7 @@ function nuovaScheda(a){
     impianto: i.d || '', levante: a && r.li ? {li:r.li, mi:r.mi} : null, r: a ? a.r || null : null,
     rc: a && a.rc ? JSON.parse(JSON.stringify(a.rc)) : [],
     ops: {}, ops_extra: [], analisi: {}, orari: [{data: isoGiorno(a ? a.inizio : new Date()), dal: a ? hhmm(a.inizio) : '', al: ''}],
-    relazione:'', osservazioni:'', raccomandazioni:'', prescrizioni:'', km:'', materiali: [], esito:'', note:'', firmaNome:'', firma:'',
+    relazione:'', osservazioni:'', raccomandazioni:'', prescrizioni:'', km:'', dc:false, materiali: [], esito:'', note:'', firmaNome:'', firma:'',
     email: '', emailOpz: [], consensoEmail: true
   };
   w.emailOpz = indirizziCliente(c); w.email = w.emailOpz.length ? w.emailOpz[0].a : ''; w.consensoEmail = c.ce !== 'F';
@@ -1346,6 +1355,7 @@ function disegnaScheda(){
       <div class="totale" id="ore-tot"></div>
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
+      <label class="spunta" style="margin-top:6px"><input type="checkbox" data-dc="1"${lavoro.dc ? ' checked' : ''}> Diritto fisso di chiamata</label>
     </div>
     <div class="passo"><h2>Materiali</h2>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn sec piccolo" type="button" id="b-add-mat">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce>${ICONA_MIC} Detta i materiali</button></div></div>
@@ -1441,6 +1451,7 @@ function collegaForm(){
   f.addEventListener('change', e => {
     const t = e.target, d = t.dataset;
     if (d.allega !== undefined) { ultimiAllegati[+d.allega][destInvio === 'cli' ? 'onCli' : 'on'] = t.checked; aggiornaPulsantiInvio(); }
+    else if (d.dc !== undefined) { lavoro.dc = t.checked; bozzaModificata(); }
     else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); }
     else if (t.name === 'esito') { const primo = !lavoro.esito; lavoro.esito = t.value; aggiornaTile(); if (primo) fineAutomatica(); bozzaModificata(); }
     else if (d.rcapp !== undefined) { const r = lavoro.rc[+d.rcapp]; r._app = t.value; const tp = modelloLibero(r); if (tp) applicaDatiLibero(r, tp, false, true); const y = window.scrollY; disegnaLiberi(); window.scrollTo(0, y); bozzaModificata(); }
@@ -3381,8 +3392,10 @@ async function leggiFileLevante(files){
     }
   }
   const esito = $('#esito-uff');
+  letturaOk = false;
   if (!T.appuntamenti) { esito.innerHTML = '<div class="avviso rosso" style="margin-top:14px"><b>Manca appuntamenti.csv</b>Scegli tutti i file della cartella creata da Esporta_Levante.bat.</div>'; return; }
   datiLevante = costruisciDaLevante(T);
+  letturaOk = true;
   infoUff.trovati = trovati;
   infoUff.mancanti = ['impianti','apparecchi','operazioni_pianificate','clienti','tecnici'].filter(n => !trovati.includes(n));
   infoUff.messaggio = '';
@@ -3524,7 +3537,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.11.1 (07/10/2026)';
+const VERSIONE_APP = '1.12.1 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3683,7 +3696,7 @@ function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
     li: (w.levante && w.levante.li) || '',
     orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})),
-    km: w.km || '', relazione: w.relazione || '', osservazioni: w.osservazioni || '', raccomandazioni: w.raccomandazioni || '', prescrizioni: w.prescrizioni || '', note: w.note || '',
+    km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: w.osservazioni || '', raccomandazioni: w.raccomandazioni || '', prescrizioni: w.prescrizioni || '', note: w.note || '',
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     file: pdf || [], inviato: Date.now()};
@@ -3691,8 +3704,20 @@ function datiIntervento(w, pdf){
 let posta = store.get('ass_posta', []);
 const pdfPosta = {};                       // PDF ricevuti in questa sessione (non si salvano: pesano)
 const salvaPosta = () => store.set('ass_posta', posta);
-const CSV_BASE = {cod: 'M0', desc: 'Manodopera', um: 'h', virgola: true, intest: false, win: true, prezzo: true};
-const csvImp = () => Object.assign({}, CSV_BASE, impostazioni.csv || {});
+const CSV_BASE = {man: [{cod: 'M0', desc: 'Manodopera'}, {cod: '', desc: ''}, {cod: '', desc: ''}, {cod: '', desc: ''}, {cod: '', desc: ''}], um: 'h', kmCod: '', kmDesc: 'Chilometri', dcCod: '', dcDesc: 'Diritto fisso di chiamata', virgola: true, intest: false, win: true, prezzo: true};
+const csvImp = () => {
+  const c = Object.assign({}, CSV_BASE, impostazioni.csv || {});
+  if (!Array.isArray(c.man)) c.man = [{cod: (impostazioni.csv && impostazioni.csv.cod) || 'M0', desc: (impostazioni.csv && impostazioni.csv.desc) || 'Manodopera'}];   // impostazioni delle versioni precedenti
+  while (c.man.length < 5) c.man.push({cod: '', desc: ''});
+  return c;
+};
+const codiciMan = c => c.man.filter(m => m.cod);
+/* ripartizione delle ore sui codici di manodopera: se l'ufficio non ha toccato nulla, tutte le ore sul primo codice */
+function ripartizione(r){
+  const c = csvImp(), man = codiciMan(c), tot = Math.round(minutiTotali(r) / 60 * 100) / 100;
+  if (Array.isArray(r.rip) && r.rip.length) return r.rip;
+  return [{c: (man[0] || {cod: 'M0'}).cod, o: tot ? csvNum(tot, true) : ''}];
+}
 function minutiTotali(r){ return (r.orari || []).reduce((s, o) => s + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0); }
 function csvNum(v, virg){
   let s = String(v == null ? '' : v).trim(); if (!s) return '';
@@ -3703,8 +3728,10 @@ function csvPrezzo(v, virg){ const n = parseFloat(String(v == null ? '' : v).rep
 function righeCsv(r){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), rows = [];
   if (c.intest) rows.push(['codice', 'descrizione', 'unità di misura', 'quantità', 'prezzo unitario']);
-  const min = minutiTotali(r);
-  if (min > 0) rows.push([cp(c.cod), cp(c.desc), cp(c.um), csvNum(min / 60, c.virgola), '']);
+  const nomeMan = k => { const m = c.man.find(x => x.cod === k); return m && m.desc ? m.desc : 'Manodopera'; };
+  ripartizione(r).forEach(x => { const o = parseFloat(String(x.o || '').replace(',', '.')); if (x.c && o > 0) rows.push([cp(x.c), cp(nomeMan(x.c)), cp(c.um), csvNum(o, c.virgola), '']); });
+  if (c.kmCod && parseFloat(String(r.km || '').replace(',', '.')) > 0) rows.push([cp(c.kmCod), cp(c.kmDesc), 'km', csvNum(r.km, c.virgola), '']);
+  if (c.dcCod && r.dc) rows.push([cp(c.dcCod), cp(c.dcDesc), 'nr', '1', '']);
   (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), c.prezzo ? csvPrezzo(m.prezzo, c.virgola) : '']));   // senza prezzo il campo resta vuoto: Levante lo evidenzia in rosso
   return rows;
 }
@@ -3727,6 +3754,7 @@ function copiaVecchio(t){
   const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(a); a.focus(); a.select(); a.setSelectionRange(0, t.length);
   try { document.execCommand('copy'); } catch(e){} a.remove();
 }
+const aperte = {};
 const chiavePosta = r => (r.id || '') + '|' + (r.data || '') + '|' + (r.cliente || '');
 function disegnaPosta(){
   const box = $('#posta-elenco'); if (!box) return;
@@ -3738,10 +3766,14 @@ function disegnaPosta(){
     const min = minutiTotali(r), h = min ? fmtOre(min) : '';
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
+    const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), diff = Math.abs(somma - min / 60) > 0.011;
+    const ripHtml = min > 0 ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
+    const extra = (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
     const pdf = (r.file || []).map(n => pdfPosta[n] ? `<button class="btn sec piccolo" type="button" data-pdf="${esc(n)}">${esc(n)}</button>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
-    return `<details class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b> · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}</summary>
+    return `<details${aperte[chiavePosta(r)] ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b> · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}</summary>
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · impianto ' + esc(r.li) : ''}</p>
-      <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}</p>
+      <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
+      ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
@@ -3771,20 +3803,31 @@ function avviaPosta(){
   $('#b-posta-carica').onclick = () => $('#in-posta').click();
   $('#in-posta').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) await leggiPosta(fl); };
   $('#posta-fatti').onchange = disegnaPosta;
-  const c = csvImp(); $('#csv-cod').value = c.cod; $('#csv-desc').value = c.desc; $('#csv-um').value = c.um; $('#csv-virgola').checked = c.virgola; $('#csv-intest').checked = c.intest; $('#csv-prezzo').checked = c.prezzo !== false; $('#csv-win').checked = c.win;
-  const salva = () => { impostazioni.csv = {cod: $('#csv-cod').value.trim(), desc: $('#csv-desc').value.trim(), um: $('#csv-um').value.trim(), virgola: $('#csv-virgola').checked, intest: $('#csv-intest').checked, prezzo: $('#csv-prezzo').checked, win: $('#csv-win').checked}; salvaImpostazioni(); };
-  ['#csv-cod', '#csv-desc', '#csv-um'].forEach(s => $(s).oninput = salva); ['#csv-virgola', '#csv-intest', '#csv-prezzo', '#csv-win'].forEach(s => $(s).onchange = salva);
+  const c = csvImp();
+  $('#csv-man').innerHTML = c.man.map((m, j) => `<div style="display:flex;gap:8px;margin:6px 0"><input type="text" data-mc="${j}" placeholder="Codice" value="${esc(m.cod)}" style="width:90px"><input type="text" data-md="${j}" placeholder="Descrizione" value="${esc(m.desc)}" style="flex:1;min-width:0"></div>`).join('');
+  $('#csv-kmcod').value = c.kmCod; $('#csv-kmdesc').value = c.kmDesc; $('#csv-dccod').value = c.dcCod; $('#csv-dcdesc').value = c.dcDesc; $('#csv-um').value = c.um; $('#csv-virgola').checked = c.virgola; $('#csv-intest').checked = c.intest; $('#csv-prezzo').checked = c.prezzo !== false; $('#csv-win').checked = c.win;
+  const salva = () => { impostazioni.csv = {man: [0, 1, 2, 3, 4].map(j => ({cod: $('[data-mc="' + j + '"]').value.trim(), desc: $('[data-md="' + j + '"]').value.trim()})), kmCod: $('#csv-kmcod').value.trim(), kmDesc: $('#csv-kmdesc').value.trim(), dcCod: $('#csv-dccod').value.trim(), dcDesc: $('#csv-dcdesc').value.trim(), um: $('#csv-um').value.trim(), virgola: $('#csv-virgola').checked, intest: $('#csv-intest').checked, prezzo: $('#csv-prezzo').checked, win: $('#csv-win').checked}; salvaImpostazioni(); };
+  ['#csv-kmcod', '#csv-kmdesc', '#csv-dccod', '#csv-dcdesc', '#csv-um'].forEach(s => $(s).oninput = salva); $('#csv-man').addEventListener('input', salva); ['#csv-virgola', '#csv-intest', '#csv-prezzo', '#csv-win'].forEach(s => $(s).onchange = salva);
   $('#posta-elenco').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
     if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); }
     else if (d.csv !== undefined) { const r = posta[+d.csv]; scaricaBlob(blobCsv(r), 'Levante_' + slugNome(r.cliente) + '_' + (r.data || '') + '.csv'); }
     else if (d.pdf !== undefined) { const f = pdfPosta[d.pdf]; if (f) scaricaBlob(f, d.pdf); }
+    else if (d.raggiungi !== undefined) { const r = posta[+d.raggiungi], man = codiciMan(csvImp()); r.rip = ripartizione(r).map(x => Object.assign({}, x)); const usati = r.rip.map(x => x.c), nuovo = (man.find(m => usati.indexOf(m.cod) < 0) || man[0] || {cod: 'M0'}).cod; r.rip.push({c: nuovo, o: ''}); salvaPosta(); disegnaPosta(); }
+    else if (d.rtogli !== undefined) { const p = d.rtogli.split('|'), r = posta[+p[0]]; r.rip = ripartizione(r).map(x => Object.assign({}, x)); r.rip.splice(+p[1], 1); salvaPosta(); disegnaPosta(); }
     else if (d.togliPosta !== undefined) { if (confirm('Elimino questo intervento dalla posta in arrivo?')) { posta.splice(+d.togliPosta, 1); salvaPosta(); disegnaPosta(); } }
+  });
+  $('#posta-elenco').addEventListener('toggle', e => { const k = e.target.dataset && e.target.dataset.pk; if (k) { if (e.target.open) aperte[k] = 1; else delete aperte[k]; } }, true);
+  $('#posta-elenco').addEventListener('input', e => { const d = e.target.dataset; if (d.rore !== undefined) { const p = d.rore.split('|'), r = posta[+p[0]]; r.rip = ripartizione(r).map(x => Object.assign({}, x)); r.rip[+p[1]].o = e.target.value; salvaPosta(); } });
+  $('#posta-elenco').addEventListener('change', e => {
+    const d = e.target.dataset;
+    if (d.rcod !== undefined) { const p = d.rcod.split('|'), r = posta[+p[0]]; r.rip = ripartizione(r).map(x => Object.assign({}, x)); r.rip[+p[1]].c = e.target.value; salvaPosta(); }
+    else if (d.rore !== undefined) disegnaPosta();
   });
   $('#posta-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); setTimeout(disegnaPosta, 250); } });
 }
 /* ---- servizio per l'ufficio (servizio_ufficio.py): se l'app e' aperta da li', l'ultimo zip di Levante arriva da solo ---- */
-let servizioTimer = null, ultimoZipLetto = '';
+let servizioTimer = null, ultimoZipLetto = '', letturaOk = false;
 async function controllaServizio(){
   try {
     const r = await fetch('ultima.json', {cache: 'no-store'});
@@ -3795,6 +3838,12 @@ async function controllaServizio(){
       const z = await fetch('ultima.zip', {cache: 'no-store'}); if (!z.ok) return;
       const blob = await z.blob();
       await leggiFileLevante([new File([blob], j.nome)]);
+      if (!letturaOk) {
+        box.hidden = false; box.className = 'avviso rosso'; box.style.margin = '0 0 12px';
+        box.innerHTML = '<b>L\'ultima esportazione non è utilizzabile</b>Nello zip ' + esc(j.nome) + ' manca <b>appuntamenti.csv</b>: l\'esportazione da Levante non è riuscita del tutto. Apri la cartella C:\\Assistenza\\export_levante, entra in quella più recente e leggi <b>_riepilogo.txt</b> (indica la query con l\'errore).';
+        return;
+      }
+      box.className = 'avviso info';
       ultimoZipLetto = j.nome;
       if (datiLevante) {                                 // l'agenda di questo PC (tutti i tecnici) si aggiorna da sola: niente piu' "modalita' prova"
         salvaArticoli(datiLevante.articoli);
@@ -3807,10 +3856,41 @@ async function controllaServizio(){
     box.innerHTML = '<b>Aggiornamento automatico attivo</b>Ultima esportazione di Levante: ' + (q ? hhmm(q) + ' del ' + dataIT(isoGiorno(q)) : esc(j.nome)) + '. L\'app la controlla da sola ogni 2 minuti: non devi scegliere nessun file.';
   } catch(e) { if (!ultimoZipLetto) fermaServizio(); }
 }
+const chiamaServizio = p => fetch(p, {method: 'POST', headers: {'X-Assistenza': '1'}, cache: 'no-store'}).then(r => r.json());
+async function statoServizio(){
+  try { const r = await fetch('servizio-stato', {cache: 'no-store'}); if (!r.ok) return null; const j = await r.json(); return j && j.servizio ? j : null; } catch(e) { return null; }
+}
+async function attendiEsportazione(){
+  const m = $('#msg-esporta'), b = $('#b-esporta-ora');
+  for (let i = 0; i < 300; i++) {
+    const s = await statoServizio();
+    if (!s) { m.textContent = 'Non riesco più a parlare con il servizio: riapri l\'icona «Assistenza impianti (ufficio)».'; b.disabled = false; return; }
+    if (!s.in_corso) {
+      b.disabled = false;
+      if (s.esito === 'ok') { m.textContent = 'Esportazione finita: aggiorno l\'agenda…'; await controllaServizio(); m.textContent = 'Esportazione finita alle ' + hhmm(new Date()) + '.'; }
+      else m.textContent = 'L\'esportazione non è riuscita. Apri la cartella delle esportazioni e leggi _riepilogo.txt nella cartella più recente (oppure C:\\Assistenza\\log\\ultima_esportazione.txt).';
+      return;
+    }
+    m.textContent = 'Esportazione in corso da Levante… ' + (i * 3) + ' s';
+    await new Promise(ok => setTimeout(ok, 3000));
+  }
+  b.disabled = false; m.textContent = 'L\'esportazione sta impiegando molto: riprova tra poco.';
+}
+async function avviaPulsantiServizio(){
+  const s = await statoServizio(); if (!s) return;
+  $('#uff-azioni').hidden = false;
+  $('#b-esporta-ora').onclick = async () => {
+    const m = $('#msg-esporta'); $('#b-esporta-ora').disabled = true; m.textContent = 'Avvio l\'esportazione…';
+    try { await chiamaServizio('esporta'); } catch(e) { m.textContent = 'Il servizio non risponde.'; $('#b-esporta-ora').disabled = false; return; }
+    attendiEsportazione();
+  };
+  $('#b-apri-esport').onclick = async () => { try { await chiamaServizio('apri-cartella'); } catch(e) { $('#msg-esporta').textContent = 'Non riesco ad aprire la cartella.'; } };
+  if (s.in_corso) { $('#b-esporta-ora').disabled = true; attendiEsportazione(); }
+}
 function fermaServizio(){ if (servizioTimer) { clearInterval(servizioTimer); servizioTimer = null; } }
 function avviaServizio(){
   if (!/^https?:$/.test(location.protocol) || !/^(localhost|127\.0\.0\.1)$|^[^.]+$|^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) return;   // solo da localhost o dalla rete locale, non dall'indirizzo pubblico
-  controllaServizio(); servizioTimer = setInterval(controllaServizio, 120000);
+  controllaServizio(); servizioTimer = setInterval(controllaServizio, 120000); avviaPulsantiServizio();
 }
 function avvia(){
   appuntamenti = caricaAppuntamenti();
