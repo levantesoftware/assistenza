@@ -5,7 +5,7 @@
      arrivano da soli); se la rete manca o e' troppo lenta si usa la copia memorizzata;
    - il resto (icone, librerie) si usa dalla copia memorizzata.
    Se aggiungi file nuovi all'app, cambia VERSIONE qui sotto e aggiungili all'elenco. */
-const VERSIONE = 'v14';
+const VERSIONE = 'v15';
 const CACHE_APP = 'assistenza-app-' + VERSIONE;
 const CACHE_RICEVUTI = 'assistenza-ricevuti';       // file arrivati dal menu Condividi di Android (per esempio da WhatsApp)
 const FILE_APP = [
@@ -74,6 +74,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;                     // niente servizi esterni: tutto e' dentro l'app
+  if (/\/ultima\.(json|zip)$/.test(url.pathname)) return;           // servizio per l'ufficio: sempre dalla rete, mai dalla copia
   const èPagina = req.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);
   e.respondWith(èPagina ? paginaDallaRete(req) : dallaCopiaEPoiRete(req));
 });

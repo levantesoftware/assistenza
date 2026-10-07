@@ -550,6 +550,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto" id="msg-cartella" role="status" style="margin:6px 0 10px"></p>
       <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
     </div>
+    <p class="avviso info" id="uff-servizio" role="status" hidden style="margin:0 0 12px"></p>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
     <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
     <div id="esito-uff"></div>
@@ -3523,7 +3524,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.10.0 (06/10/2026)';
+const VERSIONE_APP = '1.11.0 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3782,8 +3783,33 @@ function avviaPosta(){
   });
   $('#posta-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); setTimeout(disegnaPosta, 250); } });
 }
+/* ---- servizio per l'ufficio (servizio_ufficio.py): se l'app e' aperta da li', l'ultimo zip di Levante arriva da solo ---- */
+let servizioTimer = null, ultimoZipLetto = '';
+async function controllaServizio(){
+  try {
+    const r = await fetch('ultima.json', {cache: 'no-store'});
+    if (!r.ok) { if (!ultimoZipLetto) fermaServizio(); return; }
+    const j = await r.json(), box = $('#uff-servizio');
+    if (!j || !j.nome) return;
+    if (j.nome !== ultimoZipLetto) {
+      const z = await fetch('ultima.zip', {cache: 'no-store'}); if (!z.ok) return;
+      const blob = await z.blob();
+      await leggiFileLevante([new File([blob], j.nome)]);
+      ultimoZipLetto = j.nome;
+    }
+    const q = j.quando ? new Date(j.quando) : null;
+    box.hidden = false;
+    box.innerHTML = '<b>Aggiornamento automatico attivo</b>Ultima esportazione di Levante: ' + (q ? hhmm(q) + ' del ' + dataIT(isoGiorno(q)) : esc(j.nome)) + '. L\'app la controlla da sola ogni 2 minuti: non devi scegliere nessun file.';
+  } catch(e) { if (!ultimoZipLetto) fermaServizio(); }
+}
+function fermaServizio(){ if (servizioTimer) { clearInterval(servizioTimer); servizioTimer = null; } }
+function avviaServizio(){
+  if (!/^https?:$/.test(location.protocol) || !/^(localhost|127\.0\.0\.1)$|^[^.]+$|^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) return;   // solo da localhost o dalla rete locale, non dall'indirizzo pubblico
+  controllaServizio(); servizioTimer = setInterval(controllaServizio, 120000);
+}
 function avvia(){
   appuntamenti = caricaAppuntamenti();
+  avviaServizio();
   avviaPosta(); avviaArticoli();
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
