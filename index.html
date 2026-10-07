@@ -3524,7 +3524,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.11.0 (07/10/2026)';
+const VERSIONE_APP = '1.11.1 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3796,6 +3796,11 @@ async function controllaServizio(){
       const blob = await z.blob();
       await leggiFileLevante([new File([blob], j.nome)]);
       ultimoZipLetto = j.nome;
+      if (datiLevante) {                                 // l'agenda di questo PC (tutti i tecnici) si aggiorna da sola: niente piu' "modalita' prova"
+        salvaArticoli(datiLevante.articoli);
+        await salvaDati({generato: new Date().toISOString(), tecnico: null, appuntamenti: datiLevante.appuntamenti, modelli: datiLevante.modelli, azienda: datiLevante.azienda, files: datiLevante.files});
+        if (vistaCorrente === 'agenda') disegnaAgenda();
+      }
     }
     const q = j.quando ? new Date(j.quando) : null;
     box.hidden = false;
