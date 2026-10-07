@@ -118,6 +118,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .chip.urg{background:var(--rosso-c);color:var(--rosso)}
 .chip.bozza{background:var(--fiamma-c);color:var(--fiamma)}
 .chip.pdf{background:var(--ok-c);color:var(--ok)}
+.chip.tec{background:#E4E0F5;color:#3B2F86;font-weight:700}
 .chip.info{background:var(--petrolio-c);color:var(--petrolio)}
 .vuoto{background:var(--foglio);border:1px dashed var(--acciaio-s);border-radius:10px;padding:18px;color:var(--tenue)}
 
@@ -778,7 +779,11 @@ function disegnaBanner(){
   }
   $('#b-carica').onclick = () => $('#in-pacchetto').click();
 }
-function chipEsito(b){ return b && b.esito === 'da_completare' ? '<span class="chip bozza">Da completare</span>' : b && b.esito === 'non_eseguito' ? '<span class="chip urg">Non eseguito</span>' : ''; }
+function chipEsito(b){ return b && b.esito === 'concluso' ? '<span class="chip pdf">Concluso</span>' : b && b.esito === 'da_completare' ? '<span class="chip bozza">Da completare</span>' : b && b.esito === 'non_eseguito' ? '<span class="chip urg">Non eseguito</span>' : ''; }
+function chipInvio(b){
+  if (!b || b.stato !== 'pdf') return '';
+  return b.inviatoUff ? '<span class="chip pdf">Inviato in ufficio · ' + esc(hhmm(new Date(b.inviatoUff))) + '</span>' : '<span class="chip urg">Non ancora inviato in ufficio</span>';
+}
 function disegnaDaCompletare(){
   const ids = new Set(appuntamenti.map(a => a.id));
   const aperte = Object.values(bozze).filter(b => b.stato === 'bozza' && (b.manuale || !ids.has(b.id))).sort((x, y) => y.aggiornata - x.aggiornata);
@@ -815,6 +820,7 @@ function disegnaAgenda(){
     box.innerHTML = `<div class="vuoto">${periodo === 'oggi' ? 'Nessun appuntamento per oggi.' : periodo === 'sett' ? 'Nessun appuntamento nei prossimi 7 giorni.' : 'Nessun appuntamento negli ultimi 7 giorni. Se ne mancano, ricarica i dati dall\'ufficio.'}</div>`;
     return;
   }
+  const nomiTec = {}; appuntamenti.forEach(x => { if (x.tecnico_nome) nomiTec[x.tecnico_nome] = 1; }); const piuTecnici = Object.keys(nomiTec).length > 1;
   let html = '', giorno = '';
   elenco.forEach(a => {
     const g = isoGiorno(a.inizio);
@@ -823,13 +829,14 @@ function disegnaAgenda(){
     const nOp = opDaFare(a.r).length;
     const chips = [];
     if (a.urgente) chips.push('<span class="chip urg">Urgente</span>');
+    if (a.tecnico_nome && piuTecnici) chips.push(`<span class="chip tec">${esc(a.tecnico_nome)}</span>`);
     if (a.r && a.r.tp) chips.push(`<span class="chip info">${esc(a.r.tp)}</span>`);
     if (nOp) chips.push(`<span class="chip">${nOp} ${nOp === 1 ? 'operazione' : 'operazioni'} da fare</span>`);
     const nDoc = (a.docs || []).filter(d => !d.altro).length;
     if (nDoc) chips.push(`<span class="chip info">${nDoc} ${nDoc === 1 ? 'documento' : 'documenti'}</span>`);
     if (st === 'pdf') chips.push('<span class="chip pdf">PDF creato</span>');
     else if (st === 'bozza') chips.push(bozze[a.id].inCorso ? '<span class="chip bozza">In corso dalle ' + esc(bozze[a.id].inizioOra || '') + '</span>' : '<span class="chip bozza">Bozza</span>');
-    if (st === 'pdf' || st === 'bozza') { const ce = chipEsito(bozze[a.id]); if (ce) chips.push(ce); }
+    if (st === 'pdf' || st === 'bozza') { const ce = chipEsito(bozze[a.id]); if (ce) chips.push(ce); const ci = chipInvio(bozze[a.id]); if (ci) chips.push(ci); }
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
@@ -1750,7 +1757,7 @@ function creaPdf(){
     try { files.push({blob: costruisciRcee(lavoro), nome: nomeRcee(lavoro), titolo: 'RCEE'}); }
     catch(e) { alert('Non sono riuscito a creare l\'RCEE: ' + e.message + '\nIl rapportino è stato creato.'); }
   }
-  lavoro.stato = 'pdf'; lavoro.aggiornata = Date.now(); bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
+  lavoro.stato = 'pdf'; lavoro.inviatoUff = 0; lavoro.inviatoCli = 0; lavoro.aggiornata = Date.now(); bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
   ultimoPdf = files;
   $('#pdf-lista').innerHTML = files.map((f, n) => `<p style="margin:0 0 8px"><strong>${f.titolo}</strong> · ${esc(f.nome)} <button class="btn sec piccolo" type="button" data-apri="${n}">Apri</button> <button class="btn piccolo" type="button" data-stampa="${n}">Stampa</button></p>`).join('');
   $('#pdf-titolo').textContent = files.length > 1 ? 'PDF creati.' : 'PDF creato.'; $('#pdf-msg').textContent = '';
@@ -1859,6 +1866,7 @@ async function condividiPdf(){
     try { if (ind) copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e){}
     try {
       await navigator.share({files: fl, title: oggetto, text: testo});
+      segnaInviato(cli);
       if (!ind) { m.textContent = ''; return; }
       m.textContent = (await copia) ? 'Indirizzo copiato (' + ind + '): nella mail, nel campo A, tieni premuto e scegli Incolla.' : 'Indirizzo del destinatario: ' + ind;
       return;
@@ -1875,8 +1883,10 @@ async function condividiPdf(){
     a.href = 'mailto:' + encodeURIComponent(ind).replace('%40', '@') + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(testo + '\n\n(Allega i file scaricati.)');
     document.body.appendChild(a); a.click(); a.remove();
   }, 500 + fl.length * 400);
+  segnaInviato(cli);
   m.textContent = 'Ho scaricato ' + (fl.length === 1 ? 'il file' : 'i file') + ' e aperto la mail per ' + ind + ': allega ' + (fl.length === 1 ? 'il file scaricato' : 'i file scaricati') + '.';
 }
+function segnaInviato(cli){ if (!lavoro) return; lavoro[cli ? 'inviatoCli' : 'inviatoUff'] = Date.now(); try { salvaBozza(true); } catch(e){} }
 function slugNome(t){ return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'intervento'; }
 async function cancellaFotoInviate(){
   if (!confirm('Hai già inviato le foto? Le cancello da questo dispositivo (restano nel PDF e nei file che hai inviato).')) return;
@@ -3702,7 +3712,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.13.1 (07/10/2026)';
+const VERSIONE_APP = '1.13.2 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
