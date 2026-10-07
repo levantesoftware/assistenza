@@ -407,6 +407,10 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-impostazioni" type="button">Impostazioni</button>
     </header>
     <div id="banner"></div>
+    <div class="uff-azioni" hidden style="margin:0 0 12px">
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn piccolo js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec piccolo js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
+      <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
+    </div>
     <input type="file" id="in-pacchetto" accept=".json,.txt,application/json,text/plain" hidden>
     <div class="seg">
       <button type="button" id="s-oggi" aria-pressed="true">Oggi</button>
@@ -551,9 +555,9 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
     </div>
     <p class="avviso info" id="uff-servizio" role="status" hidden style="margin:0 0 12px"></p>
-    <div id="uff-azioni" hidden style="margin:0 0 12px">
-      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn" id="b-esporta-ora" type="button">Esporta ora da Levante</button><button class="btn sec" id="b-apri-esport" type="button">Apri la cartella delle esportazioni</button></div>
-      <p class="aiuto" id="msg-esporta" role="status" style="margin:6px 0 0"></p>
+    <div class="uff-azioni" hidden style="margin:0 0 12px">
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
+      <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
     </div>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
     <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
@@ -804,7 +808,7 @@ function disegnaAgenda(){
   let inizio = oggi0, fine = new Date(oggi0);
   if (periodo === 'scorsa') { inizio = new Date(oggi0); inizio.setDate(inizio.getDate() - 7); fine = oggi0; }
   else fine.setDate(fine.getDate() + (periodo === 'oggi' ? 1 : 7));
-  const elenco = appuntamenti.filter(a => a.inizio >= inizio && a.inizio < fine)
+  const elenco = appuntamenti.filter(a => a.inizio >= inizio && a.inizio < fine && (!a.fatto || stato(a.id) === 'pdf' || stato(a.id) === 'bozza'))
     .sort((a, b) => periodo === 'scorsa' ? (isoGiorno(b.inizio).localeCompare(isoGiorno(a.inizio)) || a.inizio - b.inizio) : a.inizio - b.inizio);
   const box = $('#lista');
   if (!elenco.length) {
@@ -3118,7 +3122,7 @@ const nessunaNovita = c => !c.nuovi.length && !c.spostati.length && !c.modificat
 function confrontaAgende(vecchie, nuove, oggiISO){
   const da = oggiISO + 'T00:00:00';
   const v = new Map((vecchie || []).filter(a => a.inizio >= da && !a.fatto).map(a => [a.id, a]));
-  const tutteNuove = new Map((nuove || []).filter(a => a.inizio >= da).map(a => [a.id, a]));
+  const tutteNuove = new Map((nuove || []).filter(a => a.inizio >= da && !a.fatto).map(a => [a.id, a]));
   const c = {nuovi: [], spostati: [], modificati: [], annullati: []};
   tutteNuove.forEach((a, id) => {
     if (a.fatto) return;
@@ -3151,7 +3155,7 @@ function righeNovita(c, conBozze){
   c.nuovi.forEach(a => h += riga('Nuovo', 'var(--ok)', a));
   c.spostati.forEach(x => h += riga('Spostato', 'var(--fiamma)', x.a, 'prima era ' + esc(fmtQuando(x.prima.inizio))));
   c.modificati.forEach(x => h += riga('Modificato', 'var(--petrolio)', x.a, 'cambiato: ' + esc(x.cosa.join(', '))));
-  c.annullati.forEach(a => h += riga('Annullato', 'var(--rosso)', a, conBozze && bozze[a.id] ? 'Hai una scheda iniziata: resta tra le "Schede da completare".' : ''));
+  c.annullati.forEach(a => h += riga('Tolto (annullato o chiuso in Levante)', 'var(--rosso)', a, conBozze && bozze[a.id] ? 'Hai una scheda iniziata: resta tra le "Schede da completare".' : ''));
   return h ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h.replace(/<li>/g, '<li style="padding:6px 0;border-bottom:1px solid var(--riga)">') + '</ul>' : '';
 }
 
@@ -3405,7 +3409,7 @@ function disegnaUfficio(){
   const esito = $('#esito-uff'); if (!datiLevante) return;
   const {trovati, mancanti} = infoUff;
   const per = {};
-  datiLevante.appuntamenti.forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
+  datiLevante.appuntamenti.filter(a => !a.fatto).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });   // i chiusi in Levante non vanno ai tecnici
   const st = datiLevante.stat, esclusi = [];
   if (st.vecchi) esclusi.push(`${st.vecchi} ${st.vecchi === 1 ? 'precedente' : 'precedenti'} agli ultimi 7 giorni`);
   let origine = '';
@@ -3416,8 +3420,8 @@ function disegnaUfficio(){
       origine = `<br>Esportazione di Levante delle <b>${hhmm(quando)}</b> del ${dataIT(isoGiorno(quando))}.` + (minuti > 60 ? ` <span style="color:var(--rosso);font-weight:650">È vecchia di ${minuti >= 120 ? Math.round(minuti / 60) + ' ore' : minuti + ' minuti'}: per avere le ultime variazioni lancia di nuovo Esporta_Levante.bat e poi tocca di nuovo "Leggi l'ultima esportazione".</span>` : '');
     }
   }
-  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.length} ${datiLevante.appuntamenti.length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
-    <br>Nel file c'${st.totale === 1 ? 'era 1 appuntamento' : 'erano ' + st.totale + ' appuntamenti'}${esclusi.length ? ': non inclusi ' + esclusi.join(' e ') : ''}${st.fatti ? ' (' + st.fatti + ' già ' + (st.fatti === 1 ? 'chiuso' : 'chiusi') + ' in Levante, li vedi segnati)' : ''}.
+  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.filter(a => !a.fatto).length} ${datiLevante.appuntamenti.filter(a => !a.fatto).length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
+    <br>Nel file c'${st.totale === 1 ? 'era 1 appuntamento' : 'erano ' + st.totale + ' appuntamenti'}${esclusi.length ? ': non inclusi ' + esclusi.join(' e ') : ''}${st.fatti ? ' (' + st.fatti + ' già ' + (st.fatti === 1 ? 'chiuso' : 'chiusi') + ' in Levante: non vanno ai tecnici)' : ''}.
     <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}${riepilogoArticoli()}</div>`;
   if (!datiLevante.appuntamenti.length) h += '<p class="aiuto">Non ci sono appuntamenti da oggi in poi nell\'esportazione.</p>';
   const oggi = isoGiorno(new Date()), inviati = leggiInviati();
@@ -3464,7 +3468,7 @@ function riepilogoRcee(){
 }
 function pacchettoPer(id, completo){
   const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : '';
-  const apps = datiLevante.appuntamenti.filter(a => (a.tecnico_id || '') === id);
+  const apps = datiLevante.appuntamenti.filter(a => !a.fatto && (a.tecnico_id || '') === id);
   const inv = leggiInviati()[id];
   const leggero = !!inv && !completo;                         // aggiornamento: i documenti gia' mandati non si rimandano
   const giaMandati = new Set(leggero ? (inv.docIds || []) : []);
@@ -3537,7 +3541,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.12.1 (07/10/2026)';
+const VERSIONE_APP = '1.12.4 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3860,32 +3864,39 @@ const chiamaServizio = p => fetch(p, {method: 'POST', headers: {'X-Assistenza': 
 async function statoServizio(){
   try { const r = await fetch('servizio-stato', {cache: 'no-store'}); if (!r.ok) return null; const j = await r.json(); return j && j.servizio ? j : null; } catch(e) { return null; }
 }
+const msgEsp = t => document.querySelectorAll('.js-msg').forEach(e => e.textContent = t);
+const bloccaEsp = v => document.querySelectorAll('.js-esporta').forEach(e => e.disabled = v);
 async function attendiEsportazione(){
-  const m = $('#msg-esporta'), b = $('#b-esporta-ora');
   for (let i = 0; i < 300; i++) {
     const s = await statoServizio();
-    if (!s) { m.textContent = 'Non riesco più a parlare con il servizio: riapri l\'icona «Assistenza impianti (ufficio)».'; b.disabled = false; return; }
+    if (!s) { msgEsp('Non riesco più a parlare con il servizio: riapri l\'icona «Assistenza impianti (ufficio)».'); bloccaEsp(false); return; }
     if (!s.in_corso) {
-      b.disabled = false;
-      if (s.esito === 'ok') { m.textContent = 'Esportazione finita: aggiorno l\'agenda…'; await controllaServizio(); m.textContent = 'Esportazione finita alle ' + hhmm(new Date()) + '.'; }
-      else m.textContent = 'L\'esportazione non è riuscita. Apri la cartella delle esportazioni e leggi _riepilogo.txt nella cartella più recente (oppure C:\\Assistenza\\log\\ultima_esportazione.txt).';
+      bloccaEsp(false);
+      if (s.esito === 'ok') { msgEsp('Esportazione finita: aggiorno l\'agenda…'); await controllaServizio(); msgEsp('Esportazione finita alle ' + hhmm(new Date()) + '.'); }
+      else msgEsp('L\'esportazione non è riuscita. Apri la cartella delle esportazioni e leggi _riepilogo.txt nella cartella più recente (oppure C:\\Assistenza\\log\\ultima_esportazione.txt).');
       return;
     }
-    m.textContent = 'Esportazione in corso da Levante… ' + (i * 3) + ' s';
+    msgEsp('Esportazione in corso da Levante… ' + (i * 3) + ' s');
     await new Promise(ok => setTimeout(ok, 3000));
   }
-  b.disabled = false; m.textContent = 'L\'esportazione sta impiegando molto: riprova tra poco.';
+  bloccaEsp(false); msgEsp('L\'esportazione sta impiegando molto: riprova tra poco.');
 }
 async function avviaPulsantiServizio(){
-  const s = await statoServizio(); if (!s) return;
-  $('#uff-azioni').hidden = false;
-  $('#b-esporta-ora').onclick = async () => {
-    const m = $('#msg-esporta'); $('#b-esporta-ora').disabled = true; m.textContent = 'Avvio l\'esportazione…';
-    try { await chiamaServizio('esporta'); } catch(e) { m.textContent = 'Il servizio non risponde.'; $('#b-esporta-ora').disabled = false; return; }
+  const s = await statoServizio();
+  if (!s) {                                           // servizio di una versione precedente ancora acceso: risponde a ultima.json ma non conosce i comandi
+    try { const r = await fetch('ultima.json', {cache: 'no-store'}); if (r.headers.get('content-type') && /json/.test(r.headers.get('content-type'))) {
+      document.querySelectorAll('.uff-azioni').forEach(e => { e.hidden = false; e.innerHTML = '<p class="avviso rosso" style="margin:0"><b>Servizio dell\'ufficio da aggiornare</b>Il programma acceso sul PC è una versione precedente. Apri Gestione attività, chiudi tutti i «python.exe» (o riavvia il PC), poi riapri l\'icona «Assistenza impianti (ufficio)»: compariranno i pulsanti per esportare.</p>'; });
+    } } catch(e) {}
+    return;
+  }
+  document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
+  document.querySelectorAll('.js-esporta').forEach(b => b.onclick = async () => {
+    bloccaEsp(true); msgEsp('Avvio l\'esportazione…');
+    try { await chiamaServizio('esporta'); } catch(e) { msgEsp('Il servizio non risponde.'); bloccaEsp(false); return; }
     attendiEsportazione();
-  };
-  $('#b-apri-esport').onclick = async () => { try { await chiamaServizio('apri-cartella'); } catch(e) { $('#msg-esporta').textContent = 'Non riesco ad aprire la cartella.'; } };
-  if (s.in_corso) { $('#b-esporta-ora').disabled = true; attendiEsportazione(); }
+  });
+  document.querySelectorAll('.js-cartella').forEach(b => b.onclick = async () => { try { await chiamaServizio('apri-cartella'); } catch(e) { msgEsp('Non riesco ad aprire la cartella.'); } });
+  if (s.in_corso) { bloccaEsp(true); attendiEsportazione(); }
 }
 function fermaServizio(){ if (servizioTimer) { clearInterval(servizioTimer); servizioTimer = null; } }
 function avviaServizio(){
