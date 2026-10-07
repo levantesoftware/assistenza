@@ -3025,6 +3025,10 @@ function fermaDettatura(){
   if (d.dest === 'vm') interpretaDaTesto();
 }
 function inserisciDettato(dest, testo){
+  if (dest === 'cerca') {                                // ricerca articoli: si sostituisce il testo e si ferma al primo risultato
+    const el = $('#mat-cerca'); if (!el) return;
+    el.value = String(testo).replace(/[.,;!?]+$/, '').trim(); el.dispatchEvent(new Event('input', {bubbles: true})); setTimeout(fermaDettatura, 0); return;
+  }
   if (dest === 'vm') {                                   // materiali: il testo resta com'e', lo interpreta il riconoscitore di frasi
     const el = $('#vm-testo'); el.value = (el.value + (el.value && !/\s$/.test(el.value) ? ' ' : '') + testo.trim()).trim();
     interpretaDaTesto(); return;
@@ -3088,28 +3092,36 @@ function apriMaterialiVoce(){
   if (SR) avviaDettatura('vm');
 }
 function chiudiMaterialiVoce(){ if (dett && dett.dest === 'vm') fermaDettatura(); $('#vm-modale').hidden = true; }
-function interpretaDaTesto(){
-  vmRighe = interpretaMateriali($('#vm-testo').value);
-  const box = $('#vm-risultato');
-  if (!vmRighe.length) { box.innerHTML = $('#vm-testo').value.trim() ? '<p class="aiuto">Non ho capito nessun materiale: prova a dire prima la quantità ("due metri di…").</p>' : ''; $('#vm-aggiungi').disabled = true; return; }
-  box.innerHTML = '<p class="etichetta" style="margin:10px 0 6px">Controlla le righe:</p>' + vmRighe.map((r, n) => `<div class="mat">
+function rigaVmHtml(r, n){
+  const tutti = leggiArticoli(), c = r.cand || [];
+  const sel = c.length ? `<select class="vm-art" data-vmart="${n}" aria-label="Collega a un articolo preferito" style="grid-column:1/-1;margin-top:4px"><option value="">Nessun articolo preferito</option>${c.map(i => `<option value="${i}"${String(r.art) === String(i) ? ' selected' : ''}>${esc((tutti[i][0] ? tutti[i][0] + ' · ' : '') + tutti[i][1])}</option>`).join('')}</select>` : '';
+  return `<div class="mat">
     <input class="descr" type="text" data-vm="${n}" data-c="descr" aria-label="Descrizione" value="${esc(r.descr)}">
     <button class="togli" type="button" data-vm-togli="${n}" aria-label="Togli questa riga">×</button>
     <input type="text" inputmode="decimal" data-vm="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(r.qta)}"${r.qta ? '' : ' style="border-color:var(--rosso)"'}>
-    <input type="text" list="lista-um" data-vm="${n}" data-c="um" aria-label="Unità" autocapitalize="none" value="${esc(r.um)}"></div>`).join('');
+    <input type="text" list="lista-um" data-vm="${n}" data-c="um" aria-label="Unità" autocapitalize="none" value="${esc(r.um)}">${sel}</div>`;
+}
+function collegaArticoliVm(){
+  vmRighe.forEach(r => { r.cand = r.descr ? risultatiArticoli(r.descr, true).slice(0, 5) : []; r.art = r.cand.length === 1 ? r.cand[0] : ''; });
+}
+function interpretaDaTesto(){
+  vmRighe = interpretaMateriali($('#vm-testo').value); collegaArticoliVm();
+  const box = $('#vm-risultato');
+  if (!vmRighe.length) { box.innerHTML = $('#vm-testo').value.trim() ? '<p class="aiuto">Non ho capito nessun materiale: prova a dire prima la quantità ("due metri di…").</p>' : ''; $('#vm-aggiungi').disabled = true; return; }
+  box.innerHTML = '<p class="etichetta" style="margin:10px 0 6px">Controlla le righe:</p>' + vmRighe.map(rigaVmHtml).join('');
   $('#vm-aggiungi').disabled = false; $('#vm-aggiungi').textContent = 'Aggiungi ' + vmRighe.length + (vmRighe.length === 1 ? ' materiale' : ' materiali');
 }
 function interpretaDaRighe(){
   const box = $('#vm-risultato');
-  box.innerHTML = vmRighe.length ? '<p class="etichetta" style="margin:10px 0 6px">Controlla le righe:</p>' + vmRighe.map((r, n) => `<div class="mat">
-    <input class="descr" type="text" data-vm="${n}" data-c="descr" aria-label="Descrizione" value="${esc(r.descr)}">
-    <button class="togli" type="button" data-vm-togli="${n}" aria-label="Togli questa riga">×</button>
-    <input type="text" inputmode="decimal" data-vm="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(r.qta)}">
-    <input type="text" list="lista-um" data-vm="${n}" data-c="um" aria-label="Unità" autocapitalize="none" value="${esc(r.um)}"></div>`).join('') : '';
+  box.innerHTML = vmRighe.length ? '<p class="etichetta" style="margin:10px 0 6px">Controlla le righe:</p>' + vmRighe.map(rigaVmHtml).join('') : '';
   $('#vm-aggiungi').disabled = !vmRighe.length; $('#vm-aggiungi').textContent = 'Aggiungi ' + vmRighe.length + (vmRighe.length === 1 ? ' materiale' : ' materiali');
 }
 function aggiungiMaterialiVoce(){
-  vmRighe.filter(r => r && (r.descr || r.qta)).forEach(r => lavoro.materiali.push({descr: r.descr, codice: '', qta: r.qta, um: r.um || 'pz'}));
+  vmRighe.filter(r => r && (r.descr || r.qta)).forEach(r => {
+    const a = (r.art !== '' && r.art != null) ? leggiArticoli()[+r.art] : null;
+    if (a) lavoro.materiali.push({descr: a[1], codice: a[0], qta: r.qta, um: (!r.um || r.um === 'pz') ? (a[2] || 'pz') : r.um, prezzo: a[3] || ''});
+    else lavoro.materiali.push({descr: r.descr, codice: '', qta: r.qta, um: r.um || 'pz'});
+  });
   $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); chiudiMaterialiVoce();
 }
 
@@ -3712,7 +3724,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.13.2 (07/10/2026)';
+const VERSIONE_APP = '1.13.4 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3840,24 +3852,39 @@ function salvaArticoli(l){ if (Array.isArray(l) && l.length) { articoli = l; sto
 function riepilogoArticoli(){ const n = (datiLevante && datiLevante.articoli || []).length; return n ? `<br>Articoli preferiti: <b>${n}</b>` : '<br>Articoli preferiti: nessuno nell\'esportazione (controlla articoli_diagnosi.txt).'; }
 function cercaMatHtml(){
   const n = leggiArticoli().length; if (!n) return '';
-  return `<div class="campo" style="margin:0 0 10px"><label for="mat-cerca">Cerca tra i tuoi articoli (${n})</label><input type="search" id="mat-cerca" autocomplete="off" placeholder="Codice o parte della descrizione"><div id="mat-cerca-ris"></div></div>`;
+  return `<div class="campo" style="margin:0 0 10px"><label for="mat-cerca">Cerca tra i tuoi articoli (${n})</label><div class="cbox"><input type="search" id="mat-cerca" autocomplete="off" placeholder="Codice o parte della descrizione" style="padding-right:56px">${bottoneMic('cerca')}</div><div id="mat-cerca-ris"></div></div>`;
 }
-function risultatiArticoli(q){
-  const parole = String(q || '').toLowerCase().split(/\s+/).filter(Boolean); if (!parole.length) return [];
-  const out = [], tutti = leggiArticoli();
-  for (let i = 0; i < tutti.length && out.length < 8; i++) { const a = tutti[i], t = (a[0] + ' ' + a[1]).toLowerCase(); if (parole.every(p => t.indexOf(p) >= 0)) out.push(i); }
-  return out;
+const normArt = t => String(t == null ? '' : t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const PAROLE_VUOTE = /^(di|da|del|della|dei|delle|in|a|e|con|per|un|uno|una|il|lo|la|le|i|gli|su|tipo)$/;
+function risultatiArticoli(q, largo){
+  let parole = normArt(q).split(' ').filter(Boolean);
+  if (largo) parole = parole.filter(w => !PAROLE_VUOTE.test(w)).map(w => w.length > 4 ? w.slice(0, -1) : w);     // dettatura: via le paroline, singolare/plurale
+  if (!parole.length) return [];
+  const tutti = leggiArticoli(), pt = [];
+  for (let i = 0; i < tutti.length; i++) {
+    const a = tutti[i], cod = normArt(a[0]), des = ' ' + normArt(a[1]), cs = cod.replace(/ /g, ''), t = cod + des;
+    if (!parole.every(p => t.indexOf(p) >= 0 || (cs && cs.indexOf(p.replace(/ /g, '')) >= 0))) continue;
+    let punti = 0;
+    parole.forEach(p => { if (cod === p || cs === p) punti += 50; else if (cod.indexOf(p) === 0 || cs.indexOf(p) === 0) punti += 20; else if (des.indexOf(' ' + p) >= 0) punti += 10; else punti += 1; });
+    pt.push([punti, i]);
+  }
+  pt.sort((x, y) => (y[0] - x[0]) || (x[1] - y[1]));
+  return pt.slice(0, 12).map(x => x[1]);
 }
 function avviaArticoli(){
   document.addEventListener('input', e => {
     if (!e.target || e.target.id !== 'mat-cerca') return;
     const tutti = leggiArticoli(), box = $('#mat-cerca-ris');
-    box.innerHTML = risultatiArticoli(e.target.value).map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(a[3]) : ''}</button>`; }).join('');
+    const ris = risultatiArticoli(e.target.value);
+    if (!ris.length) { box.innerHTML = e.target.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo preferito corrisponde. Puoi scrivere il materiale a mano qui sotto.</p>' : ''; return; }
+    box.innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(a[3]) : ''}</button>`; }).join('');
   });
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-art]'); if (!b || !lavoro) return;
     const a = leggiArticoli()[+b.dataset.art]; if (!a) return;
-    lavoro.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
+    const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
+    if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
+    else lavoro.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
     $('#materiali').innerHTML = righeMateriali(); $('#mat-cerca').value = ''; $('#mat-cerca-ris').innerHTML = '';
     const l = document.querySelectorAll('#materiali input[data-c="qta"]'); if (l.length) { l[l.length - 1].focus(); l[l.length - 1].select(); }
     bozzaModificata();
@@ -4126,6 +4153,7 @@ function avvia(){
   $('#dett-fine').onclick = fermaDettatura;
   $('#vm-annulla').onclick = chiudiMaterialiVoce; $('#vm-aggiungi').onclick = aggiungiMaterialiVoce;
   $('#vm-testo').oninput = interpretaDaTesto;
+  $('#vm-modale').addEventListener('change', e => { const d = e.target.dataset; if (d.vmart !== undefined && vmRighe[+d.vmart]) vmRighe[+d.vmart].art = e.target.value; });
   $('#vm-modale').addEventListener('input', e => { const d = e.target.dataset; if (d.vm !== undefined && vmRighe[+d.vm]) vmRighe[+d.vm][d.c] = e.target.value; });
   $('#vm-modale').addEventListener('click', e => { const b = e.target.closest('[data-mic],[data-vm-togli]'); if (!b) return;
     if (b.dataset.mic) avviaDettatura('vm'); else { vmRighe.splice(+b.dataset.vmTogli, 1); const n = vmRighe.length; interpretaDaRighe(); } });
