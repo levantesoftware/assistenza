@@ -118,6 +118,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .chip.urg{background:var(--rosso-c);color:var(--rosso)}
 .chip.bozza{background:var(--fiamma-c);color:var(--fiamma)}
 .chip.pdf{background:var(--ok-c);color:var(--ok)}
+.chip.num{background:#fff;border:1.5px solid var(--petrolio);color:var(--petrolio);font-weight:700;font-variant-numeric:tabular-nums}
 .chip.tec{background:#E4E0F5;color:#3B2F86;font-weight:700}
 .chip.info{background:var(--petrolio-c);color:var(--petrolio)}
 .vuoto{background:var(--foglio);border:1px dashed var(--acciaio-s);border-radius:10px;padding:18px;color:var(--tenue)}
@@ -828,6 +829,7 @@ function disegnaAgenda(){
     const st = stato(a.id);
     const nOp = opDaFare(a.r).length;
     const chips = [];
+    if (a.r && a.r.li) chips.push(`<span class="chip num">N. ${esc(a.r.li)}</span>`);
     if (a.urgente) chips.push('<span class="chip urg">Urgente</span>');
     if (a.tecnico_nome && piuTecnici) chips.push(`<span class="chip tec">${esc(a.tecnico_nome)}</span>`);
     if (a.r && a.r.tp) chips.push(`<span class="chip info">${esc(a.r.tp)}</span>`);
@@ -926,7 +928,7 @@ function apriDettaglio(id, push = true){
   let h = `<header class="barra fissa"><button class="btn chiaro piccolo" id="b-indietro-det" type="button">Indietro</button>
       <h1>${esc(hhmm(a.inizio))} · ${esc(r.tp || 'Intervento')}</h1></header>
     <div class="testata"><div class="cliente">${esc(a.titolo)}</div>
-      <div class="quando">${esc(giornoLungo(a.inizio))}, dalle ${hhmm(a.inizio)} alle ${hhmm(a.fine)} (${durata} min)</div></div>
+      <div class="quando">${esc(giornoLungo(a.inizio))}, dalle ${hhmm(a.inizio)} alle ${hhmm(a.fine)} (${durata} min)</div>${r.li ? `<div class="quando">Appuntamento <b>N. ${esc(r.li)}</b> in Levante</div>` : ''}</div>
     <div class="azioni">
       ${tel ? `<a class="btn sec" href="tel:${esc(soloCifre(tel))}">${ICONE.tel}Chiama</a>` : '<span></span>'}
       <a class="btn sec" href="${esc(mappa)}" target="_blank" rel="noopener">${ICONE.mappa}Naviga</a>
@@ -3724,7 +3726,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.13.4 (07/10/2026)';
+const VERSIONE_APP = '1.13.5 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3972,8 +3974,8 @@ function disegnaPosta(){
     const ripHtml = min > 0 ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
     const extra = (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
     const pdf = (r.file || []).map(n => pdfPosta[n] ? `<button class="btn sec piccolo" type="button" data-pdf="${esc(n)}">${esc(n)}</button>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
-    return `<details${aperte[chiavePosta(r)] ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b> · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}</summary>
-      <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · impianto ' + esc(r.li) : ''}</p>
+    return `<details${aperte[chiavePosta(r)] ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}</summary>
+      <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
