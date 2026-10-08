@@ -579,6 +579,20 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
     </div>
     <p class="avviso info" id="uff-servizio" role="status" hidden style="margin:0 0 12px"></p>
+    <details id="smtp-box" class="avviso info" hidden style="margin:0 0 12px">
+      <summary><b>Invio dei file per mail ai tecnici</b> <span class="chip" id="smtp-stato">non impostato</span></summary>
+      <p class="aiuto" style="margin:8px 0">Imposta una volta la posta in uscita: poi i file dei tecnici partono con un clic, già allegati, senza aprire il programma di posta. La password resta salvata in modo protetto su questo PC.</p>
+      <div class="campo"><label for="sm-preset">Servizio di posta</label>
+        <select id="sm-preset"><option value="">— scegli —</option><option value="gmail">Gmail / Google Workspace (serve una «password per le app»)</option><option value="aruba">Aruba (posta normale)</option><option value="arubapec">Aruba PEC</option><option value="outlook">Outlook / Microsoft 365</option><option value="libero">Libero</option><option value="altro">Altro</option></select></div>
+      <div class="tre"><div class="campo largo"><label for="sm-server">Server in uscita (SMTP)</label><input id="sm-server" type="text" autocomplete="off" autocapitalize="none" placeholder="smtp.esempio.it"></div>
+        <div class="campo"><label for="sm-porta">Porta</label><input id="sm-porta" type="text" inputmode="numeric" value="465"></div></div>
+      <div class="campo"><label for="sm-sic">Connessione</label><select id="sm-sic"><option value="ssl">SSL (porta 465)</option><option value="starttls">STARTTLS (porta 587)</option></select></div>
+      <div class="campo"><label for="sm-utente">Utente (di solito l'indirizzo email)</label><input id="sm-utente" type="text" autocomplete="off" autocapitalize="none"></div>
+      <div class="campo"><label for="sm-pwd">Password <span id="sm-pwd-nota" class="aiuto"></span></label><input id="sm-pwd" type="password" autocomplete="new-password"></div>
+      <div class="campo"><label for="sm-da">Mittente (se diverso dall'utente)</label><input id="sm-da" type="text" autocomplete="off" autocapitalize="none" placeholder="ufficio@azienda.it"></div>
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start"><button class="btn" id="sm-salva" type="button">Salva</button><button class="btn sec" id="sm-prova" type="button">Prova il collegamento</button></div>
+      <p class="aiuto" id="sm-msg" role="status" style="margin:8px 0 0"></p>
+    </details>
     <div class="uff-azioni" hidden style="margin:0 0 12px">
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
@@ -874,6 +888,12 @@ let nascondiGestiti = store.get('ass_nascondi', true) !== false;
 /* gia' sbrigato: in ufficio = registrato in Levante; dal tecnico = rapporto inviato in ufficio */
 function gestito(a){ const b = bozze[a.id]; return registrato(a) || !!(b && b.stato === 'pdf' && b.inviatoUff); }
 let filtroTec = store.get('ass_tec_filtro', '') || '';
+/* in ufficio: appuntamento di un giorno passato, non chiuso né registrato, per cui non e' arrivato nessun intervento */
+function senzaRapporto(a){
+  if (!inUfficio || a.fatto || registrato(a)) return false;
+  const oggi0 = new Date(); oggi0.setHours(0, 0, 0, 0); if (!(a.inizio < oggi0)) return false;
+  const n = a.r && a.r.li; return !(n && posta.some(p => p.li && String(p.li) === String(n)));
+}
 function tabTecnici(elenco){
   const box = $('#tab-tec'); if (!box) return;
   if (!inUfficio) { box.innerHTML = ''; return; }
@@ -908,6 +928,8 @@ function disegnaAgenda(){
     .sort((a, b) => periodo === 'scorsa' ? (isoGiorno(b.inizio).localeCompare(isoGiorno(a.inizio)) || a.inizio - b.inizio) : a.inizio - b.inizio);
   tabTecnici(elenco);
   if (inUfficio && filtroTec) elenco = elenco.filter(a => (a.tecnico_nome || '') === filtroTec);
+  { const nSr = inUfficio ? appuntamenti.filter(a => senzaRapporto(a) && (!filtroTec || (a.tecnico_nome || '') === filtroTec) && a.inizio >= new Date(oggi0.getTime() - 7 * 86400000)).length : 0;
+    $('#s-scorsa').textContent = nSr ? 'Scorsa · ' + nSr + ' senza rapporto' : 'Scorsa'; $('#s-scorsa').title = nSr ? 'Appuntamenti degli ultimi 7 giorni per cui non è arrivato nessun intervento' : ''; }
   const nasc = elenco.filter(gestito).length;
   const chk = $('#nascondi-gestiti'), tt = $('#nascondi-testo');
   if (chk) { chk.checked = nascondiGestiti; const uff = inUfficio || posta.length > 0; tt.textContent = (uff ? 'Nascondi gli appuntamenti già registrati in Levante' : 'Nascondi gli interventi già inviati in ufficio') + (nasc ? ' (' + nasc + (nasc === 1 ? ' nascosto' : ' nascosti') + ')' : ''); }
@@ -936,6 +958,7 @@ function disegnaAgenda(){
     if (st === 'pdf') chips.push('<span class="chip pdf">PDF creato</span>');
     else if (st === 'bozza') chips.push(bozze[a.id].inCorso ? '<span class="chip bozza">In corso dalle ' + esc(bozze[a.id].inizioOra || '') + '</span>' : '<span class="chip bozza">Bozza</span>');
     if (st === 'pdf' || st === 'bozza') { const ce = chipEsito(bozze[a.id]); if (ce) chips.push(ce); const ci = chipInvio(bozze[a.id]); if (ci) chips.push(ci); }
+    if (senzaRapporto(a)) chips.push('<span class="chip urg">Senza rapporto</span>');
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
     else if (registrato(a)) chips.push('<span class="chip pdf">Registrato in Levante</span>');
     const fl = flagNovita[a.id];
@@ -3708,6 +3731,13 @@ function disegnaUfficio(){
     <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}${riepilogoArticoli()}</div>`;
   if (!datiLevante.appuntamenti.length) h += '<p class="aiuto">Non ci sono appuntamenti da oggi in poi nell\'esportazione.</p>';
   const oggi = isoGiorno(new Date()), inviati = leggiInviati();
+  const daMandare = idDaMandare(per, inviati, oggi);
+  if (inUfficio) {
+    if (smtpPronto) h += daMandare.length
+      ? `<button class="btn pieno" id="b-mail-tutti" type="button" style="margin-top:14px">Invia per mail a chi ha novità (${daMandare.length})</button>`
+      : '<p class="aiuto" style="margin-top:14px">Nessun tecnico con novità e con l\'indirizzo email scritto qui sotto: non c\'è niente da inviare per mail.</p>';
+    else h += '<p class="aiuto" style="margin-top:14px">Per mandare i file ai tecnici con un clic, imposta la posta in uscita qui sopra («Invio dei file per mail ai tecnici») e scrivi l\'email di ogni tecnico.</p>';
+  }
   Object.keys(per).forEach(id => {
     const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
     const inv = inviati[id];
@@ -3719,13 +3749,17 @@ function disegnaUfficio(){
     }
     h += `<div class="sez" style="margin-top:16px"><h2>${esc(nome)}<small>${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}</small></h2>
       <p style="margin:0 0 4px">${stato}</p>${dettaglio}
-      <div class="azioni" style="margin-top:10px"><button class="btn${primario ? '' : ' sec'}" type="button" data-invia="${esc(id)}">${etichetta}</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
+      ${inUfficio ? `<div class="campo" style="margin:8px 0 0"><label for="em-${esc(id)}">Email di ${esc(nome)}</label><input id="em-${esc(id)}" type="email" data-email="${esc(nome)}" value="${esc(emailTecnico(nome))}" autocomplete="off" autocapitalize="none" placeholder="nome@esempio.it"></div>` : ''}
+      <div class="azioni" style="margin-top:10px">${inUfficio && smtpPronto ? `<button class="btn${primario ? '' : ' sec'}" type="button" data-mail="${esc(id)}">${etichetta} per mail</button>` : ''}<button class="btn${primario && !(inUfficio && smtpPronto) ? '' : ' sec'}" type="button" data-invia="${esc(id)}">${inUfficio && smtpPronto ? 'Condividi' : etichetta}</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
   });
   h += `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-completo"${infoUff.completo ? ' checked' : ''}><span>Invia tutto, anche i documenti già mandati<small>per un dispositivo nuovo, o se il tecnico non vede più i documenti. Senza questa spunta l'aggiornamento è più leggero.</small></span></label>`;
   h += `<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px">${esc(infoUff.messaggio || '')}</p>`;
   h += `<div class="sez" style="margin-top:22px"><h2>Su questo dispositivo</h2><button class="btn sec pieno" id="b-usa-qui" type="button">Usa questi dati qui (tutti i tecnici)</button></div>`;
   esito.innerHTML = h;
   esito.querySelectorAll('[data-invia]').forEach(b => b.onclick = () => consegna(b.dataset.invia, true));
+  esito.querySelectorAll('[data-email]').forEach(i => i.onchange = () => { (impostazioni.emailTecnici = impostazioni.emailTecnici || {})[i.dataset.email] = i.value.trim(); salvaImpostazioni(); disegnaUfficio(); });
+  esito.querySelectorAll('[data-mail]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await inviaMailTecnico(b.dataset.mail); infoUff.messaggio = r.messaggio; disegnaUfficio(); });
+  const bt = $('#b-mail-tutti'); if (bt) bt.onclick = async () => { bt.disabled = true; const out = []; for (const id of daMandare) { const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico'; infoUff.messaggio = 'Invio a ' + nome + '…'; const m = $('#msg-consegna'); if (m) m.textContent = infoUff.messaggio; const r = await inviaMailTecnico(id); out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio)); } infoUff.messaggio = out.join(' · '); disegnaUfficio(); };
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
   $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
@@ -3766,6 +3800,54 @@ async function salvaDati(d, leggero){
   store.set('ass_dati', dd); appuntamenti = caricaAppuntamenti();
   const ok = await salvaFiles(files, leggero);
   if (!ok && Object.keys(files).length) esitoImport = (esitoImport ? esitoImport + ' ' : '') + 'Attenzione: i documenti non si sono salvati su questo dispositivo.';
+}
+let smtpPronto = false;
+const emailTecnico = nome => ((impostazioni.emailTecnici || {})[nome] || '');
+/* tecnici a cui mandare il file: hanno un indirizzo e (mai inviato oppure novità dall'ultimo invio) */
+function idDaMandare(per, inviati, oggi){
+  return Object.keys(per).filter(id => {
+    const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
+    if (!emailTecnico(nome)) return false;
+    const inv = inviati[id]; return !inv || !nessunaNovita(confrontaAgende(inv.apps, per[id], oggi));
+  });
+}
+async function inviaMailTecnico(id){
+  const chk = $('#chk-completo'); infoUff.completo = !!(chk && chk.checked);
+  const pk = pacchettoPer(id, infoUff.completo), nome = pk.tecnico ? pk.tecnico.nome : 'Senza tecnico', a = emailTecnico(nome);
+  if (!a) return {ok: false, messaggio: 'Manca l\'email di ' + nome + '.'};
+  const slug = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
+  const fn = `appuntamenti_${slug}_${isoGiorno(new Date())}_${hhmm(new Date()).replace(':', '')}.txt`;
+  const dati = new TextEncoder().encode(JSON.stringify(pk));
+  let bin = ''; for (let i = 0; i < dati.length; i += 0x8000) bin += String.fromCharCode.apply(null, dati.subarray(i, i + 0x8000));
+  const nApp = pk.appuntamenti.length, leggero = pk.tipo === 'aggiornamento';
+  const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.\n\n${impostazioni.azienda || ''}`;
+  try {
+    const r = await chiamaJson('posta-invia', {a, oggetto: (leggero ? 'Aggiornamento agenda ' : 'Agenda ') + nome + ' – ' + dataIT(isoGiorno(new Date())), testo, allegati: [{nome: fn, tipo: 'text/plain', b64: btoa(bin)}]});
+    if (r.ok) salvaInviato(id, pk.appuntamenti);
+    return r;
+  } catch(e) { return {ok: false, messaggio: 'Il servizio non risponde.'}; }
+}
+async function caricaSmtp(rifai){
+  let st; try { st = await (await fetch('posta-stato', {cache: 'no-store'})).json(); } catch(e) { return; }
+  if (!st || !st.config) return; const c = st.config;
+  $('#smtp-box').hidden = false;
+  const era = smtpPronto; smtpPronto = !!c.smtp_pronto;
+  if (!caricaSmtp.fatto) { caricaSmtp.fatto = true;
+    $('#sm-server').value = c.smtp_server || ''; $('#sm-porta').value = c.smtp_porta || 465; $('#sm-sic').value = c.smtp_sicurezza || 'ssl'; $('#sm-utente').value = c.smtp_utente || ''; $('#sm-da').value = c.smtp_da || '';
+    $('#sm-pwd-nota').textContent = c.smtp_password_impostata ? '(già salvata: lascia vuoto per non cambiarla)' : '';
+    if (!smtpPronto) $('#smtp-box').open = true; }
+  const el = $('#smtp-stato'); el.textContent = smtpPronto ? 'pronto' : 'non impostato'; el.className = 'chip' + (smtpPronto ? ' pdf' : '');
+  if (rifai || era !== smtpPronto) { try { if (datiLevante) disegnaUfficio(); } catch(e) {} }
+}
+const PRESET_SMTP = {gmail: ['smtp.gmail.com', 465, 'ssl'], aruba: ['smtps.aruba.it', 465, 'ssl'], arubapec: ['smtps.pec.aruba.it', 465, 'ssl'], outlook: ['smtp.office365.com', 587, 'starttls'], libero: ['smtp.libero.it', 465, 'ssl']};
+function avviaSmtp(){
+  caricaSmtp();
+  $('#sm-preset').onchange = e => { const p = PRESET_SMTP[e.target.value]; if (p) { $('#sm-server').value = p[0]; $('#sm-porta').value = p[1]; $('#sm-sic').value = p[2]; } };
+  $('#sm-sic').onchange = e => { $('#sm-porta').value = e.target.value === 'starttls' ? 587 : 465; };
+  const dati = () => { const d = {smtp_server: $('#sm-server').value, smtp_porta: $('#sm-porta').value, smtp_sicurezza: $('#sm-sic').value, smtp_utente: $('#sm-utente').value, smtp_da: $('#sm-da').value}; if ($('#sm-pwd').value) d.smtp_password = $('#sm-pwd').value; return d; };
+  const msg = t => { $('#sm-msg').textContent = t; };
+  $('#sm-salva').onclick = async () => { try { const r = await chiamaJson('posta-config', dati()); $('#sm-pwd').value = ''; caricaSmtp.fatto = false; await caricaSmtp(true); msg(r.ok ? 'Salvato.' : 'Non sono riuscito a salvare.'); } catch(e) { msg('Il servizio non risponde.'); } };
+  $('#sm-prova').onclick = async () => { msg('Provo il collegamento…'); try { await chiamaJson('posta-config', dati()); $('#sm-pwd').value = ''; const r = await chiamaJson('posta-smtp-prova'); await caricaSmtp(true); msg((r.ok ? '✔ ' : '✘ ') + r.messaggio); } catch(e) { msg('Il servizio non risponde.'); } };
 }
 async function consegna(id, condividi){
   const chk = $('#chk-completo'); infoUff.completo = !!(chk && chk.checked);
@@ -3824,7 +3906,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.15.2 (08/10/2026)';
+const VERSIONE_APP = '1.16.0 (08/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4058,11 +4140,37 @@ function copiaVecchio(t){
 }
 const aperte = {};
 const chiavePosta = r => (r.id || '') + '|' + (r.data || '') + '|' + (r.cliente || '');
+/* controlli prima di registrare in Levante: "grave" = quasi sicuramente da sistemare, altrimenti solo da sapere */
+function controlliIntervento(r){
+  const c = [], min = minutiTotali(r), nonEseg = r.esito === 'non_eseguito';
+  if (!r.li) c.push({t: 'Senza numero di appuntamento: va collegato a mano in Levante.', grave: true});
+  else if (posta.filter(x => x !== r && x.li && String(x.li) === String(r.li) && !x.fatto).length) c.push({t: 'C\'è un altro intervento con lo stesso N. ' + r.li + ': controlla che non sia un doppione.', grave: true});
+  if (r.esito === 'da_completare') c.push({t: 'Il tecnico lo ha lasciato «Da completare»: l\'intervento non è chiuso.', grave: false});
+  if (nonEseg) c.push({t: 'Segnato «Non eseguito».', grave: false});
+  if (!nonEseg && !min) c.push({t: 'Mancano gli orari: nessuna ora da registrare.', grave: true});
+  if (!nonEseg && !r.relazione && !r.osservazioni) c.push({t: 'Manca la relazione del tecnico.', grave: false});
+  if (!(r.file || []).length) c.push({t: 'Nessun PDF del rapporto indicato.', grave: false});
+  else (r.file || []).filter(n => !pdfPosta[n]).forEach(n => c.push({t: 'PDF non ancora arrivato: ' + n + '.', grave: true}));
+  if (min > 0) { const somma = ripartizione(r).reduce((q, x) => q + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0); if (Math.abs(somma - min / 60) > 0.011) c.push({t: 'Le ore ripartite per la manodopera non tornano con il totale.', grave: true}); }
+  return c;
+}
+let codaOn = false, codaPos = 0;
 function disegnaPosta(){
   etichettaPosta();
   const box = $('#posta-elenco'); if (!box) return;
-  const tutti = $('#posta-fatti').checked, lista = posta.map((r, i) => ({r, i})).filter(x => tutti || !x.r.fatto)
+  const tutti = $('#posta-fatti').checked, tuttiOrd = posta.map((r, i) => ({r, i})).filter(x => tutti || !x.r.fatto)
     .sort((a, b) => String(a.r.data).localeCompare(String(b.r.data)) || String(a.r.cliente).localeCompare(String(b.r.cliente)));
+  let lista = tuttiOrd, testa = '';
+  const aperti = tuttiOrd.filter(x => !x.r.fatto);
+  if (codaOn) {
+    if (!aperti.length) { codaOn = false; codaPos = 0; box.innerHTML = '<div class="avviso info"><b>Tutti gli interventi sono registrati.</b>Non c\'è altro da fare qui.</div>'; return; }
+    codaPos = Math.max(0, Math.min(codaPos, aperti.length - 1));
+    lista = [aperti[codaPos]];
+    testa = `<div class="avviso info" style="margin:0 0 12px"><b>Intervento ${codaPos + 1} di ${aperti.length}</b>
+      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:8px"><button class="btn sec piccolo" type="button" data-coda="prec"${codaPos ? '' : ' disabled'}>Precedente</button><button class="btn sec piccolo" type="button" data-coda="salta"${codaPos < aperti.length - 1 ? '' : ' disabled'}>Salta</button><button class="btn chiaro piccolo" type="button" data-coda="esci">Torna all'elenco</button></div></div>`;
+  } else if (aperti.length) {
+    testa = `<button class="btn pieno" type="button" data-coda="inizia" style="margin:0 0 12px">Registra uno alla volta (${aperti.length})</button>`;
+  }
   if (!lista.length) { box.innerHTML = '<p class="aiuto">Nessun intervento da registrare.</p>'; return; }
   const blocco = (tit, t, i, k) => t ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${tit}</b><button class="btn sec piccolo" type="button" data-copia="${i}|${k}">Copia</button></div><div style="white-space:pre-wrap">${esc(t)}</div></div>` : '';
   box.innerHTML = lista.map(({r, i}) => {
@@ -4073,7 +4181,12 @@ function disegnaPosta(){
     const ripHtml = min > 0 ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
     const extra = (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
     const pdf = (r.file || []).map(n => pdfPosta[n] ? `<button class="btn sec piccolo" type="button" data-pdf="${esc(n)}">${esc(n)}</button>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
-    return `<details${aperte[chiavePosta(r)] ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}</summary>
+    const ctrl = controlliIntervento(r), nGravi = ctrl.filter(x => x.grave).length;
+    const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
+    const ctrlChip = r.fatto || !ctrl.length ? '' : ` <span class="chip ${nGravi ? 'urg' : 'bozza'}">${ctrl.length} ${ctrl.length === 1 ? 'controllo' : 'controlli'}</span>`;
+    const avanti = codaOn && !r.fatto ? `<button class="btn pieno" type="button" data-coda="avanti" data-i="${i}" style="margin-top:12px">Registrato in Levante: passa al prossimo</button>` : '';
+    return `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
+      ${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
@@ -4081,8 +4194,9 @@ function disegnaPosta(){
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
       <p style="margin:8px 0">${pdf}</p>
-      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div></details>`;
+      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
   }).join('');
+  box.innerHTML = testa + box.innerHTML;
 }
 const ESITI_BREVI = {concluso: 'Concluso', da_completare: 'Da completare', non_eseguito: 'Non eseguito'};
 async function leggiPosta(files){
@@ -4124,7 +4238,19 @@ function avviaPosta(){
   ['#csv-kmcod', '#csv-kmdesc', '#csv-dccod', '#csv-dcdesc', '#csv-um'].forEach(s => $(s).oninput = salva); $('#csv-man').addEventListener('input', salva); ['#csv-virgola', '#csv-intest', '#csv-prezzo', '#csv-win'].forEach(s => $(s).onchange = salva);
   $('#posta-elenco').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
-    if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); }
+    if (d.coda !== undefined) {
+      if (d.coda === 'inizia') { codaOn = true; codaPos = 0; }
+      else if (d.coda === 'esci') codaOn = false;
+      else if (d.coda === 'prec') codaPos--;
+      else if (d.coda === 'salta') codaPos++;
+      else if (d.coda === 'avanti') {
+        const r = posta[+d.i], gravi = controlliIntervento(r).filter(x => x.grave);
+        if (gravi.length && !confirm('Ci sono ancora ' + gravi.length + (gravi.length === 1 ? ' controllo importante' : ' controlli importanti') + ' su questo intervento:\n\n- ' + gravi.map(x => x.t).join('\n- ') + '\n\nLo segno come registrato lo stesso?')) return;
+        r.fatto = true; salvaPosta(); try { disegnaAgenda(); } catch(x) {}
+      }
+      disegnaPosta(); const dx = $('#destra'); if (dx) dx.scrollTop = 0; window.scrollTo(0, 0); return;
+    }
+    if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); b.textContent = 'Copiato ✓'; }
     else if (d.csv !== undefined) { const r = posta[+d.csv]; scaricaBlob(blobCsv(r), 'Levante_' + slugNome(r.cliente) + '_' + (r.data || '') + '.csv'); }
     else if (d.pdf !== undefined) { const f = pdfPosta[d.pdf]; if (f) scaricaBlob(f, d.pdf); }
     else if (d.raggiungi !== undefined) { const r = posta[+d.raggiungi], man = codiciMan(csvImp()); r.rip = ripartizione(r).map(x => Object.assign({}, x)); const usati = r.rip.map(x => x.c), nuovo = (man.find(m => usati.indexOf(m.cod) < 0) || man[0] || {cod: 'M0'}).cod; r.rip.push({c: nuovo, o: ''}); salvaPosta(); disegnaPosta(); }
@@ -4276,7 +4402,7 @@ async function avviaPulsantiServizio(){
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
   inUfficio = true; try { disegnaAgenda(); } catch(e) {}
-  if (s.posta) avviaPostaAuto();
+  if (s.posta) { avviaPostaAuto(); avviaSmtp(); }
   document.querySelectorAll('.js-esporta').forEach(b => b.onclick = async () => {
     bloccaEsp(true); msgEsp('Avvio l\'esportazione…');
     try { await chiamaServizio('esporta'); } catch(e) { msgEsp('Il servizio non risponde.'); bloccaEsp(false); return; }
