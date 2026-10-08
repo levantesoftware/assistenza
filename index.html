@@ -259,6 +259,19 @@ button,a,label,summary,select{touch-action:manipulation}
   .sez{margin-top:18px}
   .testata .cliente{font-size:22px}
 }
+/* navigazione dell'ufficio (visibile solo quando risponde il servizio) */
+#nav-uff{display:none}
+body.uff #nav-uff{display:flex;gap:6px;padding:8px max(12px,env(safe-area-inset-left));background:var(--inchiostro);position:-webkit-sticky;position:sticky;top:0;z-index:30;overflow-x:auto}
+#nav-uff button{flex:none;min-height:42px;padding:0 16px;border-radius:10px;border:0;background:transparent;color:#d8e3ea;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap}
+#nav-uff button[aria-pressed="true"]{background:#fff;color:var(--inchiostro)}
+#nav-uff .badge{display:inline-block;min-width:20px;margin-left:6px;padding:1px 6px;border-radius:10px;background:var(--fiamma);color:#fff;font-size:12px;text-align:center}
+#nav-uff .badge[hidden]{display:none}
+body.uff #b-indietro-uff,body.uff #b-indietro-posta,body.uff #b-impostazioni{display:none}
+#tab-tec{display:none}
+body.uff #tab-tec{display:flex;gap:6px;margin:10px 0 4px;overflow-x:auto;padding-bottom:2px}
+#tab-tec button{flex:none;min-height:40px;padding:0 12px;border-radius:20px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer;white-space:nowrap}
+#tab-tec button[aria-pressed="true"]{background:var(--petrolio);border-color:var(--petrolio);color:#fff}
+#tab-tec small{margin-left:5px;opacity:.75;font-weight:700}
 /* tablet in verticale e telefoni grandi in orizzontale */
 @media (min-width:640px){
   .app{max-width:760px}
@@ -273,6 +286,7 @@ button,a,label,summary,select{touch-action:manipulation}
 /* tablet in orizzontale e computer: elenco a sinistra, dettaglio a destra */
 @media (min-width:900px){
   body{overflow:hidden}
+  body.uff .app{height:calc(100vh - 58px);height:calc(100dvh - 58px)}
   .app{max-width:none;height:100vh;height:100dvh;display:grid;grid-template-columns:minmax(340px,400px) minmax(0,1fr)}
   #v-agenda{display:block;height:100%;overflow-y:auto;overflow-x:hidden;border-right:1px solid var(--riga);padding-bottom:24px}
   #destra{display:block;height:100%;overflow-y:auto;overflow-x:hidden}
@@ -397,6 +411,12 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 </style>
 </head>
 <body>
+<nav id="nav-uff" aria-label="Sezioni dell'ufficio">
+  <button type="button" data-nav="agenda" aria-pressed="true">Agenda</button>
+  <button type="button" data-nav="posta" aria-pressed="false">Interventi in arrivo<span class="badge" id="nav-badge" hidden></span></button>
+  <button type="button" data-nav="ufficio" aria-pressed="false">Invio ai tecnici</button>
+  <button type="button" data-nav="impostazioni" aria-pressed="false">Impostazioni</button>
+</nav>
 <div class="app">
 
   <!-- AGENDA -->
@@ -414,6 +434,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
     </div>
     <input type="file" id="in-pacchetto" accept=".json,.txt,application/json,text/plain" hidden>
+    <div id="tab-tec" role="tablist" aria-label="Tecnici"></div>
     <div class="seg">
       <button type="button" id="s-oggi" aria-pressed="true">Oggi</button>
       <button type="button" id="s-sett" aria-pressed="false">Settimana</button>
@@ -777,6 +798,7 @@ function mostra(vista, push = true){
   document.body.dataset.vista = vista;
   if (push && vista !== vistaCorrente && vista !== 'agenda') { try { history.pushState({v: vista}, ''); storia = true; } catch(e){} }
   vistaCorrente = vista;
+  try { aggiornaNav(); } catch(e) {}
   window.scrollTo(0, 0);
   const dx = $('#destra'); if (dx) dx.scrollTop = 0;
 }
@@ -849,7 +871,28 @@ let inUfficio = false;                                    // vero quando l'app g
 let nascondiGestiti = store.get('ass_nascondi', true) !== false;
 /* gia' sbrigato: in ufficio = registrato in Levante; dal tecnico = rapporto inviato in ufficio */
 function gestito(a){ const b = bozze[a.id]; return registrato(a) || !!(b && b.stato === 'pdf' && b.inviatoUff); }
+let filtroTec = store.get('ass_tec_filtro', '') || '';
+function tabTecnici(elenco){
+  const box = $('#tab-tec'); if (!box) return;
+  if (!inUfficio) { box.innerHTML = ''; return; }
+  const conta = {}; elenco.forEach(a => { const n = a.tecnico_nome || ''; if (n) conta[n] = (conta[n] || 0) + 1; });
+  const tutti = {}; appuntamenti.forEach(a => { if (a.tecnico_nome) tutti[a.tecnico_nome] = 1; });
+  const nomi = Object.keys(tutti).sort((x, y) => x.localeCompare(y));
+  if (filtroTec && !tutti[filtroTec]) { filtroTec = ''; store.set('ass_tec_filtro', ''); }
+  if (nomi.length < 2) { box.innerHTML = ''; return; }
+  const b = (nome, testo, n) => `<button type="button" role="tab" data-tec="${esc(nome)}" aria-pressed="${filtroTec === nome}">${esc(testo)}<small>${n}</small></button>`;
+  box.innerHTML = b('', 'Tutti', elenco.length) + nomi.map(n => b(n, n, conta[n] || 0)).join('');
+  box.querySelectorAll('button').forEach(x => x.onclick = () => { filtroTec = x.dataset.tec; store.set('ass_tec_filtro', filtroTec); disegnaAgenda(); });
+}
+function aggiornaNav(){
+  document.body.classList.toggle('uff', !!inUfficio);
+  const att = vistaCorrente === 'posta' ? 'posta' : vistaCorrente === 'ufficio' ? 'ufficio' : vistaCorrente === 'impostazioni' ? 'impostazioni' : 'agenda';
+  document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.setAttribute('aria-pressed', b.dataset.nav === att));
+  const n = posta.filter(r => !r.fatto).length, bd = $('#nav-badge');
+  if (bd) { bd.hidden = !n; bd.textContent = n; }
+}
 function disegnaAgenda(){
+  aggiornaNav();
   disegnaBanner(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
@@ -861,6 +904,8 @@ function disegnaAgenda(){
   else fine.setDate(fine.getDate() + (periodo === 'oggi' ? 1 : 7));
   let elenco = appuntamenti.filter(a => a.inizio >= inizio && a.inizio < fine && (!a.fatto || stato(a.id) === 'pdf' || stato(a.id) === 'bozza'))
     .sort((a, b) => periodo === 'scorsa' ? (isoGiorno(b.inizio).localeCompare(isoGiorno(a.inizio)) || a.inizio - b.inizio) : a.inizio - b.inizio);
+  tabTecnici(elenco);
+  if (inUfficio && filtroTec) elenco = elenco.filter(a => (a.tecnico_nome || '') === filtroTec);
   const nasc = elenco.filter(gestito).length;
   const chk = $('#nascondi-gestiti'), tt = $('#nascondi-testo');
   if (chk) { chk.checked = nascondiGestiti; const uff = inUfficio || posta.length > 0; tt.textContent = (uff ? 'Nascondi gli appuntamenti già registrati in Levante' : 'Nascondi gli interventi già inviati in ufficio') + (nasc ? ' (' + nasc + (nasc === 1 ? ' nascosto' : ' nascosti') + ')' : ''); }
@@ -871,7 +916,7 @@ function disegnaAgenda(){
     box.innerHTML = `<div class="vuoto">${periodo === 'oggi' ? 'Nessun appuntamento per oggi.' : periodo === 'sett' ? 'Nessun appuntamento nei prossimi 7 giorni.' : 'Nessun appuntamento negli ultimi 7 giorni. Se ne mancano, ricarica i dati dall\'ufficio.'}</div>`;
     return;
   }
-  const nomiTec = {}; appuntamenti.forEach(x => { if (x.tecnico_nome) nomiTec[x.tecnico_nome] = 1; }); const piuTecnici = Object.keys(nomiTec).length > 1;
+  const nomiTec = {}; appuntamenti.forEach(x => { if (x.tecnico_nome) nomiTec[x.tecnico_nome] = 1; }); const piuTecnici = Object.keys(nomiTec).length > 1 && !(inUfficio && filtroTec);
   let html = '', giorno = '';
   elenco.forEach(a => {
     const g = isoGiorno(a.inizio);
@@ -3777,7 +3822,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.14.1 (07/10/2026)';
+const VERSIONE_APP = '1.15.0 (08/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4062,7 +4107,7 @@ async function leggiPosta(files){
   disegnaPosta();
   return {nuovi, agg};
 }
-function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); }
+function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); try { aggiornaNav(); } catch(e) {} }
 function avviaPosta(){
   $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
   $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; disegnaPosta(); mostra('posta'); };
@@ -4240,6 +4285,13 @@ function avvia(){
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
   $('#b-nuovo').onclick = apriSchedaManuale;
+  document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.onclick = () => {
+    const v = b.dataset.nav;
+    if (v === 'agenda') { mostra('agenda', false); disegnaAgenda(); }
+    else if (v === 'posta') $('#b-posta').click();
+    else if (v === 'ufficio') $('#b-ufficio').click();
+    else $('#b-impostazioni').click();
+  });
   $('#b-indietro-scheda').onclick = indietro;
   $('#b-pdf').onclick = creaPdf;
   $('#b-impostazioni').onclick = () => {
