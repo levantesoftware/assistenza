@@ -419,6 +419,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button type="button" id="s-sett" aria-pressed="false">Settimana</button>
       <button type="button" id="s-scorsa" aria-pressed="false">Scorsa</button>
     </div>
+    <label class="spunta" style="margin:8px 0 0"><input type="checkbox" id="nascondi-gestiti"> <span id="nascondi-testo"></span></label>
     <div id="lista"></div>
     <div id="da-completare"></div>
     <button class="btn sec pieno" id="b-nuovo" type="button" style="margin-top:14px">Nuovo intervento senza appuntamento</button>
@@ -806,6 +807,10 @@ function apriBozza(id){
 }
 /* un intervento ricevuto in Posta in arrivo e spuntato come registrato in Levante: l'appuntamento (stesso numero) e' gia' chiuso, anche se l'esportazione non e' ancora stata rifatta */
 function registrato(a){ const n = a && (a.r ? a.r.li : a.li); return !!n && posta.some(p => p.fatto && p.li && String(p.li) === String(n)); }
+let inUfficio = false;                                    // vero quando l'app gira sul PC dell'ufficio (servizio locale presente)
+let nascondiGestiti = store.get('ass_nascondi', true) !== false;
+/* gia' sbrigato: in ufficio = registrato in Levante; dal tecnico = rapporto inviato in ufficio */
+function gestito(a){ const b = bozze[a.id]; return registrato(a) || !!(b && b.stato === 'pdf' && b.inviatoUff); }
 function disegnaAgenda(){
   disegnaBanner(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
@@ -816,10 +821,15 @@ function disegnaAgenda(){
   let inizio = oggi0, fine = new Date(oggi0);
   if (periodo === 'scorsa') { inizio = new Date(oggi0); inizio.setDate(inizio.getDate() - 7); fine = oggi0; }
   else fine.setDate(fine.getDate() + (periodo === 'oggi' ? 1 : 7));
-  const elenco = appuntamenti.filter(a => a.inizio >= inizio && a.inizio < fine && (!a.fatto || stato(a.id) === 'pdf' || stato(a.id) === 'bozza'))
+  let elenco = appuntamenti.filter(a => a.inizio >= inizio && a.inizio < fine && (!a.fatto || stato(a.id) === 'pdf' || stato(a.id) === 'bozza'))
     .sort((a, b) => periodo === 'scorsa' ? (isoGiorno(b.inizio).localeCompare(isoGiorno(a.inizio)) || a.inizio - b.inizio) : a.inizio - b.inizio);
+  const nasc = elenco.filter(gestito).length;
+  const chk = $('#nascondi-gestiti'), tt = $('#nascondi-testo');
+  if (chk) { chk.checked = nascondiGestiti; const uff = inUfficio || posta.length > 0; tt.textContent = (uff ? 'Nascondi gli appuntamenti già registrati in Levante' : 'Nascondi gli interventi già inviati in ufficio') + (nasc ? ' (' + nasc + (nasc === 1 ? ' nascosto' : ' nascosti') + ')' : ''); }
+  if (nascondiGestiti) elenco = elenco.filter(a => !gestito(a));
   const box = $('#lista');
   if (!elenco.length) {
+    if (nasc && nascondiGestiti) { box.innerHTML = `<div class="vuoto">Tutti gli appuntamenti di questo periodo sono già sbrigati (${nasc} nascosti). Togli la spunta qui sopra per rivederli.</div>`; return; }
     box.innerHTML = `<div class="vuoto">${periodo === 'oggi' ? 'Nessun appuntamento per oggi.' : periodo === 'sett' ? 'Nessun appuntamento nei prossimi 7 giorni.' : 'Nessun appuntamento negli ultimi 7 giorni. Se ne mancano, ricarica i dati dall\'ufficio.'}</div>`;
     return;
   }
@@ -3729,7 +3739,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.13.8 (07/10/2026)';
+const VERSIONE_APP = '1.13.9 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4013,6 +4023,7 @@ async function leggiPosta(files){
   disegnaPosta();
 }
 function avviaPosta(){
+  $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
   $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; disegnaPosta(); mostra('posta'); };
   $('#b-indietro-posta').onclick = indietro;
   $('#b-posta-carica').onclick = () => $('#in-posta').click();
@@ -4101,6 +4112,7 @@ async function avviaPulsantiServizio(){
     return;
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
+  inUfficio = true; try { disegnaAgenda(); } catch(e) {}
   document.querySelectorAll('.js-esporta').forEach(b => b.onclick = async () => {
     bloccaEsp(true); msgEsp('Avvio l\'esportazione…');
     try { await chiamaServizio('esporta'); } catch(e) { msgEsp('Il servizio non risponde.'); bloccaEsp(false); return; }
