@@ -286,8 +286,8 @@ body.uff #tab-tec{display:flex;gap:6px;margin:10px 0 4px;overflow-x:auto;padding
 /* tablet in orizzontale e computer: elenco a sinistra, dettaglio a destra */
 @media (min-width:900px){
   body{overflow:hidden}
-  body.uff .app{height:calc(100vh - 58px);height:calc(100dvh - 58px)}
   .app{max-width:none;height:100vh;height:100dvh;display:grid;grid-template-columns:minmax(340px,400px) minmax(0,1fr)}
+  body.uff .app{height:calc(100vh - 58px);height:calc(100dvh - 58px);min-height:0}
   #v-agenda{display:block;height:100%;overflow-y:auto;overflow-x:hidden;border-right:1px solid var(--riga);padding-bottom:24px}
   #destra{display:block;height:100%;overflow-y:auto;overflow-x:hidden}
   #destra .view{max-width:780px;margin:0 auto;padding-bottom:28px}
@@ -595,6 +595,8 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-indietro-posta" type="button">Indietro</button>
       <h1>Posta in arrivo</h1>
     </header>
+    <div id="pa-riga" class="avviso info" hidden style="margin:0 0 12px"><b id="pa-riga-t"></b><div class="aiuto" id="pa-riga-d" style="margin:4px 0 0"></div>
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn piccolo" id="pa-riga-ora" type="button">Controlla ora</button><button class="btn sec piccolo" id="pa-riga-imp" type="button">Cambia cartella o metodo</button></div></div>
     <details id="posta-auto" class="avviso info" hidden style="margin:0 0 14px">
       <summary><b>Ricezione automatica della posta</b> <span class="chip" id="pa-stato">non attiva</span></summary>
       <p class="aiuto" style="margin:8px 0">Scegli come arrivano in ufficio le mail dei tecnici: l'app le prende da sola e le mette qui sotto, senza salvare gli allegati a mano. Le mail non vengono toccate né cancellate.</p>
@@ -3822,7 +3824,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.15.0 (08/10/2026)';
+const VERSIONE_APP = '1.15.2 (08/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4110,7 +4112,7 @@ async function leggiPosta(files){
 function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); try { aggiornaNav(); } catch(e) {} }
 function avviaPosta(){
   $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
-  $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; disegnaPosta(); mostra('posta'); };
+  $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; disegnaPosta(); mostra('posta'); try { if (typeof caricaPostaAuto === 'function' && postaAutoAvviata) caricaPostaAuto(); } catch(e) {} };
   $('#b-indietro-posta').onclick = indietro;
   $('#b-posta-carica').onclick = () => $('#in-posta').click();
   $('#in-posta').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) await leggiPosta(fl); };
@@ -4216,6 +4218,15 @@ async function caricaPostaAuto(){
   const el = $('#pa-stato'), nome = {nessuno: 'non attiva', imap: 'casella di posta', outlook: 'Outlook', cartella: 'cartella'}[c.metodo];
   el.textContent = c.metodo === 'nessuno' ? 'non attiva' : (st.esito && /^errore/.test(st.esito) ? 'problema' : 'attiva: ' + nome);
   el.className = 'chip' + (c.metodo === 'nessuno' ? '' : (/^errore/.test(st.esito || '') ? ' urg' : ' pdf'));
+  const rg = $('#pa-riga'), det = $('#posta-auto');
+  rg.hidden = c.metodo === 'nessuno';
+  if (c.metodo === 'nessuno') { if (!caricaPostaAuto.aperto) { caricaPostaAuto.aperto = true; det.open = true; } }
+  else {
+    $('#pa-riga-t').textContent = c.metodo === 'cartella' ? 'Controllo automatico della cartella: ' + (c.cartella_osservata || '') : 'Controllo automatico della posta (' + nome + ')';
+    $('#pa-riga-d').textContent = st.ultimo ? 'Ultimo controllo alle ' + hhmm(new Date(st.ultimo)) + ': ' + String(st.esito || '').replace(/^(ok|errore): /, '') + (st.in_attesa ? ' — ' + st.in_attesa + ' file in arrivo' : '') : 'Il primo controllo parte entro un minuto.';
+    rg.className = 'avviso ' + (/^errore/.test(st.esito || '') ? 'rosso' : 'info');
+    if (!caricaPostaAuto.chiuso) { caricaPostaAuto.chiuso = true; det.open = false; }
+  }
   if (st.ultimo) $('#pa-msg').textContent = 'Ultimo controllo alle ' + hhmm(new Date(st.ultimo)) + ': ' + String(st.esito || '').replace(/^(ok|errore): /, '');
 }
 function datiFormPosta(){
@@ -4247,6 +4258,8 @@ function avviaPostaAuto(){
   caricaPostaAuto(); giroPostaAuto();
   setInterval(() => { giroPostaAuto(); if (!$('#posta-auto').hidden && $('#v-posta').classList.contains('attiva')) caricaPostaAuto(); }, 15000);
   $('#pa-metodo').onchange = mostraCampiPosta;
+  $('#pa-riga-ora').onclick = () => $('#pa-ora').click();
+  $('#pa-riga-imp').onclick = () => { const d = $('#posta-auto'); d.open = true; d.scrollIntoView({block: 'start'}); };
   $('#pa-preset').onchange = e => { const p = PRESET_POSTA[e.target.value]; $('#pa-hint').textContent = p ? p[2] : ''; if (p) { $('#pa-server').value = p[0]; $('#pa-porta').value = p[1]; } };
   const msg = t => { $('#pa-msg').textContent = t; };
   $('#pa-salva').onclick = async () => { try { const r = await chiamaJson('posta-config', datiFormPosta()); $('#pa-pwd').value = ''; caricaPostaAuto.fatto = false; await caricaPostaAuto(); msg(r.ok ? 'Salvato.' : 'Non sono riuscito a salvare.'); } catch(e) { msg('Il servizio non risponde.'); } };
