@@ -578,8 +578,8 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <li>Tocca il pulsante qui sotto e scegli <b>tutti i file insieme</b>: gli interventi si raggruppano da soli.</li>
       <li>Per ogni intervento trovi cosa registrare in Levante (ore, testi da copiare, km, materiali) e il file <b>CSV</b> da caricare con «carica file di testo».</li>
     </ol>
-    <button class="btn pieno" id="b-posta-carica" type="button">Scegli i file ricevuti</button>
-    <input type="file" id="in-posta" accept=".txt,.json,.pdf,text/plain,application/json,application/pdf" multiple hidden>
+    <button class="btn pieno" id="b-posta-carica" type="button">Scegli i file ricevuti (anche uno zip)</button>
+    <input type="file" id="in-posta" accept=".txt,.json,.pdf,.zip,text/plain,application/json,application/pdf,application/zip,application/x-zip-compressed" multiple hidden>
     <p class="aiuto" id="posta-msg" role="status" style="margin:8px 0"></p>
     <label class="spunta"><input type="checkbox" id="posta-fatti"> Mostra anche gli interventi già registrati</label>
     <div id="posta-elenco" style="margin-top:12px"></div>
@@ -804,6 +804,8 @@ function apriBozza(id){
   corrente = null; lavoro = bozze[id]; ultimoPdf = null;
   disegnaScheda(); mostra('scheda'); preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH);
 }
+/* un intervento ricevuto in Posta in arrivo e spuntato come registrato in Levante: l'appuntamento (stesso numero) e' gia' chiuso, anche se l'esportazione non e' ancora stata rifatta */
+function registrato(a){ const n = a && (a.r ? a.r.li : a.li); return !!n && posta.some(p => p.fatto && p.li && String(p.li) === String(n)); }
 function disegnaAgenda(){
   disegnaBanner(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
@@ -840,9 +842,10 @@ function disegnaAgenda(){
     else if (st === 'bozza') chips.push(bozze[a.id].inCorso ? '<span class="chip bozza">In corso dalle ' + esc(bozze[a.id].inizioOra || '') + '</span>' : '<span class="chip bozza">Bozza</span>');
     if (st === 'pdf' || st === 'bozza') { const ce = chipEsito(bozze[a.id]); if (ce) chips.push(ce); const ci = chipInvio(bozze[a.id]); if (ci) chips.push(ci); }
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
+    else if (registrato(a)) chips.push('<span class="chip pdf">Registrato in Levante</span>');
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
-    html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${a.fatto ? 'chiuso ' : ''}${st}" type="button" data-id="${esc(a.id)}">
+    html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${(a.fatto || registrato(a)) ? 'chiuso ' : ''}${st}" type="button" data-id="${esc(a.id)}">
       <span class="ora">${hhmm(a.inizio)}<small>${hhmm(a.fine)}</small></span>
       <span class="corpo"><span class="nome">${esc(a.titolo)}</span>
         <span class="dove" style="display:block">${esc(a.luogo)}</span>
@@ -3594,7 +3597,7 @@ function disegnaUfficio(){
   const esito = $('#esito-uff'); if (!datiLevante) return;
   const {trovati, mancanti} = infoUff;
   const per = {};
-  datiLevante.appuntamenti.filter(a => !a.fatto).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });   // i chiusi in Levante non vanno ai tecnici
+  datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });   // i chiusi in Levante non vanno ai tecnici
   const st = datiLevante.stat, esclusi = [];
   if (st.vecchi) esclusi.push(`${st.vecchi} ${st.vecchi === 1 ? 'precedente' : 'precedenti'} agli ultimi 7 giorni`);
   let origine = '';
@@ -3605,7 +3608,7 @@ function disegnaUfficio(){
       origine = `<br>Esportazione di Levante delle <b>${hhmm(quando)}</b> del ${dataIT(isoGiorno(quando))}.` + (minuti > 60 ? ` <span style="color:var(--rosso);font-weight:650">È vecchia di ${minuti >= 120 ? Math.round(minuti / 60) + ' ore' : minuti + ' minuti'}: per avere le ultime variazioni lancia di nuovo Esporta_Levante.bat e poi tocca di nuovo "Leggi l'ultima esportazione".</span>` : '');
     }
   }
-  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.filter(a => !a.fatto).length} ${datiLevante.appuntamenti.filter(a => !a.fatto).length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
+  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).length} ${datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
     <br>Nel file c'${st.totale === 1 ? 'era 1 appuntamento' : 'erano ' + st.totale + ' appuntamenti'}${esclusi.length ? ': non inclusi ' + esclusi.join(' e ') : ''}${st.fatti ? ' (' + st.fatti + ' già ' + (st.fatti === 1 ? 'chiuso' : 'chiusi') + ' in Levante: non vanno ai tecnici)' : ''}.
     <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}${riepilogoArticoli()}</div>`;
   if (!datiLevante.appuntamenti.length) h += '<p class="aiuto">Non ci sono appuntamenti da oggi in poi nell\'esportazione.</p>';
@@ -3653,7 +3656,7 @@ function riepilogoRcee(){
 }
 function pacchettoPer(id, completo){
   const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : '';
-  const apps = datiLevante.appuntamenti.filter(a => !a.fatto && (a.tecnico_id || '') === id);
+  const apps = datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a) && (a.tecnico_id || '') === id);
   const inv = leggiInviati()[id];
   const leggero = !!inv && !completo;                         // aggiornamento: i documenti gia' mandati non si rimandano
   const giaMandati = new Set(leggero ? (inv.docIds || []) : []);
@@ -3726,7 +3729,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.13.6 (07/10/2026)';
+const VERSIONE_APP = '1.13.8 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3987,7 +3990,15 @@ function disegnaPosta(){
 }
 const ESITI_BREVI = {concluso: 'Concluso', da_completare: 'Da completare', non_eseguito: 'Non eseguito'};
 async function leggiPosta(files){
-  let nuovi = 0, agg = 0, pdf = 0, altri = 0;
+  let nuovi = 0, agg = 0, pdf = 0, altri = 0, nZip = 0;
+  if (files.some(f => /\.zip$/i.test(f.name))) {            // la mail con piu' file arriva in un unico zip: lo apro e leggo quello che contiene
+    let tutti = files.filter(f => !/\.zip$/i.test(f.name));
+    for (const z of files.filter(f => /\.zip$/i.test(f.name))) {
+      try { tutti = tutti.concat((await espandiZip(z)).filter(x => !/\.zip$/i.test(x.name))); nZip++; }
+      catch(e) { $('#posta-msg').textContent = 'Non riesco ad aprire lo zip "' + z.name + '": ' + (e.message || 'file non valido'); return; }
+    }
+    files = tutti;
+  }
   for (const f of files) {
     if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name] = f; pdf++; continue; }
     try {
@@ -3998,7 +4009,7 @@ async function leggiPosta(files){
     } catch(e) { altri++; }
   }
   salvaPosta();
-  $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.';
+  $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.';
   disegnaPosta();
 }
 function avviaPosta(){
@@ -4028,7 +4039,7 @@ function avviaPosta(){
     if (d.rcod !== undefined) { const p = d.rcod.split('|'), r = posta[+p[0]]; r.rip = ripartizione(r).map(x => Object.assign({}, x)); r.rip[+p[1]].c = e.target.value; salvaPosta(); }
     else if (d.rore !== undefined) disegnaPosta();
   });
-  $('#posta-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); setTimeout(disegnaPosta, 250); } });
+  $('#posta-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); try { disegnaAgenda(); } catch(x){} setTimeout(disegnaPosta, 250); } });
 }
 /* ---- servizio per l'ufficio (servizio_ufficio.py): se l'app e' aperta da li', l'ultimo zip di Levante arriva da solo ---- */
 let servizioTimer = null, ultimoZipLetto = '', letturaOk = false;
