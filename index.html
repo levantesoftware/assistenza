@@ -266,6 +266,7 @@ body.uff #nav-uff{display:flex;gap:6px;padding:8px max(12px,env(safe-area-inset-
 #nav-uff button[aria-pressed="true"]{background:#fff;color:var(--inchiostro)}
 #nav-uff .badge{display:inline-block;min-width:20px;margin-left:6px;padding:1px 6px;border-radius:10px;background:var(--fiamma);color:#fff;font-size:12px;text-align:center}
 #nav-uff .badge[hidden]{display:none}
+#nav-uff #nav-badge-inv{background:var(--petrolio)}
 body.uff #b-indietro-uff,body.uff #b-indietro-posta,body.uff #b-impostazioni{display:none}
 #tab-tec{display:none}
 body.uff #tab-tec{display:flex;gap:6px;margin:10px 0 4px;overflow-x:auto;padding-bottom:2px}
@@ -414,7 +415,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 <nav id="nav-uff" aria-label="Sezioni dell'ufficio">
   <button type="button" data-nav="agenda" aria-pressed="true">Agenda</button>
   <button type="button" data-nav="posta" aria-pressed="false">Interventi in arrivo<span class="badge" id="nav-badge" hidden></span></button>
-  <button type="button" data-nav="ufficio" aria-pressed="false">Invio ai tecnici</button>
+  <button type="button" data-nav="ufficio" aria-pressed="false">Invio ai tecnici<span class="badge" id="nav-badge-inv" hidden></span></button>
   <button type="button" data-nav="impostazioni" aria-pressed="false">Impostazioni</button>
 </nav>
 <div class="app">
@@ -596,6 +597,12 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div class="uff-azioni" hidden style="margin:0 0 12px">
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
+    </div>
+    <div id="auto-esp" class="avviso info" hidden style="margin:0 0 12px">
+      <div class="campo" style="margin:0"><label for="auto-min"><b>Esporta da Levante in automatico</b></label>
+        <select id="auto-min"><option value="0">Mai (premo io «Esporta ora»)</option><option value="5">Ogni 5 minuti</option><option value="10">Ogni 10 minuti</option><option value="15">Ogni 15 minuti</option><option value="30">Ogni 30 minuti</option><option value="60">Ogni ora</option></select></div>
+      <p class="aiuto" id="auto-stato" role="status" style="margin:6px 0 0"></p>
+      <p class="aiuto" style="margin:4px 0 0">Solo dalle 6:30 alle 20:30, domenica esclusa. L'app legge da sola ogni nuova esportazione: gli appuntamenti dei tecnici sono sempre pronti qui sotto. Levante resta aperto e non viene toccato (lettura soltanto).</p>
     </div>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
     <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
@@ -912,6 +919,8 @@ function aggiornaNav(){
   document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.setAttribute('aria-pressed', b.dataset.nav === att));
   const n = posta.filter(r => !r.fatto).length, bd = $('#nav-badge');
   if (bd) { bd.hidden = !n; bd.textContent = n; }
+  const bi = $('#nav-badge-inv');
+  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); }
 }
 function disegnaAgenda(){
   aggiornaNav();
@@ -3713,6 +3722,8 @@ async function leggiFileLevante(files){
 }
 function disegnaUfficio(){
   const esito = $('#esito-uff'); if (!datiLevante) return;
+  try { aggiornaNav(); } catch(e) {}
+  { const ae = document.activeElement; if (ae && ae.matches && ae.matches('[data-email]') && !disegnaUfficio.rinviato) { disegnaUfficio.rinviato = true; setTimeout(() => { disegnaUfficio.rinviato = false; disegnaUfficio(); }, 6000); return; } }
   const {trovati, mancanti} = infoUff;
   const per = {};
   datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });   // i chiusi in Levante non vanno ai tecnici
@@ -3906,7 +3917,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.16.0 (08/10/2026)';
+const VERSIONE_APP = '1.17.0 (08/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4269,6 +4280,7 @@ function avviaPosta(){
 /* ---- servizio per l'ufficio (servizio_ufficio.py): se l'app e' aperta da li', l'ultimo zip di Levante arriva da solo ---- */
 let servizioTimer = null, ultimoZipLetto = '', letturaOk = false;
 async function controllaServizio(){
+  try { if (inUfficio) aggiornaAuto(await statoServizio()); } catch(e) {}
   try {
     const r = await fetch('ultima.json', {cache: 'no-store'});
     if (!r.ok) { if (!ultimoZipLetto) fermaServizio(); return; }
@@ -4293,7 +4305,7 @@ async function controllaServizio(){
     }
     const q = j.quando ? new Date(j.quando) : null;
     box.hidden = false;
-    box.innerHTML = '<b>Aggiornamento automatico attivo</b>Ultima esportazione di Levante: ' + (q ? hhmm(q) + ' del ' + dataIT(isoGiorno(q)) : esc(j.nome)) + '. L\'app la controlla da sola ogni 2 minuti: non devi scegliere nessun file.';
+    box.innerHTML = '<b>Aggiornamento automatico attivo</b>Ultima esportazione di Levante: ' + (q ? hhmm(q) + ' del ' + dataIT(isoGiorno(q)) : esc(j.nome)) + '. L\'app la controlla da sola: non devi scegliere nessun file.';
   } catch(e) { if (!ultimoZipLetto) fermaServizio(); }
 }
 const chiamaServizio = p => fetch(p, {method: 'POST', headers: {'X-Assistenza': '1'}, cache: 'no-store'}).then(r => r.json());
@@ -4392,6 +4404,18 @@ function avviaPostaAuto(){
   $('#pa-prova').onclick = async () => { msg('Provo il collegamento…'); try { await chiamaJson('posta-config', datiFormPosta()); $('#pa-pwd').value = ''; const r = await chiamaJson('posta-prova'); msg((r.ok ? '✔ ' : '✘ ') + r.messaggio); } catch(e) { msg('Il servizio non risponde.'); } };
   $('#pa-ora').onclick = async () => { msg('Controllo la posta…'); try { const r = await chiamaJson('posta-controlla'); msg((r.ok ? '' : '✘ ') + r.messaggio); await giroPostaAuto(); caricaPostaAuto(); } catch(e) { msg('Il servizio non risponde.'); } };
 }
+function aggiornaAuto(s){
+  const box = $('#auto-esp'); if (!box || !s || !s.auto) return;
+  box.hidden = false; const a = s.auto, sel = $('#auto-min');
+  if (document.activeElement !== sel) sel.value = String(a.minuti || 0);
+  let t;
+  if (!a.minuti) t = 'Spenta: l\'esportazione parte solo quando premi «Esporta ora da Levante».';
+  else if (s.in_corso) t = 'Esportazione in corso…';
+  else if (!a.in_orario) t = 'Fuori orario: riprende alle ' + a.dalle + '.';
+  else { const pr = a.prossima ? new Date(a.prossima) : null; const m = pr ? Math.round((pr - Date.now()) / 60000) : 0; t = m > 0 ? 'Prossima esportazione tra circa ' + m + (m === 1 ? ' minuto' : ' minuti') + ' (' + hhmm(pr) + ').' : 'La prossima esportazione parte a momenti.'; }
+  if (s.esito && /^errore/.test(s.esito)) t += ' L\'ultima non è riuscita: apri la cartella delle esportazioni e leggi _riepilogo.txt.';
+  $('#auto-stato').textContent = t;
+}
 async function avviaPulsantiServizio(){
   const s = await statoServizio();
   if (!s) {                                           // servizio di una versione precedente ancora acceso: risponde a ultima.json ma non conosce i comandi
@@ -4402,6 +4426,8 @@ async function avviaPulsantiServizio(){
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
   inUfficio = true; try { disegnaAgenda(); } catch(e) {}
+  aggiornaAuto(s);
+  $('#auto-min').onchange = async e => { try { const r = await chiamaJson('servizio-config', {minuti: +e.target.value}); const st = await statoServizio(); aggiornaAuto(st); } catch(x) {} };
   if (s.posta) { avviaPostaAuto(); avviaSmtp(); }
   document.querySelectorAll('.js-esporta').forEach(b => b.onclick = async () => {
     bloccaEsp(true); msgEsp('Avvio l\'esportazione…');
@@ -4414,7 +4440,7 @@ async function avviaPulsantiServizio(){
 function fermaServizio(){ if (servizioTimer) { clearInterval(servizioTimer); servizioTimer = null; } }
 function avviaServizio(){
   if (!/^https?:$/.test(location.protocol) || !/^(localhost|127\.0\.0\.1)$|^[^.]+$|^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) return;   // solo da localhost o dalla rete locale, non dall'indirizzo pubblico
-  controllaServizio(); servizioTimer = setInterval(controllaServizio, 120000); avviaPulsantiServizio();
+  controllaServizio(); servizioTimer = setInterval(controllaServizio, 40000); avviaPulsantiServizio();
 }
 function avvia(){
   appuntamenti = caricaAppuntamenti();
@@ -4454,7 +4480,7 @@ function avvia(){
   $('#b-mat-dimentica').onclick = () => { if (confirm('Dimentico i materiali ricordati su questo dispositivo?')) store.set('ass_mat_usati', []); };
   $('#b-azzera').onclick = async () => { if (confirm('Cancello tutte le schede salvate su questo dispositivo (comprese le foto)?')) { bozze = {}; salvaBozze(); try { await cancellaTutteLeFoto(); } catch(e){} disegnaAgenda(); } };
   $('#in-pacchetto').onchange = e => { const f = e.target.files[0]; if (f) caricaPacchetto(f); e.target.value = ''; };
-  $('#b-ufficio').onclick = () => { $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
+  $('#b-ufficio').onclick = () => { if (inUfficio && datiLevante && letturaOk) disegnaUfficio(); else $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
   $('#b-indietro-uff').onclick = indietro;
   $('#b-scegli').onclick = () => $('#in-levante').click();
   $('#in-levante').onchange = async e => { const fl = [...e.target.files]; if (fl.length) await leggiFileLevante(fl); e.target.value = ''; };
