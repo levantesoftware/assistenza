@@ -574,8 +574,46 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-indietro-posta" type="button">Indietro</button>
       <h1>Posta in arrivo</h1>
     </header>
+    <details id="posta-auto" class="avviso info" hidden style="margin:0 0 14px">
+      <summary><b>Ricezione automatica della posta</b> <span class="chip" id="pa-stato">non attiva</span></summary>
+      <p class="aiuto" style="margin:8px 0">Scegli come arrivano in ufficio le mail dei tecnici: l'app le prende da sola e le mette qui sotto, senza salvare gli allegati a mano. Le mail non vengono toccate né cancellate.</p>
+      <div class="campo"><label for="pa-metodo">Come arriva la posta</label>
+        <select id="pa-metodo">
+          <option value="nessuno">Non in automatico (scelgo io i file)</option>
+          <option value="imap">Leggi la casella di posta (Gmail, Aruba, PEC, hosting…)</option>
+          <option value="outlook">Leggi Outlook installato su questo PC</option>
+          <option value="cartella">Controlla una cartella (Download, o dove salva una regola del tuo programma di posta)</option>
+        </select></div>
+      <div id="pa-imap" hidden>
+        <div class="campo"><label for="pa-preset">Servizio di posta</label>
+          <select id="pa-preset"><option value="">— scegli —</option><option value="gmail">Gmail / Google Workspace</option><option value="aruba">Aruba (posta normale)</option><option value="arubapec">Aruba PEC</option><option value="libero">Libero</option><option value="altro">Altro / dominio proprio</option></select></div>
+        <p class="aiuto" id="pa-hint" style="margin:0 0 8px"></p>
+        <div class="tre"><div class="campo largo"><label for="pa-server">Server IMAP</label><input id="pa-server" type="text" autocomplete="off" autocapitalize="none" placeholder="imap.esempio.it"></div>
+          <div class="campo"><label for="pa-porta">Porta</label><input id="pa-porta" type="text" inputmode="numeric" value="993"></div></div>
+        <div class="campo"><label for="pa-utente">Indirizzo email / utente</label><input id="pa-utente" type="text" autocomplete="off" autocapitalize="none"></div>
+        <div class="campo"><label for="pa-pwd">Password <span id="pa-pwd-nota" class="aiuto"></span></label><input id="pa-pwd" type="password" autocomplete="new-password"></div>
+        <div class="campo"><label for="pa-cart-imap">Cartella della posta</label><input id="pa-cart-imap" type="text" value="INBOX" autocomplete="off"></div>
+        <label class="spunta"><input type="checkbox" id="pa-ssl" checked> Connessione protetta (SSL, consigliata)</label>
+      </div>
+      <div id="pa-cartella" hidden>
+        <div class="campo"><label for="pa-percorso">Cartella (o più cartelle separate da «;»)</label><input id="pa-percorso" type="text" autocomplete="off" placeholder="C:\Users\nome\Downloads"></div>
+        <p class="aiuto" style="margin:0 0 8px">Vengono copiati i file dei tecnici (Dati_….txt, gli zip che li contengono e i PDF salvati insieme), anche dalle sottocartelle. Gli altri file non si toccano. <b>WhatsApp sul PC:</b> scarica un allegato di un tecnico, guarda in che cartella finisce e scrivila qui; se in WhatsApp attivi il download automatico dei documenti, arrivano da soli.</p>
+      </div>
+      <div id="pa-comuni" hidden>
+        <div class="tre"><div class="campo largo"><label for="pa-filtro">Parola nell'oggetto della mail</label><input id="pa-filtro" type="text" autocomplete="off" value="Intervento"></div>
+          <div class="campo"><label for="pa-minuti">Ogni (minuti)</label><input id="pa-minuti" type="text" inputmode="numeric" value="3"></div></div>
+        <div class="campo"><label for="pa-giorni">Guarda indietro di (giorni)</label><input id="pa-giorni" type="text" inputmode="numeric" value="14"></div>
+      </div>
+      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:8px">
+        <button class="btn piccolo" type="button" id="pa-salva">Salva</button>
+        <button class="btn sec piccolo" type="button" id="pa-prova">Prova il collegamento</button>
+        <button class="btn sec piccolo" type="button" id="pa-ora">Controlla adesso</button>
+      </div>
+      <p class="aiuto" id="pa-msg" role="status" style="margin:8px 0 0"></p>
+      <p class="aiuto" style="margin:8px 0 0"><b>Quale scegliere?</b> Con Gmail o un hosting va bene «Leggi la casella». Se usate <b>Outlook classico</b> sul PC, scegli «Leggi Outlook». Con Microsoft 365 / outlook.com (che non accettano più le password semplici) o con qualsiasi altro programma, imposta nel tuo programma di posta una regola che salva gli allegati delle mail «Intervento…» in una cartella, e scegli «Controlla una cartella».</p>
+    </details>
     <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
-      <li>Dalla mail salva gli allegati dei tecnici (PDF e file <b>Dati_…txt</b>).</li>
+      <li>Dalla mail salva gli allegati dei tecnici (se non hai attivato la ricezione automatica) (PDF e file <b>Dati_…txt</b>).</li>
       <li>Tocca il pulsante qui sotto e scegli <b>tutti i file insieme</b>: gli interventi si raggruppano da soli.</li>
       <li>Per ogni intervento trovi cosa registrare in Levante (ore, testi da copiare, km, materiali) e il file <b>CSV</b> da caricare con «carica file di testo».</li>
     </ol>
@@ -3739,7 +3777,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.13.9 (07/10/2026)';
+const VERSIONE_APP = '1.14.1 (07/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -3974,6 +4012,7 @@ function copiaVecchio(t){
 const aperte = {};
 const chiavePosta = r => (r.id || '') + '|' + (r.data || '') + '|' + (r.cliente || '');
 function disegnaPosta(){
+  etichettaPosta();
   const box = $('#posta-elenco'); if (!box) return;
   const tutti = $('#posta-fatti').checked, lista = posta.map((r, i) => ({r, i})).filter(x => tutti || !x.r.fatto)
     .sort((a, b) => String(a.r.data).localeCompare(String(b.r.data)) || String(a.r.cliente).localeCompare(String(b.r.cliente)));
@@ -4021,7 +4060,9 @@ async function leggiPosta(files){
   salvaPosta();
   $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.';
   disegnaPosta();
+  return {nuovi, agg};
 }
+function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); }
 function avviaPosta(){
   $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
   $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; disegnaPosta(); mostra('posta'); };
@@ -4103,6 +4144,70 @@ async function attendiEsportazione(){
   }
   bloccaEsp(false); msgEsp('L\'esportazione sta impiegando molto: riprova tra poco.');
 }
+/* ---- ricezione automatica della posta (servizio dell'ufficio: cartella, IMAP, Outlook) ---- */
+const chiamaJson = (p, corpo) => fetch(p, {method: 'POST', headers: {'X-Assistenza': '1', 'Content-Type': 'application/json'}, body: JSON.stringify(corpo || {}), cache: 'no-store'}).then(r => r.json());
+const PRESET_POSTA = {gmail: ['imap.gmail.com', 993, 'Gmail: attiva la verifica in due passaggi dell\'account Google e crea una «password per le app»; scrivi qui quella (non la password normale). Se Google Workspace, l\'amministratore deve permettere IMAP.'],
+  aruba: ['imaps.aruba.it', 993, 'Aruba: server imaps.aruba.it, utente = indirizzo email completo.'],
+  arubapec: ['imaps.pec.aruba.it', 993, 'Aruba PEC: utente = indirizzo PEC completo.'],
+  libero: ['imapmail.libero.it', 993, 'Libero: utente = indirizzo email completo.'],
+  altro: ['', 993, 'Chiedi a chi gestisce la posta il «server IMAP» e la porta (di solito 993 con SSL).']};
+function mostraCampiPosta(){
+  const m = $('#pa-metodo').value;
+  $('#pa-imap').hidden = m !== 'imap'; $('#pa-cartella').hidden = m !== 'cartella'; $('#pa-comuni').hidden = m === 'nessuno';
+  $('#pa-filtro').closest('.tre').hidden = m === 'cartella';
+}
+async function caricaPostaAuto(){
+  let st; try { st = await (await fetch('posta-stato', {cache: 'no-store'})).json(); } catch(e) { return; }
+  if (!st || !st.config) return;
+  const c = st.config; $('#posta-auto').hidden = false;
+  if (!caricaPostaAuto.fatto) {
+    caricaPostaAuto.fatto = true;
+    $('#pa-metodo').value = c.metodo; $('#pa-server').value = c.imap_server || ''; $('#pa-porta').value = c.imap_porta || 993; $('#pa-utente').value = c.imap_utente || '';
+    $('#pa-cart-imap').value = c.imap_cartella || 'INBOX'; $('#pa-ssl').checked = c.imap_ssl !== false; $('#pa-percorso').value = c.cartella_osservata || '';
+    $('#pa-filtro').value = c.filtro || ''; $('#pa-minuti').value = c.minuti || 3; $('#pa-giorni').value = c.giorni || 14;
+    $('#pa-pwd-nota').textContent = c.password_impostata ? '(già salvata: lascia vuoto per non cambiarla)' : '';
+    mostraCampiPosta();
+  }
+  const el = $('#pa-stato'), nome = {nessuno: 'non attiva', imap: 'casella di posta', outlook: 'Outlook', cartella: 'cartella'}[c.metodo];
+  el.textContent = c.metodo === 'nessuno' ? 'non attiva' : (st.esito && /^errore/.test(st.esito) ? 'problema' : 'attiva: ' + nome);
+  el.className = 'chip' + (c.metodo === 'nessuno' ? '' : (/^errore/.test(st.esito || '') ? ' urg' : ' pdf'));
+  if (st.ultimo) $('#pa-msg').textContent = 'Ultimo controllo alle ' + hhmm(new Date(st.ultimo)) + ': ' + String(st.esito || '').replace(/^(ok|errore): /, '');
+}
+function datiFormPosta(){
+  const d = {metodo: $('#pa-metodo').value, imap_server: $('#pa-server').value, imap_porta: $('#pa-porta').value, imap_utente: $('#pa-utente').value, imap_cartella: $('#pa-cart-imap').value || 'INBOX',
+    imap_ssl: $('#pa-ssl').checked, cartella_osservata: $('#pa-percorso').value, filtro: $('#pa-filtro').value, minuti: $('#pa-minuti').value, giorni: $('#pa-giorni').value};
+  if ($('#pa-pwd').value) d.imap_password = $('#pa-pwd').value;
+  return d;
+}
+let postaAutoAvviata = false, postaAutoOccupata = false;
+async function giroPostaAuto(){
+  if (postaAutoOccupata) return; postaAutoOccupata = true;
+  try {
+    const el = (await (await fetch('posta-elenco', {cache: 'no-store'})).json()).file || [];
+    if (!el.length) return;
+    const files = [];
+    for (const f of el) {
+      const r = await fetch('posta-file?nome=' + encodeURIComponent(f.nome), {cache: 'no-store'}); if (!r.ok) continue;
+      files.push({nome: f.nome, file: new File([await r.blob()], f.nome.replace(/^\d{8}_\d{6}_(?:\d+_)?/, ''))});
+    }
+    if (!files.length) return;
+    const ris = await leggiPosta(files.map(x => x.file));
+    for (const x of files) { try { await chiamaJson('posta-fatto', {nome: x.nome}); } catch(e) {} }
+    if (ris && (ris.nuovi || ris.agg)) mostraAvviso('Posta dei tecnici: ' + (ris.nuovi ? ris.nuovi + (ris.nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') : ris.agg + ' aggiornati') + '.', 'Apri', () => { disegnaPosta(); mostra('posta'); }, 15000);
+    try { disegnaAgenda(); } catch(e) {}
+  } catch(e) {} finally { postaAutoOccupata = false; }
+}
+function avviaPostaAuto(){
+  if (postaAutoAvviata) return; postaAutoAvviata = true;
+  caricaPostaAuto(); giroPostaAuto();
+  setInterval(() => { giroPostaAuto(); if (!$('#posta-auto').hidden && $('#v-posta').classList.contains('attiva')) caricaPostaAuto(); }, 15000);
+  $('#pa-metodo').onchange = mostraCampiPosta;
+  $('#pa-preset').onchange = e => { const p = PRESET_POSTA[e.target.value]; $('#pa-hint').textContent = p ? p[2] : ''; if (p) { $('#pa-server').value = p[0]; $('#pa-porta').value = p[1]; } };
+  const msg = t => { $('#pa-msg').textContent = t; };
+  $('#pa-salva').onclick = async () => { try { const r = await chiamaJson('posta-config', datiFormPosta()); $('#pa-pwd').value = ''; caricaPostaAuto.fatto = false; await caricaPostaAuto(); msg(r.ok ? 'Salvato.' : 'Non sono riuscito a salvare.'); } catch(e) { msg('Il servizio non risponde.'); } };
+  $('#pa-prova').onclick = async () => { msg('Provo il collegamento…'); try { await chiamaJson('posta-config', datiFormPosta()); $('#pa-pwd').value = ''; const r = await chiamaJson('posta-prova'); msg((r.ok ? '✔ ' : '✘ ') + r.messaggio); } catch(e) { msg('Il servizio non risponde.'); } };
+  $('#pa-ora').onclick = async () => { msg('Controllo la posta…'); try { const r = await chiamaJson('posta-controlla'); msg((r.ok ? '' : '✘ ') + r.messaggio); await giroPostaAuto(); caricaPostaAuto(); } catch(e) { msg('Il servizio non risponde.'); } };
+}
 async function avviaPulsantiServizio(){
   const s = await statoServizio();
   if (!s) {                                           // servizio di una versione precedente ancora acceso: risponde a ultima.json ma non conosce i comandi
@@ -4113,6 +4218,7 @@ async function avviaPulsantiServizio(){
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
   inUfficio = true; try { disegnaAgenda(); } catch(e) {}
+  if (s.posta) avviaPostaAuto();
   document.querySelectorAll('.js-esporta').forEach(b => b.onclick = async () => {
     bloccaEsp(true); msgEsp('Avvio l\'esportazione…');
     try { await chiamaServizio('esporta'); } catch(e) { msgEsp('Il servizio non risponde.'); bloccaEsp(false); return; }
