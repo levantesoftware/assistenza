@@ -964,6 +964,9 @@ function apriBozza(id){
 }
 /* un intervento ricevuto in Posta in arrivo e spuntato come registrato in Levante: l'appuntamento (stesso numero) e' gia' chiuso, anche se l'esportazione non e' ancora stata rifatta */
 function registrato(a){ const n = a && (a.r ? a.r.li : a.li); return !!n && posta.some(p => p.fatto && p.li && String(p.li) === String(n)); }
+/* il rapporto concluso e' gia' arrivato in ufficio (anche se non ancora registrato in Levante): al tecnico l'appuntamento non va piu' mandato come da fare */
+function rapportoRicevuto(a){ const n = a && (a.r ? a.r.li : a.li); return !!n && posta.some(p => p.li && String(p.li) === String(n) && p.esito === 'concluso'); }
+const eseguito = a => registrato(a) || rapportoRicevuto(a);
 let inUfficio = false;                                    // vero quando l'app gira sul PC dell'ufficio (servizio locale presente)
 let nascondiGestiti = store.get('ass_nascondi', true) !== false;
 /* gia' sbrigato: in ufficio = registrato in Levante; dal tecnico = rapporto inviato in ufficio */
@@ -994,7 +997,7 @@ function aggiornaNav(){
   const n = posta.filter(r => !r.fatto).length, bd = $('#nav-badge');
   if (bd) { bd.hidden = !n; bd.textContent = n; }
   const bi = $('#nav-badge-inv');
-  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); }
+  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); }
 }
 function disegnaAgenda(){
   aggiornaNav();
@@ -3612,7 +3615,7 @@ function righeNovita(c, conBozze){
   c.nuovi.forEach(a => h += riga('Nuovo', 'var(--ok)', a));
   c.spostati.forEach(x => h += riga('Spostato', 'var(--fiamma)', x.a, 'prima era ' + esc(fmtQuando(x.prima.inizio))));
   c.modificati.forEach(x => h += riga('Modificato', 'var(--petrolio)', x.a, 'cambiato: ' + esc(x.cosa.join(', '))));
-  c.annullati.forEach(a => h += riga('Tolto (annullato o chiuso in Levante)', 'var(--rosso)', a, conBozze && bozze[a.id] ? 'Hai una scheda iniziata: resta tra le "Schede da completare".' : ''));
+  c.annullati.forEach(a => h += riga('Tolto (annullato, chiuso o già eseguito)', 'var(--rosso)', a, conBozze && bozze[a.id] ? 'Hai una scheda iniziata: resta tra le "Schede da completare".' : ''));
   return h ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h.replace(/<li>/g, '<li style="padding:6px 0;border-bottom:1px solid var(--riga)">') + '</ul>' : '';
 }
 
@@ -3868,7 +3871,7 @@ function disegnaUfficio(){
   { const ae = document.activeElement; if (ae && ae.matches && ae.matches('[data-email]') && !disegnaUfficio.rinviato) { disegnaUfficio.rinviato = true; setTimeout(() => { disegnaUfficio.rinviato = false; disegnaUfficio(); }, 6000); return; } }
   const {trovati, mancanti} = infoUff;
   const per = {};
-  datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });   // i chiusi in Levante non vanno ai tecnici
+  datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });   // i chiusi in Levante non vanno ai tecnici
   const st = datiLevante.stat, esclusi = [];
   if (st.vecchi) esclusi.push(`${st.vecchi} ${st.vecchi === 1 ? 'precedente' : 'precedenti'} agli ultimi 7 giorni`);
   let origine = '';
@@ -3879,7 +3882,7 @@ function disegnaUfficio(){
       origine = `<br>Esportazione di Levante delle <b>${hhmm(quando)}</b> del ${dataIT(isoGiorno(quando))}.` + (minuti > 60 ? ` <span style="color:var(--rosso);font-weight:650">È vecchia di ${minuti >= 120 ? Math.round(minuti / 60) + ' ore' : minuti + ' minuti'}: per avere le ultime variazioni lancia di nuovo Esporta_Levante.bat e poi tocca di nuovo "Leggi l'ultima esportazione".</span>` : '');
     }
   }
-  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).length} ${datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
+  let h = `<div class="avviso info" style="margin-top:14px"><b>${datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).length} ${datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).length === 1 ? 'appuntamento pronto' : 'appuntamenti pronti'}</b>Letti ${trovati.length} file${mancanti.length ? '. Mancano: ' + mancanti.join(', ') + ' (il dettaglio sarà incompleto)' : ''}.${origine}
     <br>Nel file c'${st.totale === 1 ? 'era 1 appuntamento' : 'erano ' + st.totale + ' appuntamenti'}${esclusi.length ? ': non inclusi ' + esclusi.join(' e ') : ''}${st.fatti ? ' (' + st.fatti + ' già ' + (st.fatti === 1 ? 'chiuso' : 'chiusi') + ' in Levante: non vanno ai tecnici)' : ''}.
     <br><span class="aiuto">L'esportazione di Levante prende di solito gli ultimi 7 e i prossimi 60 giorni.</span>${riepilogoRcee()}${riepilogoDocumenti()}${riepilogoArticoli()}</div>`;
   if (!datiLevante.appuntamenti.length) h += '<p class="aiuto">Non ci sono appuntamenti da oggi in poi nell\'esportazione.</p>';
@@ -3938,7 +3941,7 @@ function riepilogoRcee(){
 }
 function pacchettoPer(id, completo){
   const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : '';
-  const apps = datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a) && (a.tecnico_id || '') === id);
+  const apps = datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a) && (a.tecnico_id || '') === id);
   const inv = leggiInviati()[id];
   const leggero = !!inv && !completo;                         // aggiornamento: i documenti gia' mandati non si rimandano
   const giaMandati = new Set(leggero ? (inv.docIds || []) : []);
@@ -4060,7 +4063,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.21.0 (09/10/2026)';
+const VERSIONE_APP = '1.21.1 (09/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4648,7 +4651,7 @@ async function giroAutoInvio(){
   let st = store.get('ass_auto_inv', {}); if (st.giorno !== og) st = {giorno: og, tent: 0, fatto: false};
   if (st.fatto || st.tent >= 3) return;
   if (st.ultimo && ora.getTime() - st.ultimo < 15 * 60000) return;
-  const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
+  const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
   const da = idDaMandare(per, leggiInviati(), og);
   if (!da.length) { st.esito = 'nessun tecnico con novità (controllo alle ' + hhmm(ora) + ').'; store.set('ass_auto_inv', st); disegnaAutoInvio(); return; }
   autoOccupato = true;
@@ -4803,7 +4806,7 @@ function foglioPdf(iso, tecnico){
   const { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', compress: true});
   const W = 210, H = 297, M = 14, LARG = W - 2 * M, azienda = nomeAziendaMail();
   const giorno = giornoLungo(new Date(iso + 'T12:00:00'));
-  const tutti = appuntamenti.filter(a => isoGiorno(a.inizio) === iso && !a.fatto && !registrato(a));
+  const tutti = appuntamenti.filter(a => isoGiorno(a.inizio) === iso && !a.fatto && !eseguito(a));
   const gruppi = {}; tutti.forEach(a => { const n = a.tecnico_nome || ''; if (tecnico === '' || tecnico === n || tecnico === '*') (gruppi[n] = gruppi[n] || []).push(a); });
   const nomi = Object.keys(gruppi).sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)));
   if (!nomi.length) return null;
