@@ -269,6 +269,22 @@ body.uff #nav-uff{display:flex;gap:6px;padding:8px max(12px,env(safe-area-inset-
 /* sul PC dell'ufficio le impostazioni da tecnico non servono: restano raggiungibili toccando 5 volte il titolo «Impostazioni» */
 body.uff:not(.tec-visibile) .solo-tec{display:none}
 body.uff .no-uff{display:none}
+.solo-uff{display:none}
+body.uff .solo-uff{display:block}
+#lic-blocco{position:fixed;inset:0;z-index:80;background:rgba(18,32,41,.94);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#lic-blocco[hidden]{display:none}
+#lic-blocco .scatola{background:#fff;color:var(--inchiostro);border-radius:14px;max-width:520px;width:100%;padding:20px}
+.codice-lic{font:700 22px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;padding:8px 10px;background:#eef3f6;border-radius:8px;display:inline-block;margin:4px 0}
+textarea.chiave-lic{width:100%;min-height:84px;font:13px/1.35 ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+#nav-uff .cerca{flex:1 0 170px;max-width:340px;margin-left:auto;min-height:42px;border-radius:10px;border:0;padding:0 12px;font-size:15px;background:#2a4656;color:#fff;-webkit-appearance:none}
+#nav-uff .cerca::placeholder{color:#a9bdc9}
+#ris-cerca{position:fixed;top:60px;left:12px;right:12px;max-width:540px;margin-left:auto;max-height:72vh;overflow:auto;background:#fff;color:var(--inchiostro);border:1px solid var(--riga);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:40;padding:6px 8px 8px}
+#ris-cerca[hidden]{display:none}
+#ris-cerca h3{margin:10px 4px 4px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--grigio,#5b6b75)}
+#ris-cerca button.ris{display:block;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:9px 8px;cursor:pointer;color:inherit;font:inherit}
+#ris-cerca button.ris:hover,#ris-cerca button.ris:focus{background:#eef3f6}
+#ris-cerca .ris small{display:block;color:var(--grigio,#5b6b75);font-size:13px;margin-top:2px}
+#ris-cerca .vuoto-r{padding:14px 6px;color:var(--grigio,#5b6b75)}
 #nav-uff #nav-badge-inv{background:var(--petrolio)}
 body.uff #b-indietro-uff,body.uff #b-indietro-posta,body.uff #b-impostazioni{display:none}
 #tab-tec{display:none}
@@ -420,7 +436,19 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
   <button type="button" data-nav="posta" aria-pressed="false">Interventi in arrivo<span class="badge" id="nav-badge" hidden></span></button>
   <button type="button" data-nav="ufficio" aria-pressed="false">Invio ai tecnici<span class="badge" id="nav-badge-inv" hidden></span></button>
   <button type="button" data-nav="impostazioni" aria-pressed="false">Impostazioni</button>
+  <input type="text" id="cerca-uff" class="cerca" placeholder="Cerca (premi /)" aria-label="Cerca cliente, indirizzo o numero" autocomplete="off" autocapitalize="none">
 </nav>
+<div id="lic-blocco" hidden role="dialog" aria-modal="true" aria-labelledby="lb-titolo"><div class="scatola">
+  <h2 id="lb-titolo" style="margin:0 0 6px">Licenza</h2>
+  <p id="lb-msg" style="margin:0 0 10px"></p>
+  <p class="aiuto" style="margin:0">Codice di questo computer (da comunicare al fornitore per avere la chiave):</p>
+  <div><span class="codice-lic" id="lb-codice"></span></div>
+  <div class="campo" style="margin:12px 0 0"><label for="lb-chiave">Chiave di licenza</label><textarea id="lb-chiave" class="chiave-lic" spellcheck="false" autocomplete="off" autocapitalize="none" placeholder="ASS1.…"></textarea></div>
+  <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:10px"><button class="btn" id="lb-attiva" type="button">Attiva</button></div>
+  <p class="aiuto" id="lb-esito" role="status" style="margin:8px 0 0"></p>
+  <p class="aiuto" style="margin:12px 0 0">I dati salvati non vanno persi. Le app dei tecnici continuano a funzionare.</p>
+</div></div>
+<div id="ris-cerca" role="listbox" aria-label="Risultati della ricerca" hidden></div>
 <div class="app">
 
   <!-- AGENDA -->
@@ -568,6 +596,22 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <button class="btn pieno" id="b-ufficio" type="button">Prepara i file da Levante</button>
     <button class="btn pieno" id="b-posta" type="button" style="margin-top:10px">Posta in arrivo (interventi dei tecnici)</button>
     </div>
+    <div class="solo-uff">
+    <h2 class="giorno" style="margin-top:26px">Licenza</h2>
+    <p id="lic-stato" style="margin:0 0 6px">…</p>
+    <p class="aiuto" style="margin:0">Codice di questo computer: <span class="codice-lic" id="lic-codice" style="font-size:16px"></span></p>
+    <div class="campo" style="margin:10px 0 0"><label for="lic-chiave">Inserisci o cambia la chiave</label><textarea id="lic-chiave" class="chiave-lic" spellcheck="false" autocomplete="off" autocapitalize="none" placeholder="ASS1.…"></textarea></div>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:8px"><button class="btn piccolo" id="lic-attiva" type="button">Attiva la chiave</button></div>
+    <p class="aiuto" id="lic-esito" role="status" style="margin:8px 0 0"></p>
+    <h2 class="giorno" style="margin-top:26px">Copia di sicurezza</h2>
+    <p class="aiuto" style="margin:0 0 8px">Interventi ricevuti, indirizzi email dei tecnici, impostazioni e registro degli invii. Ogni giorno l'app salva da sola una copia nella cartella <b>backup</b> accanto al programma (ultime 14).</p>
+    <p class="aiuto" id="bk-stato" role="status" style="margin:0 0 8px"></p>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn sec piccolo" id="bk-salva" type="button">Salva una copia in un file</button><button class="btn sec piccolo" id="bk-apri" type="button">Ripristina da un file…</button></div>
+    <input type="file" id="bk-file" accept=".json,application/json" hidden>
+    <div class="campo" style="margin:10px 0 0"><label for="bk-elenco">Oppure ripristina una copia automatica</label><select id="bk-elenco"><option value="">— nessuna copia trovata —</option></select></div>
+    <div class="azioni" style="grid-template-columns:auto;justify-content:start;margin-top:8px"><button class="btn sec piccolo" id="bk-ripristina" type="button" disabled>Ripristina la copia scelta</button></div>
+    <p class="aiuto" id="bk-esito" role="status" style="margin:8px 0 0"></p>
+    </div>
     <button class="btn sec pieno" id="b-azzera" type="button" style="margin-top:18px">Cancella le schede salvate</button>
     <button class="btn sec pieno" id="b-prova" type="button" style="margin-top:10px">Torna ai dati di prova</button>
   </section>
@@ -603,6 +647,13 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start"><button class="btn" id="sm-salva" type="button">Salva</button><button class="btn sec" id="sm-prova" type="button">Prova il collegamento</button></div>
       <p class="aiuto" id="sm-msg" role="status" style="margin:8px 0 0"></p>
     </details>
+    <div id="auto-inv" class="avviso info" hidden style="margin:0 0 12px">
+      <label class="spunta"><input type="checkbox" id="ai-attivo"> <b>Invia in automatico ai tecnici ogni sera</b></label>
+      <div class="campo" style="margin:8px 0 0"><label for="ai-ora">Alle ore</label><input id="ai-ora" type="time" value="18:00"></div>
+      <label class="spunta" style="margin-top:6px"><input type="checkbox" id="ai-weekend"> Invia anche sabato e domenica</label>
+      <p class="aiuto" id="ai-stato" role="status" style="margin:8px 0 0"></p>
+      <p class="aiuto" style="margin:4px 0 0">Parte da sola solo per i tecnici con novità e con l'email scritta, usando l'ultima esportazione letta. Serve che l'app resti aperta su questo PC. Togli la spunta per tornare all'invio a mano.</p>
+    </div>
     <div class="uff-azioni" hidden style="margin:0 0 12px">
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
@@ -625,6 +676,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-indietro-posta" type="button">Indietro</button>
       <h1>Posta in arrivo</h1>
     </header>
+    <p id="notif-riga" class="avviso info" hidden style="margin:0 0 12px"><span></span> <button class="btn piccolo" type="button" id="notif-attiva">Attiva gli avvisi</button></p>
     <div id="pa-riga" class="avviso info" hidden style="margin:0 0 12px"><b id="pa-riga-t"></b><div class="aiuto" id="pa-riga-d" style="margin:4px 0 0"></div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn piccolo" id="pa-riga-ora" type="button">Controlla ora</button><button class="btn sec piccolo" id="pa-riga-imp" type="button">Cambia cartella o metodo</button></div></div>
     <details id="posta-auto" class="avviso info" hidden style="margin:0 0 14px">
@@ -650,8 +702,9 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       </div>
       <div id="pa-cartella" hidden>
         <div class="campo"><label for="pa-percorso">Cartella (o più cartelle separate da «;»)</label><input id="pa-percorso" type="text" autocomplete="off" placeholder="C:\Users\nome\Downloads"></div>
-        <p class="aiuto" style="margin:0 0 8px">Vengono copiati i file dei tecnici (Dati_….txt, gli zip che li contengono e i PDF salvati insieme), anche dalle sottocartelle. Gli altri file non si toccano. <b>WhatsApp sul PC:</b> scarica un allegato di un tecnico, guarda in che cartella finisce e scrivila qui; se in WhatsApp attivi il download automatico dei documenti, arrivano da soli.</p>
+        <p class="aiuto" style="margin:0 0 8px">Vengono copiati i file dei tecnici (Dati_….txt, gli zip che li contengono e i PDF salvati insieme), anche dalle sottocartelle. Gli altri file non si toccano; quelli già registrati in Levante si spostano nella sottocartella «Registrati». <b>WhatsApp sul PC:</b> scarica un allegato di un tecnico, guarda in che cartella finisce e scrivila qui; se in WhatsApp attivi il download automatico dei documenti, arrivano da soli.</p>
       </div>
+      <div id="pa-archivio" hidden><label class="spunta" style="margin:0 0 8px"><input type="checkbox" id="pa-archivia" checked> Quando l'intervento è registrato in Levante, sposta i suoi file nella sottocartella «Registrati» (non vengono cancellati)</label></div>
       <div id="pa-comuni" hidden>
         <div class="tre"><div class="campo largo"><label for="pa-filtro">Parola nell'oggetto della mail</label><input id="pa-filtro" type="text" autocomplete="off" value="Intervento"></div>
           <div class="campo"><label for="pa-minuti">Ogni (minuti)</label><input id="pa-minuti" type="text" inputmode="numeric" value="3"></div></div>
@@ -3900,8 +3953,8 @@ function idDaMandare(per, inviati, oggi){
   });
 }
 const nomeAziendaMail = () => impostazioni.azienda || (datiLevante && datiLevante.azienda && datiLevante.azienda.RAGIONESOCIALE) || '';
-async function inviaMailTecnico(id){
-  const chk = $('#chk-completo'); infoUff.completo = !!(chk && chk.checked);
+async function inviaMailTecnico(id, auto){
+  const chk = $('#chk-completo'); infoUff.completo = auto ? false : !!(chk && chk.checked);
   const pk = pacchettoPer(id, infoUff.completo), nome = pk.tecnico ? pk.tecnico.nome : 'Senza tecnico', a = emailTecnico(nome);
   if (!a) return {ok: false, messaggio: 'Manca l\'email di ' + nome + '.'};
   const slug = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
@@ -3995,7 +4048,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.18.2 (09/10/2026)';
+const VERSIONE_APP = '1.20.0 (09/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4293,7 +4346,7 @@ async function leggiPosta(files){
   if (files.some(f => /\.zip$/i.test(f.name))) {            // la mail con piu' file arriva in un unico zip: lo apro e leggo quello che contiene
     let tutti = files.filter(f => !/\.zip$/i.test(f.name));
     for (const z of files.filter(f => /\.zip$/i.test(f.name))) {
-      try { tutti = tutti.concat((await espandiZip(z)).filter(x => !/\.zip$/i.test(x.name)).map(x => { x.origine = z.name; return x; })); nZip++; }
+      try { tutti = tutti.concat((await espandiZip(z)).filter(x => !/\.zip$/i.test(x.name)).map(x => { x.origine = z.name; x.arrivo = z.arrivo; return x; })); nZip++; }
       catch(e) { $('#posta-msg').textContent = 'Non riesco ad aprire lo zip "' + z.name + '": ' + (e.message || 'file non valido'); return; }
     }
     files = tutti;
@@ -4306,7 +4359,7 @@ async function leggiPosta(files){
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
       if (!o || o.assist !== 'intervento') { altri++; continue; }
       o.file = (o.file || []).map(n => String(n).normalize('NFC'));
-      lette.push({o, origine: f.origine || ''});
+      lette.push({o, origine: f.origine || '', arrivo: f.arrivo || ''});
     } catch(e) { altri++; }
   }
   /* i PDF che il tecnico ha mandato insieme (foto, documenti allegati...) non sempre sono nell'elenco del file dati: li collego all'intervento
@@ -4315,21 +4368,41 @@ async function leggiPosta(files){
   const sl = o => slugNome(o.cliente || '').toLowerCase();
   const nomeDi = (f, o) => sl(o) && f.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').indexOf(sl(o)) >= 0;
   const reclamati = new Set();
-  lette.forEach(({o, origine}) => {
+  lette.forEach(({o, origine, arrivo}) => {
+    o._src = arrivo ? [arrivo] : [];
     const stessi = origine ? lette.filter(x => x.origine === origine) : [];
-    pdfLetti.forEach(f => { if ((stessi.length === 1 && f.origine === origine) || nomeDi(f, o) || (origine && f.origine === origine && nomeDi(f, o))) { o.file = Array.from(new Set((o.file || []).concat(f.name.normalize('NFC')))); reclamati.add(f.name); } });
+    pdfLetti.forEach(f => { if ((stessi.length === 1 && f.origine === origine) || nomeDi(f, o) || (origine && f.origine === origine && nomeDi(f, o))) { o.file = Array.from(new Set((o.file || []).concat(f.name.normalize('NFC')))); reclamati.add(f.name); if (f.arrivo) o._src.push(f.arrivo); } });
   });
-  if (lette.length === 1 && !lette[0].origine) pdfLetti.forEach(f => { if (!reclamati.has(f.name)) lette[0].o.file = Array.from(new Set((lette[0].o.file || []).concat(f.name.normalize('NFC')))); });
+  if (lette.length === 1 && !lette[0].origine) pdfLetti.forEach(f => { if (!reclamati.has(f.name)) { lette[0].o.file = Array.from(new Set((lette[0].o.file || []).concat(f.name.normalize('NFC')))); if (f.arrivo) lette[0].o._src.push(f.arrivo); } });
   for (const {o} of lette) {
     const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
-    if (i >= 0) { o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { posta.push(o); nuovi++; }
+    o.src = Array.from(new Set((i >= 0 ? (posta[i].src || []) : []).concat(o._src || []))); delete o._src;
+    if (i >= 0) { o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { posta.push(o); nuovi++; }
   }
   salvaPosta();
   $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.';
   disegnaPosta();
   return {nuovi, agg};
 }
-function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); try { aggiornaNav(); } catch(e) {} }
+let archiviando = false;
+async function archiviaRegistrati(){
+  if (!inUfficio || archiviando) return;
+  const cand = posta.filter(r => r.fatto && !r.arch && (r.src || []).length); if (!cand.length) return;
+  archiviando = true;
+  try {
+    const nomi = new Set(); cand.forEach(r => r.src.forEach(n => nomi.add(n)));
+    const ok = [...nomi].filter(n => posta.filter(r => (r.src || []).includes(n)).every(r => r.fatto));     // un file con piu' interventi si archivia quando sono tutti registrati
+    if (!ok.length) return;
+    const r = await chiamaJson('posta-archivia', {nomi: ok});
+    if (r && r.ok) {
+      const fatti = new Set(r.archiviati || []);
+      posta.forEach(x => { if (x.fatto && !x.arch && (x.src || []).length && x.src.every(n => fatti.has(n))) x.arch = true; });
+      salvaPosta();
+      if (r.spostati) { const m = $('#posta-msg'); if (m) m.textContent = r.spostati + (r.spostati === 1 ? ' file spostato' : ' file spostati') + ' nella cartella «Registrati».'; }
+    }
+  } catch(e) {} finally { archiviando = false; }
+}
+function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; try { document.title = (inUfficio && n ? '(' + n + ') ' : '') + 'Assistenza impianti'; } catch(e) {} b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); try { aggiornaNav(); } catch(e) {} }
 function avviaPosta(){
   $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
   $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; disegnaPosta(); mostra('posta'); try { if (typeof caricaPostaAuto === 'function' && postaAutoAvviata) caricaPostaAuto(); } catch(e) {} };
@@ -4353,6 +4426,7 @@ function avviaPosta(){
         const r = posta[+d.i], gravi = controlliIntervento(r).filter(x => x.grave);
         if (gravi.length && !confirm('Ci sono ancora ' + gravi.length + (gravi.length === 1 ? ' controllo importante' : ' controlli importanti') + ' su questo intervento:\n\n- ' + gravi.map(x => x.t).join('\n- ') + '\n\nLo segno come registrato lo stesso?')) return;
         r.fatto = true; salvaPosta(); try { disegnaAgenda(); } catch(x) {}
+        archiviaRegistrati();
       }
       disegnaPosta(); const dx = $('#destra'); if (dx) dx.scrollTop = 0; window.scrollTo(0, 0); return;
     }
@@ -4370,7 +4444,7 @@ function avviaPosta(){
     if (d.rcod !== undefined) { const p = d.rcod.split('|'), r = posta[+p[0]]; r.rip = ripartizione(r).map(x => Object.assign({}, x)); r.rip[+p[1]].c = e.target.value; salvaPosta(); }
     else if (d.rore !== undefined) disegnaPosta();
   });
-  $('#posta-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); try { disegnaAgenda(); } catch(x){} setTimeout(disegnaPosta, 250); } });
+  $('#posta-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); if (e.target.checked) archiviaRegistrati(); try { disegnaAgenda(); } catch(x){} setTimeout(disegnaPosta, 250); } });
 }
 /* ---- servizio per l'ufficio (servizio_ufficio.py): se l'app e' aperta da li', l'ultimo zip di Levante arriva da solo ---- */
 let servizioTimer = null, ultimoZipLetto = '', letturaOk = false;
@@ -4433,7 +4507,7 @@ const PRESET_POSTA = {gmail: ['imap.gmail.com', 993, 'Gmail: attiva la verifica 
   altro: ['', 993, 'Chiedi a chi gestisce la posta il «server IMAP» e la porta (di solito 993 con SSL).']};
 function mostraCampiPosta(){
   const m = $('#pa-metodo').value;
-  $('#pa-imap').hidden = m !== 'imap'; $('#pa-cartella').hidden = m !== 'cartella'; $('#pa-comuni').hidden = m === 'nessuno';
+  $('#pa-imap').hidden = m !== 'imap'; $('#pa-cartella').hidden = m !== 'cartella'; $('#pa-archivio').hidden = m !== 'cartella'; $('#pa-comuni').hidden = m === 'nessuno';
   $('#pa-filtro').closest('.tre').hidden = m === 'cartella';
 }
 async function caricaPostaAuto(){
@@ -4443,7 +4517,7 @@ async function caricaPostaAuto(){
   if (!caricaPostaAuto.fatto) {
     caricaPostaAuto.fatto = true;
     $('#pa-metodo').value = c.metodo; $('#pa-server').value = c.imap_server || ''; $('#pa-porta').value = c.imap_porta || 993; $('#pa-utente').value = c.imap_utente || '';
-    $('#pa-cart-imap').value = c.imap_cartella || 'INBOX'; $('#pa-ssl').checked = c.imap_ssl !== false; $('#pa-percorso').value = c.cartella_osservata || '';
+    $('#pa-cart-imap').value = c.imap_cartella || 'INBOX'; $('#pa-ssl').checked = c.imap_ssl !== false; $('#pa-percorso').value = c.cartella_osservata || ''; $('#pa-archivia').checked = c.archivia_registrati !== false;
     $('#pa-filtro').value = c.filtro || ''; $('#pa-minuti').value = c.minuti || 3; $('#pa-giorni').value = c.giorni || 14;
     $('#pa-pwd-nota').textContent = c.password_impostata ? '(già salvata: lascia vuoto per non cambiarla)' : '';
     mostraCampiPosta();
@@ -4464,7 +4538,7 @@ async function caricaPostaAuto(){
 }
 function datiFormPosta(){
   const d = {metodo: $('#pa-metodo').value, imap_server: $('#pa-server').value, imap_porta: $('#pa-porta').value, imap_utente: $('#pa-utente').value, imap_cartella: $('#pa-cart-imap').value || 'INBOX',
-    imap_ssl: $('#pa-ssl').checked, cartella_osservata: $('#pa-percorso').value, filtro: $('#pa-filtro').value, minuti: $('#pa-minuti').value, giorni: $('#pa-giorni').value};
+    imap_ssl: $('#pa-ssl').checked, cartella_osservata: $('#pa-percorso').value, archivia_registrati: $('#pa-archivia').checked, filtro: $('#pa-filtro').value, minuti: $('#pa-minuti').value, giorni: $('#pa-giorni').value};
   if ($('#pa-pwd').value) d.imap_password = $('#pa-pwd').value;
   return d;
 }
@@ -4477,14 +4551,15 @@ async function giroPostaAuto(){
     const files = [];
     for (const f of el) {
       const r = await fetch('posta-file?nome=' + encodeURIComponent(f.nome), {cache: 'no-store'}); if (!r.ok) continue;
-      files.push({nome: f.nome, file: new File([await r.blob()], f.nome.replace(/^\d{8}_\d{6}_(?:\d+_)?/, ''))});
+      { const fl = new File([await r.blob()], f.nome.replace(/^\d{8}_\d{6}_(?:\d+_)?/, '')); fl.arrivo = f.nome; files.push({nome: f.nome, file: fl}); }
     }
     if (!files.length) return;
     const ris = await leggiPosta(files.map(x => x.file));
     for (const x of files) { try { await chiamaJson('posta-fatto', {nome: x.nome}); } catch(e) {} }
+    if (ris && ris.nuovi) avvisaDesktop('Nuovo intervento in arrivo', ris.nuovi === 1 ? 'Un intervento da registrare.' : ris.nuovi + ' interventi da registrare.');
     if (ris && (ris.nuovi || ris.agg)) mostraAvviso('Posta dei tecnici: ' + (ris.nuovi ? ris.nuovi + (ris.nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') : ris.agg + ' aggiornati') + '.', 'Apri', () => { disegnaPosta(); mostra('posta'); }, 15000);
     try { disegnaAgenda(); } catch(e) {}
-  } catch(e) {} finally { postaAutoOccupata = false; }
+  } catch(e) {} finally { postaAutoOccupata = false; archiviaRegistrati(); }
 }
 function avviaPostaAuto(){
   if (postaAutoAvviata) return; postaAutoAvviata = true;
@@ -4521,6 +4596,7 @@ async function avviaPulsantiServizio(){
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
   inUfficio = true; try { disegnaAgenda(); } catch(e) {}
+  try { avviaExtraUfficio(); } catch(e) { console.error(e); }
   aggiornaAuto(s);
   $('#auto-min').onchange = async e => { try { const r = await chiamaJson('servizio-config', {minuti: +e.target.value}); const st = await statoServizio(); aggiornaAuto(st); } catch(x) {} };
   if (s.posta) { avviaPostaAuto(); avviaSmtp(); }
@@ -4536,6 +4612,178 @@ function fermaServizio(){ if (servizioTimer) { clearInterval(servizioTimer); ser
 function avviaServizio(){
   if (!/^https?:$/.test(location.protocol) || !/^(localhost|127\.0\.0\.1)$|^[^.]+$|^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) return;   // solo da localhost o dalla rete locale, non dall'indirizzo pubblico
   controllaServizio(); servizioTimer = setInterval(controllaServizio, 40000); avviaPulsantiServizio();
+}
+
+/* ---- 1.19: invio automatico serale, avvisi sul desktop, ricerca globale (solo ufficio) ---- */
+const cfgAuto = () => Object.assign({attivo: false, ora: '18:00', weekend: false}, impostazioni.autoInvio || {});
+let autoOccupato = false, extraAvviato = false;
+function disegnaAutoInvio(){
+  const box = $('#auto-inv'); if (!box) return; box.hidden = !inUfficio; if (!inUfficio) return;
+  const c = cfgAuto(), st = store.get('ass_auto_inv', {}), og = isoGiorno(new Date());
+  if (document.activeElement !== $('#ai-ora')) $('#ai-ora').value = c.ora;
+  $('#ai-attivo').checked = !!c.attivo; $('#ai-weekend').checked = !!c.weekend;
+  let t;
+  if (!c.attivo) t = 'Spento: i file partono solo quando premi tu «Invia per mail».';
+  else if (!smtpPronto) t = 'Acceso, ma non può partire: imposta prima la posta in uscita («Invio dei file per mail ai tecnici»).';
+  else { t = 'Acceso: ogni sera alle ' + c.ora + (c.weekend ? '' : ' (non sabato e domenica)') + '.'; if (st.giorno === og && st.esito) t += ' Oggi: ' + st.esito; }
+  $('#ai-stato').textContent = t;
+}
+async function giroAutoInvio(){
+  const c = cfgAuto(); if (!inUfficio || !c.attivo || !smtpPronto || !datiLevante || autoOccupato) return;
+  const ora = new Date(), og = isoGiorno(ora);
+  if (!c.weekend && (ora.getDay() === 0 || ora.getDay() === 6)) return;
+  if (hhmm(ora) < c.ora) return;
+  let st = store.get('ass_auto_inv', {}); if (st.giorno !== og) st = {giorno: og, tent: 0, fatto: false};
+  if (st.fatto || st.tent >= 3) return;
+  if (st.ultimo && ora.getTime() - st.ultimo < 15 * 60000) return;
+  const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !registrato(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
+  const da = idDaMandare(per, leggiInviati(), og);
+  if (!da.length) { st.esito = 'nessun tecnico con novità (controllo alle ' + hhmm(ora) + ').'; store.set('ass_auto_inv', st); disegnaAutoInvio(); return; }
+  autoOccupato = true;
+  try {
+    st.tent++; st.ultimo = ora.getTime();
+    const out = []; let ko = 0;
+    for (const id of da) {
+      const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
+      const r = await inviaMailTecnico(id, true); if (!r.ok) ko++;
+      out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio));
+    }
+    st.fatto = ko === 0;
+    st.esito = 'inviato alle ' + hhmm(new Date()) + ' – ' + out.join(' · ') + (ko ? (st.tent < 3 ? ' (riprovo tra 15 minuti)' : ' (ho smesso di riprovare: invia a mano)') : '');
+    store.set('ass_auto_inv', st);
+    mostraAvviso('Invio automatico ai tecnici: ' + out.join(' · '), '', null, 20000);
+  } finally { autoOccupato = false; disegnaAutoInvio(); try { disegnaUfficio(); } catch(e) {} }
+}
+function avvisaDesktop(titolo, testo){
+  try { if ('Notification' in window && Notification.permission === 'granted') { const n = new Notification(titolo, {body: testo, tag: 'assistenza-posta'}); n.onclick = () => { try { window.focus(); } catch(e) {} n.close(); }; } } catch(e) {}
+}
+function disegnaNotif(){
+  const r = $('#notif-riga'); if (!r) return;
+  if (!inUfficio || !('Notification' in window) || Notification.permission === 'granted') { r.hidden = true; return; }
+  const neg = Notification.permission === 'denied';
+  r.hidden = false; r.querySelector('span').textContent = neg ? 'Gli avvisi sul desktop sono bloccati dal browser: puoi sbloccarli dall\'icona accanto all\'indirizzo della pagina.' : 'Vuoi un avviso sul desktop quando arriva un nuovo intervento?';
+  $('#notif-attiva').hidden = neg;
+}
+const normR = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function cercaTutto(q){
+  const t = normR(q).split(/\s+/).filter(Boolean); if (!t.length) return null;
+  const ok = txt => { const n = normR(txt); return t.every(x => n.indexOf(x) >= 0); };
+  const adesso = Date.now();
+  const ag = appuntamenti.filter(a => ok([a.titolo, a.luogo, a.tecnico_nome, a.messaggio, a.r && a.r.li, a.r && a.r.c && [a.r.c.n, a.r.c.t, a.r.c.m].join(' '), a.r && a.r.i && [a.r.i.u, a.r.i.d].join(' ')].join(' ')))
+    .sort((x, y) => Math.abs(x.inizio - adesso) - Math.abs(y.inizio - adesso));
+  const pt = posta.map((r, i) => ({r, i})).filter(x => ok([x.r.cliente, x.r.indirizzo, x.r.li, x.r.tecnico, x.r.relazione, x.r.data].join(' ')))
+    .sort((x, y) => String(y.r.data).localeCompare(String(x.r.data)));
+  return {ag, pt};
+}
+function disegnaRisultati(){
+  const box = $('#ris-cerca'), q = $('#cerca-uff').value, ris = cercaTutto(q);
+  if (!ris) { box.hidden = true; return; }
+  const M = 8; let h = '';
+  if (ris.ag.length) h += '<h3>Agenda (' + ris.ag.length + ')</h3>' + ris.ag.slice(0, M).map(a => `<button class="ris" type="button" data-ra="${esc(a.id)}"><b>${esc(a.titolo)}</b>${a.r && a.r.li ? ' · N. ' + esc(a.r.li) : ''}<small>${esc(dataIT(isoGiorno(a.inizio)))} ${esc(hhmm(a.inizio))} · ${esc(a.tecnico_nome || 'senza tecnico')} · ${esc(a.luogo || '')}${a.fatto ? ' · chiuso in Levante' : registrato(a) ? ' · registrato' : ''}</small></button>`).join('') + (ris.ag.length > M ? `<p class="aiuto" style="margin:4px 8px">…e altri ${ris.ag.length - M}: scrivi qualcosa in più.</p>` : '');
+  if (ris.pt.length) h += '<h3>Interventi ricevuti (' + ris.pt.length + ')</h3>' + ris.pt.slice(0, M).map(x => `<button class="ris" type="button" data-rp="${x.i}"><b>${esc(x.r.cliente)}</b>${x.r.li ? ' · N. ' + esc(x.r.li) : ''}<small>${esc(dataIT(x.r.data))} · ${esc(x.r.tecnico || '')} · ${esc(x.r.indirizzo || '')} · ${x.r.fatto ? 'registrato in Levante' : 'da registrare'}</small></button>`).join('') + (ris.pt.length > M ? `<p class="aiuto" style="margin:4px 8px">…e altri ${ris.pt.length - M}: scrivi qualcosa in più.</p>` : '');
+  if (!h) h = '<div class="vuoto-r">Nessun risultato per «' + esc(q.trim()) + '».</div>';
+  box.innerHTML = h; box.hidden = false;
+}
+function apriRisultatoPosta(i){
+  const r = posta[i]; if (!r) return;
+  codaOn = false; if (r.fatto) $('#posta-fatti').checked = true;
+  aperte[chiavePosta(r)] = 1; disegnaPosta(); mostra('posta');
+  setTimeout(() => { const el = [...document.querySelectorAll('#posta-elenco [data-pk]')].find(e => e.dataset.pk === chiavePosta(r)); if (el) { el.open = true; el.scrollIntoView({block: 'center'}); } }, 50);
+}
+function avviaExtraUfficio(){
+  if (extraAvviato) { disegnaAutoInvio(); disegnaNotif(); return; } extraAvviato = true;
+  const salvaAuto = patch => { impostazioni.autoInvio = Object.assign(cfgAuto(), patch); salvaImpostazioni(); disegnaAutoInvio(); };
+  $('#ai-attivo').onchange = e => {
+    const on = e.target.checked; salvaAuto({attivo: on});
+    if (on) {                                                       // acceso dopo l'orario: non deve partire subito, parte da domani
+      const ora = new Date(), c = cfgAuto();
+      if (hhmm(ora) >= c.ora) { store.set('ass_auto_inv', {giorno: isoGiorno(ora), tent: 0, fatto: true, esito: 'attivato dopo le ' + c.ora + ': parte da domani.'}); disegnaAutoInvio(); }
+    }
+  };
+  $('#ai-ora').onchange = e => { if (/^\d{2}:\d{2}$/.test(e.target.value)) salvaAuto({ora: e.target.value}); };
+  $('#ai-weekend').onchange = e => salvaAuto({weekend: e.target.checked});
+  $('#notif-attiva').onclick = () => { try { Promise.resolve(Notification.requestPermission()).then(disegnaNotif); } catch(e) {} };
+  const inp = $('#cerca-uff'), ris = $('#ris-cerca');
+  inp.oninput = disegnaRisultati; inp.onfocus = () => { if (inp.value.trim()) disegnaRisultati(); };
+  inp.onkeydown = e => { if (e.key === 'Escape') { inp.value = ''; ris.hidden = true; inp.blur(); } else if (e.key === 'Enter') { const b = ris.querySelector('button.ris'); if (b) b.click(); } };
+  ris.onclick = e => {
+    const b = e.target.closest('button.ris'); if (!b) return;
+    ris.hidden = true; inp.value = ''; inp.blur();
+    if (b.dataset.ra) apriDettaglio(b.dataset.ra); else if (b.dataset.rp) apriRisultatoPosta(+b.dataset.rp);
+  };
+  document.addEventListener('click', e => { if (!ris.hidden && !ris.contains(e.target) && e.target !== inp) ris.hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === '/' && inUfficio && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); inp.focus(); inp.select(); } });
+  disegnaAutoInvio(); disegnaNotif(); avviaLicenzaBackup();
+  setInterval(() => { giroAutoInvio(); disegnaAutoInvio(); }, 60000);
+  setTimeout(giroAutoInvio, 8000);
+}
+
+/* ---- 1.20: licenza, copia di sicurezza (solo ufficio) ---- */
+let licenzaStato = null, licAvvisata = false;
+function disegnaLicenza(st){
+  licenzaStato = st; const blocco = $('#lic-blocco');
+  if (!st) { blocco.hidden = true; return; }
+  const bloccata = st.ok === false;
+  blocco.hidden = !bloccata;
+  const colore = st.stato === 'licenza' ? '' : (bloccata ? ' style="color:var(--rosso);font-weight:700"' : '');
+  $('#lic-stato').innerHTML = '<span' + colore + '>' + esc(st.messaggio || '') + '</span>' + (st.azienda ? '<br>Intestata a <b>' + esc(st.azienda) + '</b>' : '') + (st.errore_chiave ? '<br><span style="color:var(--rosso)">' + esc(st.errore_chiave) + '</span>' : '');
+  $('#lic-codice').textContent = st.codice || ''; $('#lb-codice').textContent = st.codice || '';
+  $('#lb-titolo').textContent = st.stato === 'scaduta' ? 'Licenza scaduta' : 'Prova gratuita finita';
+  $('#lb-msg').textContent = (st.messaggio || '') + (st.errore_chiave ? ' ' + st.errore_chiave : '');
+  if (!bloccata && st.stato === 'prova' && st.giorni <= 10 && !licAvvisata) { licAvvisata = true; mostraAvviso('Prova gratuita: ' + (st.giorni === 1 ? 'resta 1 giorno' : 'restano ' + st.giorni + ' giorni') + '.', 'Licenza', () => $('#b-impostazioni').click(), 12000); }
+  if (!bloccata && st.stato === 'licenza' && st.giorni != null && st.giorni <= 30 && !licAvvisata) { licAvvisata = true; mostraAvviso('La licenza scade tra ' + st.giorni + (st.giorni === 1 ? ' giorno.' : ' giorni.'), 'Licenza', () => $('#b-impostazioni').click(), 12000); }
+}
+async function controllaLicenza(){
+  try { const r = await fetch('licenza-stato', {cache: 'no-store'}); if (!r.ok) return; const st = await r.json(); if (st && st.stato) disegnaLicenza(st); } catch(e) {}
+}
+async function attivaLicenza(campo, esito){
+  const chiave = $(campo).value.trim(); if (!chiave) { $(esito).textContent = 'Incolla la chiave ricevuta.'; return; }
+  $(esito).textContent = 'Controllo…';
+  try {
+    const r = await chiamaJson('licenza-attiva', {chiave});
+    $(esito).textContent = (r.ok ? '✔ ' : '✘ ') + (r.messaggio || '');
+    if (r.ok) { $(campo).value = ''; await controllaLicenza(); }
+  } catch(e) { $(esito).textContent = 'Il servizio non risponde.'; }
+}
+function raccogliBackup(){
+  const k = {}; try { for (let i = 0; i < localStorage.length; i++) { const n = localStorage.key(i); if (/^ass_/.test(n)) k[n] = localStorage.getItem(n); } } catch(e) {}
+  return {formato: 'assistenza-backup-v1', creato: new Date().toISOString(), versione: VERSIONE_APP, chiavi: k};
+}
+function applicaBackup(b){
+  if (!b || b.formato !== 'assistenza-backup-v1' || !b.chiavi || typeof b.chiavi !== 'object') throw new Error('Non è un file di copia di sicurezza di Assistenza.');
+  const nomi = Object.keys(b.chiavi).filter(n => /^ass_/.test(n) && typeof b.chiavi[n] === 'string');
+  if (!nomi.length) throw new Error('La copia è vuota.');
+  const quando = b.creato ? dataIT(isoGiorno(new Date(b.creato))) + ' ' + hhmm(new Date(b.creato)) : '';
+  if (!confirm('Sostituisco i dati di questo programma con quelli della copia' + (quando ? ' del ' + quando : '') + '?\n\nI dati attuali andranno persi.')) return false;
+  const da = []; for (let i = 0; i < localStorage.length; i++) { const n = localStorage.key(i); if (/^ass_/.test(n)) da.push(n); }
+  da.forEach(n => localStorage.removeItem(n));
+  nomi.forEach(n => localStorage.setItem(n, b.chiavi[n]));
+  location.reload(); return true;
+}
+let ultimoBackup = 0;
+async function copiaAutomatica(){
+  if (!inUfficio || (licenzaStato && licenzaStato.ok === false)) return;
+  try { const r = await chiamaJson('backup-salva', raccogliBackup()); if (r && r.ok) ultimoBackup = Date.now(); } catch(e) {}
+  aggiornaElencoBackup();
+}
+async function aggiornaElencoBackup(){
+  const sel = $('#bk-elenco'); if (!sel) return;
+  try {
+    const j = await (await fetch('backup-elenco', {cache: 'no-store'})).json(), f = j.file || [];
+    sel.innerHTML = f.length ? f.map(x => `<option value="${esc(x.nome)}">${esc(dataIT(x.nome.slice(7, 17)))} · ${esc(hhmm(new Date(x.quando)))} · ${esc(dimStr(x.dimensione))}</option>`).join('') : '<option value="">— nessuna copia trovata —</option>';
+    $('#bk-ripristina').disabled = !f.length;
+    $('#bk-stato').textContent = f.length ? 'Ultima copia automatica: ' + dataIT(f[0].nome.slice(7, 17)) + ' alle ' + hhmm(new Date(f[0].quando)) + '.' : 'Nessuna copia automatica ancora.';
+  } catch(e) {}
+}
+function avviaLicenzaBackup(){
+  controllaLicenza(); setInterval(controllaLicenza, 3600000);
+  $('#lic-attiva').onclick = () => attivaLicenza('#lic-chiave', '#lic-esito');
+  $('#lb-attiva').onclick = () => attivaLicenza('#lb-chiave', '#lb-esito');
+  $('#bk-salva').onclick = () => { const b = raccogliBackup(); scaricaBlob(new Blob([JSON.stringify(b)], {type: 'application/json'}), 'Backup_Assistenza_' + isoGiorno(new Date()) + '.json'); $('#bk-esito').textContent = 'Copia salvata nei download.'; };
+  $('#bk-apri').onclick = () => $('#bk-file').click();
+  $('#bk-file').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { applicaBackup(JSON.parse(await f.text())); } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || 'File non valido.'); } };
+  $('#bk-ripristina').onclick = async () => { const n = $('#bk-elenco').value; if (!n) return; try { applicaBackup(await (await fetch('backup-file?nome=' + encodeURIComponent(n), {cache: 'no-store'})).json()); } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || 'Copia non leggibile.'); } };
+  aggiornaElencoBackup(); setTimeout(copiaAutomatica, 20000); setInterval(copiaAutomatica, 2 * 3600000);
 }
 function avvia(){
   appuntamenti = caricaAppuntamenti();
