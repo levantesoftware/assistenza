@@ -1908,11 +1908,54 @@ function creaPdf(){
   $('#pdf-fatto').scrollIntoView({behavior:'smooth', block:'center'});
 }
 function scaricaPdf(){
-  filesDaInviare().forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
+  const fl = filesDaInviare();
+  if (fl.inAttesa) return;
+  const lista = (zipAttivo() && zipCache.zip && fl.length > 1) ? [zipCache.zip] : fl;      // anche dove lo zip non si puo' condividere, il download e' uno zip solo
+  lista.forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
 }
 
 /* ---- cosa si invia: i PDF appena creati + i documenti scelti (quelli modificati sono già spuntati) ---- */
+const TAB_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = TAB_CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+/* un unico file .zip con tutto dentro (senza compressione: i PDF lo sono gia') */
+async function creaZip(files, nomeZip){
+  const enc = new TextEncoder(), parti = [], centrale = []; let off = 0, dimC = 0; const usati = {};
+  const d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const f of files) {
+    let nm = f.name; if (usati[nm.toLowerCase()]) { const q = nm.lastIndexOf('.'); nm = (q > 0 ? nm.slice(0, q) : nm) + '_' + (usati[nm.toLowerCase()]++) + (q > 0 ? nm.slice(q) : ''); } else usati[nm.toLowerCase()] = 1;
+    const dati = new Uint8Array(await new Response(f).arrayBuffer()), nome = enc.encode(nm), crc = crc32(dati);
+    const lh = new DataView(new ArrayBuffer(30)); lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true); lh.setUint32(14, crc, true); lh.setUint32(18, dati.length, true); lh.setUint32(22, dati.length, true); lh.setUint16(26, nome.length, true);
+    parti.push(lh.buffer, nome, dati);
+    const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true); ch.setUint32(16, crc, true); ch.setUint32(20, dati.length, true); ch.setUint32(24, dati.length, true); ch.setUint16(28, nome.length, true); ch.setUint32(42, off, true);
+    centrale.push(ch.buffer, nome); dimC += 46 + nome.length; off += 30 + nome.length + dati.length;
+  }
+  const fine = new DataView(new ArrayBuffer(22)); fine.setUint32(0, 0x06054b50, true); fine.setUint16(8, files.length, true); fine.setUint16(10, files.length, true); fine.setUint32(12, dimC, true); fine.setUint32(16, off, true);
+  return new File(parti.concat(centrale, [fine.buffer]), nomeZip, {type: 'application/zip'});
+}
+let zipCache = {chiave: '', file: null, zip: null, inCorso: false, noShare: false};
+const zipAttivo = () => destInvio !== 'cli' && impostazioni.zipUff !== false;
+function chiaveZip(sel){ return sel.map(a => a.id + ':' + (a.gruppo ? a.gruppo.length : (blobDi(a) ? blobDi(a).size : 0))).join('|'); }
+function avviaZip(k, comp){
+  if (zipCache.chiave === k) return;
+  zipCache = {chiave: k, file: null, zip: null, inCorso: true, noShare: false};
+  creaZip(comp, 'Intervento_' + slugNome(lavoro.cliente || 'intervento') + '_' + (lavoro.data || isoGiorno(new Date())) + '.zip').then(z => {
+    if (zipCache.chiave !== k) return;
+    zipCache.zip = z; zipCache.inCorso = false;
+    zipCache.noShare = !!(navigator.canShare && !navigator.canShare({files: [z]}) && navigator.canShare({files: comp}));   // alcuni telefoni non condividono gli zip: in quel caso partono i file separati
+    zipCache.file = zipCache.noShare ? null : z;
+    aggiornaPulsantiInvio();
+  }, () => { if (zipCache.chiave === k) { zipCache.inCorso = false; zipCache.noShare = true; aggiornaPulsantiInvio(); } });
+}
 function filesDaInviare(){
+  const comp = componentiDaInviare();
+  if (!zipAttivo() || comp.length < 2) return comp;
+  const k = chiaveZip(ultimiAllegati.filter(a => a.on));
+  avviaZip(k, comp);
+  if (zipCache.chiave === k && zipCache.file) return [zipCache.file];
+  if (zipCache.chiave === k && zipCache.inCorso) comp.inAttesa = true;
+  return comp;
+}
+function componentiDaInviare(){
   const cli = destInvio === 'cli', out = [];
   const sel = ultimiAllegati.filter(a => cli ? a.onCli : a.on);
   const pdfScelti = sel.filter(a => a.id !== 'dati' && !a.gruppo && /pdf/i.test(a.mime || '')).map(a => a.nome);     // anche foto e documenti: l'ufficio li ritrova
@@ -1927,8 +1970,8 @@ const blobDi = a => (destInvio === 'cli' && a.blobCli) ? a.blobCli : a.blob;
 function aggiornaPulsantiInvio(){
   const cli = destInvio === 'cli', fl = filesDaInviare();
   const b = $('#b-condividi'), sc = $('#b-scarica'); if (!b) return;
-  b.textContent = cli ? 'Invia al cliente' : 'Invia in ufficio'; b.disabled = !fl.length;
-  sc.textContent = fl.length === 1 ? 'Scarica il file' : 'Scarica i file'; sc.disabled = !fl.length;
+  b.textContent = fl.inAttesa ? 'Preparo lo zip…' : (cli ? 'Invia al cliente' : 'Invia in ufficio'); b.disabled = !fl.length || !!fl.inAttesa;
+  sc.textContent = (fl.length === 1 || (zipAttivo() && zipCache.zip)) ? 'Scarica il file' : 'Scarica i file'; sc.disabled = !fl.length || !!fl.inAttesa;
   const puo = !!(navigator.canShare && fl.length && navigator.canShare({files: fl}));
   const g = $('#invio-guida');
   if (g) g.innerHTML = puo
@@ -1938,7 +1981,7 @@ function aggiornaPulsantiInvio(){
 
 /* ---- messaggio di posta: oggetto e testo pronti ---- */
 function composizioneMail(cli){
-  const az = impostazioni.azienda || '', d = dataIT(lavoro.data), nomi = filesDaInviare().map(f => f.name);
+  const az = impostazioni.azienda || '', d = dataIT(lavoro.data), nomi = componentiDaInviare().map(f => f.name);
   if (cli) return {
     oggetto: 'Rapporto di intervento del ' + d + (az ? ' - ' + az : ''),
     testo: 'Buongiorno,\n\nin allegato il rapporto di intervento del ' + d + (lavoro.indirizzo ? ' presso ' + lavoro.indirizzo : '') + '.' + (nomi.some(n => /^RCEE/i.test(n)) ? '\nIn allegato anche il rapporto di controllo di efficienza energetica (RCEE).' : '') + '\n\nCordiali saluti\n' + (lavoro.tecnico || '') + (az ? '\n' + az : '')};
@@ -1969,6 +2012,10 @@ function disegnaInvio(){
     const chip = (a.foto || a.base) ? '' : (a.modificato ? ' <span class="chip pdf">Modificato</span>' : ' <span class="chip">Originale</span>');
     return `<label class="allega"><input type="checkbox" data-allega="${n}"${on ? ' checked' : ''}><span>${esc(et)}${chip}</span>${a.gruppo ? '' : `<button class="btn sec piccolo" type="button" data-apri-all="${n}">Apri</button><button class="btn piccolo" type="button" data-stampa-all="${n}">Stampa</button>`}</label>`;
   }).join('') + (nf ? '<p class="aiuto" style="margin:8px 0 0">Dopo l\'invio puoi liberare spazio: <button class="btn chiaro piccolo" type="button" data-foto-cancella>Cancella le foto da questo dispositivo</button></p>' : '') : '';
+  if (!cli && ultimiAllegati.length > 1) {
+    box.insertAdjacentHTML('beforeend', `<label class="spunta" style="margin:12px 0 0"><input type="checkbox" id="chk-zip"${impostazioni.zipUff !== false ? ' checked' : ''}> <span>Metti tutto in un unico file zip<small style="display:block;font-weight:400;color:var(--tenue)">Un solo file da inviare: l'ufficio lo carica con un tocco.</small></span></label>`);
+    const cz = $('#chk-zip'); if (cz) cz.onchange = () => { impostazioni.zipUff = cz.checked; salvaImpostazioni(); aggiornaPulsantiInvio(); };
+  }
   aggiornaPulsantiInvio();
 }
 async function preparaAllegati(){
@@ -3686,9 +3733,9 @@ async function espandiZip(file){
   let n = dv.getUint16(e + 10, true), q = dv.getUint32(e + 16, true);
   while (n-- > 0 && dv.getUint32(q, true) === 0x02014b50) {
     const met = dv.getUint16(q + 10, true), csz = dv.getUint32(q + 20, true), nl = dv.getUint16(q + 28, true), el = dv.getUint16(q + 30, true), cl = dv.getUint16(q + 32, true), off = dv.getUint32(q + 42, true);
-    const nome = dec.decode(buf.subarray(q + 46, q + 46 + nl)).split('/').pop();
+    const percorso = dec.decode(buf.subarray(q + 46, q + 46 + nl)).replace(/\\/g, '/'), nome = percorso.split('/').pop().normalize('NFC');
     q += 46 + nl + el + cl;
-    if (!nome) continue;
+    if (!nome || /(^|\/)__MACOSX\//.test(percorso) || nome[0] === '.' || /^(Thumbs\.db|desktop\.ini)$/i.test(nome)) continue;      // i file di servizio creati da Mac e Windows (._nome, .DS_Store...) non sono allegati
     const ini = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), dati = buf.subarray(ini, ini + csz);
     let byte;
     if (met === 0) byte = dati;
@@ -3928,7 +3975,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.17.2 (09/10/2026)';
+const VERSIONE_APP = '1.18.0 (09/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4233,10 +4280,12 @@ async function leggiPosta(files){
   }
   const lette = [], pdfLetti = [];
   for (const f of files) {
-    if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name] = f; pdfLetti.push(f); pdf++; continue; }
+    if (f.name[0] === '.') continue;                                  // ._nome e .DS_Store dei Mac
+    if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name.normalize('NFC')] = f; pdfLetti.push(f); pdf++; continue; }
     try {
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
       if (!o || o.assist !== 'intervento') { altri++; continue; }
+      o.file = (o.file || []).map(n => String(n).normalize('NFC'));
       lette.push({o, origine: f.origine || ''});
     } catch(e) { altri++; }
   }
@@ -4248,9 +4297,9 @@ async function leggiPosta(files){
   const reclamati = new Set();
   lette.forEach(({o, origine}) => {
     const stessi = origine ? lette.filter(x => x.origine === origine) : [];
-    pdfLetti.forEach(f => { if ((stessi.length === 1 && f.origine === origine) || nomeDi(f, o) || (origine && f.origine === origine && nomeDi(f, o))) { o.file = Array.from(new Set((o.file || []).concat(f.name))); reclamati.add(f.name); } });
+    pdfLetti.forEach(f => { if ((stessi.length === 1 && f.origine === origine) || nomeDi(f, o) || (origine && f.origine === origine && nomeDi(f, o))) { o.file = Array.from(new Set((o.file || []).concat(f.name.normalize('NFC')))); reclamati.add(f.name); } });
   });
-  if (lette.length === 1 && !lette[0].origine) pdfLetti.forEach(f => { if (!reclamati.has(f.name)) lette[0].o.file = Array.from(new Set((lette[0].o.file || []).concat(f.name))); });
+  if (lette.length === 1 && !lette[0].origine) pdfLetti.forEach(f => { if (!reclamati.has(f.name)) lette[0].o.file = Array.from(new Set((lette[0].o.file || []).concat(f.name.normalize('NFC')))); });
   for (const {o} of lette) {
     const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
     if (i >= 0) { o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { posta.push(o); nuovi++; }
