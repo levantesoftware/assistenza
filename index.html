@@ -273,6 +273,9 @@ body.uff .no-uff{display:none}
 body.uff .solo-uff{display:block}
 #lic-blocco{position:fixed;inset:0;z-index:80;background:rgba(18,32,41,.94);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
 #lic-blocco[hidden]{display:none}
+.velo-foglio{position:fixed;inset:0;z-index:70;background:rgba(18,32,41,.6);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.velo-foglio[hidden]{display:none}
+.velo-foglio .scatola{background:#fff;color:var(--inchiostro);border-radius:14px;max-width:440px;width:100%;padding:18px}
 #lic-blocco .scatola{background:#fff;color:var(--inchiostro);border-radius:14px;max-width:520px;width:100%;padding:20px}
 .codice-lic{font:700 22px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;padding:8px 10px;background:#eef3f6;border-radius:8px;display:inline-block;margin:4px 0}
 textarea.chiave-lic{width:100%;min-height:84px;font:13px/1.35 ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
@@ -448,6 +451,15 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
   <p class="aiuto" id="lb-esito" role="status" style="margin:8px 0 0"></p>
   <p class="aiuto" style="margin:12px 0 0">I dati salvati non vanno persi. Le app dei tecnici continuano a funzionare.</p>
 </div></div>
+<div id="foglio-box" class="velo-foglio" hidden role="dialog" aria-modal="true" aria-labelledby="fg-titolo"><div class="scatola">
+  <h2 id="fg-titolo" style="margin:0 0 4px">Foglio del giorno</h2>
+  <p class="aiuto" style="margin:0 0 10px">Un PDF da stampare: gli appuntamenti del giorno con ora, cliente, indirizzo, telefono, note e impianto, e lo spazio per scrivere.</p>
+  <div class="campo"><label for="fg-data">Giorno</label><input id="fg-data" type="date"></div>
+  <div class="azioni" style="display:flex;gap:8px;margin:0 0 10px"><button class="btn sec piccolo" type="button" data-fg="0">Oggi</button><button class="btn sec piccolo" type="button" data-fg="1">Domani</button></div>
+  <div class="campo"><label for="fg-tec">Tecnico</label><select id="fg-tec"></select></div>
+  <p class="aiuto" id="fg-esito" role="status" style="margin:8px 0 0"></p>
+  <div class="azioni" style="display:flex;gap:8px;margin-top:12px"><button class="btn" id="fg-crea" type="button">Crea il PDF</button><button class="btn chiaro" id="fg-chiudi" type="button">Chiudi</button></div>
+</div></div>
 <div id="ris-cerca" role="listbox" aria-label="Risultati della ricerca" hidden></div>
 <div class="app">
 
@@ -462,7 +474,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     </header>
     <div id="banner"></div>
     <div class="uff-azioni" hidden style="margin:0 0 12px">
-      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn piccolo js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec piccolo js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
+      <div class="azioni" style="display:flex;flex-wrap:wrap;gap:8px;margin:0"><button class="btn piccolo js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec piccolo js-cartella" type="button">Apri la cartella delle esportazioni</button><button class="btn sec piccolo" id="b-foglio" type="button">Foglio del giorno (PDF)</button></div>
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
     </div>
     <input type="file" id="in-pacchetto" accept=".json,.txt,application/json,text/plain" hidden>
@@ -4048,7 +4060,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.20.0 (09/10/2026)';
+const VERSIONE_APP = '1.21.0 (09/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4785,10 +4797,104 @@ function avviaLicenzaBackup(){
   $('#bk-ripristina').onclick = async () => { const n = $('#bk-elenco').value; if (!n) return; try { applicaBackup(await (await fetch('backup-file?nome=' + encodeURIComponent(n), {cache: 'no-store'})).json()); } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || 'Copia non leggibile.'); } };
   aggiornaElencoBackup(); setTimeout(copiaAutomatica, 20000); setInterval(copiaAutomatica, 2 * 3600000);
 }
+
+/* ---- 1.21: foglio del giorno (PDF da stampare, per tecnico) ---- */
+function foglioPdf(iso, tecnico){
+  const { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', compress: true});
+  const W = 210, H = 297, M = 14, LARG = W - 2 * M, azienda = nomeAziendaMail();
+  const giorno = giornoLungo(new Date(iso + 'T12:00:00'));
+  const tutti = appuntamenti.filter(a => isoGiorno(a.inizio) === iso && !a.fatto && !registrato(a));
+  const gruppi = {}; tutti.forEach(a => { const n = a.tecnico_nome || ''; if (tecnico === '' || tecnico === n || tecnico === '*') (gruppi[n] = gruppi[n] || []).push(a); });
+  const nomi = Object.keys(gruppi).sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)));
+  if (!nomi.length) return null;
+  const T = (t, x, y, o) => doc.text(String(t), x, y, o);
+  let pagine = 0;
+  const intest = (nome, n) => {
+    pagine++;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(90); if (azienda) T(azienda, M, 12);
+    doc.setFontSize(17); doc.setTextColor(20); T('Foglio di lavoro - ' + (nome || 'Senza tecnico'), M, 21);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(60); T(giorno + (n ? '  -  ' + n + (n === 1 ? ' appuntamento' : ' appuntamenti') : ''), M, 27.5);
+    doc.setDrawColor(20); doc.setLineWidth(0.5); doc.line(M, 30, W - M, 30);
+    return 35;
+  };
+  nomi.forEach((nome, gi) => {
+    const lista = gruppi[nome].slice().sort((x, y) => x.inizio - y.inizio);
+    if (gi > 0) doc.addPage();
+    let y = intest(nome, lista.length);
+    lista.forEach(a => {
+      const r = a.r || {}, c = r.c || {}, i = r.i || {};
+      doc.setFontSize(10);
+      const tel = Array.from(new Set([c.t, c.m, i.tel].filter(Boolean))).join('  -  ');
+      const righe = [];
+      const agg = (et, testo, max) => { if (!testo) return; const l = doc.splitTextToSize(String(testo).replace(/\s+/g, ' ').trim(), LARG - 58); righe.push({et, l: l.slice(0, max || 4), piu: l.length > (max || 4)}); };
+      agg('Dove', a.luogo || i.u, 2);
+      agg('Telefono', tel, 2);
+      agg('Richiesta', a.messaggio, 5);
+      agg('Note', i.nt, 4);
+      const app = (r.a || []).map(x => [x.t, x.c, x.m].filter(Boolean).join(' ') + (x.s ? ' (matr. ' + x.s + ')' : '') + (x.u ? ' - ' + x.u : ''));
+      if (i.d || app.length) agg('Impianto', [i.d, ...app.slice(0, 3)].filter(Boolean).join(' | '), 4);
+      let fare = []; try { fare = opDaFare(r) || []; } catch(e) {}
+      if (fare.length) agg('Da fare', fare.slice(0, 6).map(o => o.d).join('; '), 3);
+      const nRighe = righe.reduce((s, x) => s + x.l.length, 0);
+      const hBlocco = 12 + nRighe * 4.6 + 25;
+      if (y + hBlocco > H - 16) { doc.addPage(); y = intest(nome, 0); }
+      doc.setDrawColor(150); doc.setLineWidth(0.25); doc.rect(M, y, LARG, hBlocco - 3);
+      if (a.urgente) { doc.setFillColor(190, 40, 30); doc.rect(M, y, 2.2, hBlocco - 3, 'F'); }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(20); T(hhmm(a.inizio), M + 5, y + 8);
+      doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(100); T('fino alle ' + hhmm(a.fine), M + 5, y + 12.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20);
+      const tit = doc.splitTextToSize(a.titolo || '', LARG - 74)[0] || '';
+      T(tit, M + 32, y + 7.5);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(80);
+      const dx = [r.tp, r.li ? 'N. ' + r.li : ''].filter(Boolean).join('  -  ');
+      T(dx, W - M - 3, y + 7.5, {align: 'right'});
+      if (a.urgente) { doc.setFont('helvetica', 'bold'); doc.setTextColor(190, 40, 30); T('URGENTE', W - M - 3, y + 12.5, {align: 'right'}); }
+      let yy = y + 13.5; doc.setFontSize(9.5);
+      righe.forEach(x => {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(90); T(x.et, M + 32, yy);
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(20);
+        x.l.forEach((riga, k) => { T(riga + (x.piu && k === x.l.length - 1 ? ' ...' : ''), M + 54, yy); yy += 4.6; });
+        if (!x.l.length) yy += 4.6;
+      });
+      /* spazio per scrivere + casella */
+      doc.setDrawColor(190); doc.setLineWidth(0.2); doc.line(M + 32, yy + 9, W - M - 4, yy + 9); doc.line(M + 32, yy + 15, W - M - 4, yy + 15);
+      doc.setDrawColor(60); doc.setLineWidth(0.3); doc.rect(M + 5, y + hBlocco - 9.5, 4, 4);
+      doc.setFontSize(8.5); doc.setTextColor(90); T('Eseguito', M + 11, y + hBlocco - 6.3);
+      doc.setFontSize(8.5); T('Note del tecnico:', M + 32, yy + 2.2);
+      y += hBlocco;
+    });
+  });
+  const tot = doc.getNumberOfPages(), ora = new Date();
+  for (let p = 1; p <= tot; p++) { doc.setPage(p); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(130); T('Creato il ' + dataIT(isoGiorno(ora)) + ' alle ' + hhmm(ora) + ' - Assistenza impianti', M, H - 8); T('Pag. ' + p + ' di ' + tot, W - M, H - 8, {align: 'right'}); }
+  return doc.output('blob');
+}
+function apriFoglio(){
+  const box = $('#foglio-box'), sel = $('#fg-tec');
+  const nomi = Array.from(new Set(appuntamenti.map(a => a.tecnico_nome || '').filter(Boolean))).sort((x, y) => x.localeCompare(y));
+  sel.innerHTML = '<option value="*">Tutti (una pagina per tecnico)</option>' + nomi.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if (filtroTec && nomi.includes(filtroTec)) sel.value = filtroTec;
+  const g = new Date(); if (periodo === 'scorsa') g.setDate(g.getDate() - 1);
+  $('#fg-data').value = isoGiorno(g); $('#fg-esito').textContent = ''; box.hidden = false;
+}
+function avviaFoglio(){
+  $('#b-foglio').onclick = apriFoglio;
+  $('#fg-chiudi').onclick = () => { $('#foglio-box').hidden = true; };
+  $('#foglio-box').onclick = e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; };
+  document.querySelectorAll('[data-fg]').forEach(b => b.onclick = () => { const d = new Date(); d.setDate(d.getDate() + (+b.dataset.fg)); $('#fg-data').value = isoGiorno(d); });
+  $('#fg-crea').onclick = () => {
+    const iso = $('#fg-data').value, tec = $('#fg-tec').value, es = $('#fg-esito');
+    if (!iso) { es.textContent = 'Scegli il giorno.'; return; }
+    if (!window.jspdf) { es.textContent = 'La libreria per creare il PDF non si è caricata.'; return; }
+    let blob; try { blob = foglioPdf(iso, tec === '*' ? '*' : tec); } catch(e) { console.error(e); es.textContent = 'Non sono riuscito a creare il PDF.'; return; }
+    if (!blob) { es.textContent = 'Nessun appuntamento da stampare per il ' + dataIT(iso) + (tec !== '*' ? ' per ' + tec : '') + '.'; return; }
+    const nome = 'Foglio_' + (tec === '*' ? 'tutti' : slugNome(tec)) + '_' + iso + '.pdf';
+    scaricaBlob(blob, nome); es.textContent = '✔ ' + nome + ' scaricato: aprilo e stampa.';
+  };
+}
 function avvia(){
   appuntamenti = caricaAppuntamenti();
   avviaServizio();
-  avviaPosta(); avviaArticoli();
+  avviaPosta(); avviaArticoli(); avviaFoglio();
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
