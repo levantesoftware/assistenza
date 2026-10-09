@@ -265,7 +265,7 @@ body.uff #nav-uff{display:flex;gap:6px;padding:8px max(12px,env(safe-area-inset-
 #nav-uff button{flex:none;min-height:42px;padding:0 16px;border-radius:10px;border:0;background:transparent;color:#d8e3ea;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap}
 #nav-uff button[aria-pressed="true"]{background:#fff;color:var(--inchiostro)}
 #nav-uff .badge{display:inline-block;min-width:20px;margin-left:6px;padding:1px 6px;border-radius:10px;background:var(--fiamma);color:#fff;font-size:12px;text-align:center}
-#nav-uff .badge[hidden]{display:none}
+#nav-uff .badge[hidden],#oss-rcee[hidden]{display:none}
 #nav-uff #nav-badge-inv{background:var(--petrolio)}
 body.uff #b-indietro-uff,body.uff #b-indietro-posta,body.uff #b-impostazioni{display:none}
 #tab-tec{display:none}
@@ -1469,6 +1469,12 @@ function righeEmailOpz(){
   if ((lavoro.email || '').trim() && !emailValida(lavoro.email)) h += '<p class="aiuto" style="color:var(--rosso);margin:-4px 0 8px">L\'indirizzo non sembra valido: controlla che ci siano la chiocciola e il dominio.</p>';
   return h;
 }
+/* Osservazioni, Raccomandazioni e Prescrizioni fanno parte dell'allegato RCEE: si vedono solo se c'e' un RCEE (o se hanno gia' del testo, per non nascondere dati) */
+function ossRceeVisibili(w){
+  try { if (rcSupportati(w).length || rcLiberi(w).length) return true; } catch(e) {}
+  return !!(w.osservazioni || w.raccomandazioni || w.prescrizioni);
+}
+function aggiornaOssRcee(){ const e = $('#oss-rcee'); if (e) e.hidden = !ossRceeVisibili(lavoro); }
 function disegnaScheda(){
   const w = lavoro;
   $('#form').innerHTML = `
@@ -1488,11 +1494,13 @@ function disegnaScheda(){
     <div id="rcee">${rcBlocco()}</div>
     <div id="rcee-lib">${sezioniLibere()}</div>
     ${sezioneAggiungiLibero()}
-    <div class="passo"><h2>Relazione</h2>
-      ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
+    <div class="passo" id="oss-rcee"${ossRceeVisibili(w) ? '' : ' hidden'}><h2>Osservazioni, raccomandazioni e prescrizioni</h2><p class="aiuto">Vanno nell'allegato RCEE.</p>
       ${campoTesto('osservazioni', 'Osservazioni', {area:true, max:255, frasi:true})}
       ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, frasi:true, ph:'Lavori consigliati al cliente.'})}
       ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, frasi:true, ph:'Interventi obbligatori per la sicurezza.'})}
+    </div>
+    <div class="passo"><h2>Relazione</h2>
+      ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
     </div>
     <div class="passo"><h2>Orari e viaggio</h2><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
@@ -1906,8 +1914,11 @@ function scaricaPdf(){
 /* ---- cosa si invia: i PDF appena creati + i documenti scelti (quelli modificati sono già spuntati) ---- */
 function filesDaInviare(){
   const cli = destInvio === 'cli', out = [];
-  ultimiAllegati.filter(a => cli ? a.onCli : a.on).forEach(a => {
+  const sel = ultimiAllegati.filter(a => cli ? a.onCli : a.on);
+  const pdfScelti = sel.filter(a => a.id !== 'dati' && !a.gruppo && /pdf/i.test(a.mime || '')).map(a => a.nome);     // anche foto e documenti: l'ufficio li ritrova
+  sel.forEach(a => {
     if (a.gruppo) a.gruppo.forEach(g => out.push(new File([g.blob], g.nome, {type: 'image/jpeg'})));
+    else if (a.id === 'dati' && !cli && pdfScelti.length) { try { out.push(new File([JSON.stringify(datiIntervento(lavoro, pdfScelti))], a.nome, {type: 'text/plain'})); } catch(e) { out.push(new File([blobDi(a)], a.nome, {type: a.mime})); } }
     else out.push(new File([blobDi(a)], a.nome, {type: a.mime || 'application/octet-stream'}));
   });
   return out;
@@ -2439,7 +2450,7 @@ function sezioneLibera(i, r){
   return h;
 }
 function sezioniLibere(){ return rcLiberi(lavoro).map(x => sezioneLibera(x.i, x.r)).join(''); }
-function disegnaLiberi(){ const c = $('#rcee-lib'); if (c) c.innerHTML = sezioniLibere(); }
+function disegnaLiberi(){ const c = $('#rcee-lib'); if (c) c.innerHTML = sezioniLibere(); aggiornaOssRcee(); }
 /* ==================================================================
    RCEE tipo 1, 1B e 2 creati dal tecnico (quando l'ufficio non ha creato l'allegato in Levante)
    Il record e' identico a quello che arriva da Levante, cosi' il PDF e' lo stesso modulo verificato.
@@ -2546,7 +2557,7 @@ function inizialiMan(w, tipo, ap){
   }, datiApparecchioMan(tipo, ap));
 }
 function rcBlocco(){ return rcSupportati(lavoro).length ? sezioneRcee() : '<div class="passo"><h2>Analisi di combustione</h2><div id="analisi">' + schedeAnalisi() + '</div></div>'; }
-function ridisegnaRcee(){ const c = $('#rcee'); if (c) c.innerHTML = rcBlocco(); }
+function ridisegnaRcee(){ const c = $('#rcee'); if (c) c.innerHTML = rcBlocco(); aggiornaOssRcee(); }
 function nuovoRapportoManuale(tipo){
   const m = modelloMan(tipo); if (!m) { alert('Modello non disponibile.'); return; }
   const R = lavoro.r || {}, ap = (R.a || []).filter(x => x.x)[0] || ((R.a || []).length === 1 ? R.a[0] : null);
@@ -3917,7 +3928,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.17.0 (08/10/2026)';
+const VERSIONE_APP = '1.17.2 (09/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4215,19 +4226,34 @@ async function leggiPosta(files){
   if (files.some(f => /\.zip$/i.test(f.name))) {            // la mail con piu' file arriva in un unico zip: lo apro e leggo quello che contiene
     let tutti = files.filter(f => !/\.zip$/i.test(f.name));
     for (const z of files.filter(f => /\.zip$/i.test(f.name))) {
-      try { tutti = tutti.concat((await espandiZip(z)).filter(x => !/\.zip$/i.test(x.name))); nZip++; }
+      try { tutti = tutti.concat((await espandiZip(z)).filter(x => !/\.zip$/i.test(x.name)).map(x => { x.origine = z.name; return x; })); nZip++; }
       catch(e) { $('#posta-msg').textContent = 'Non riesco ad aprire lo zip "' + z.name + '": ' + (e.message || 'file non valido'); return; }
     }
     files = tutti;
   }
+  const lette = [], pdfLetti = [];
   for (const f of files) {
-    if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name] = f; pdf++; continue; }
+    if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name] = f; pdfLetti.push(f); pdf++; continue; }
     try {
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
       if (!o || o.assist !== 'intervento') { altri++; continue; }
-      const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
-      if (i >= 0) { o.fatto = posta[i].fatto; posta[i] = o; agg++; } else { posta.push(o); nuovi++; }
+      lette.push({o, origine: f.origine || ''});
     } catch(e) { altri++; }
+  }
+  /* i PDF che il tecnico ha mandato insieme (foto, documenti allegati...) non sempre sono nell'elenco del file dati: li collego all'intervento
+     - se arrivano nello stesso zip (un solo intervento nello zip: tutti; piu' interventi: quelli col nome del cliente)
+     - se sono sciolti: quelli col nome del cliente (Foto_<cliente>_...), oppure tutti quelli non riconosciuti se nel gruppo c'e' un solo intervento */
+  const sl = o => slugNome(o.cliente || '').toLowerCase();
+  const nomeDi = (f, o) => sl(o) && f.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').indexOf(sl(o)) >= 0;
+  const reclamati = new Set();
+  lette.forEach(({o, origine}) => {
+    const stessi = origine ? lette.filter(x => x.origine === origine) : [];
+    pdfLetti.forEach(f => { if ((stessi.length === 1 && f.origine === origine) || nomeDi(f, o) || (origine && f.origine === origine && nomeDi(f, o))) { o.file = Array.from(new Set((o.file || []).concat(f.name))); reclamati.add(f.name); } });
+  });
+  if (lette.length === 1 && !lette[0].origine) pdfLetti.forEach(f => { if (!reclamati.has(f.name)) lette[0].o.file = Array.from(new Set((lette[0].o.file || []).concat(f.name))); });
+  for (const {o} of lette) {
+    const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
+    if (i >= 0) { o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { posta.push(o); nuovi++; }
   }
   salvaPosta();
   $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.';
