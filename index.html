@@ -266,6 +266,9 @@ body.uff #nav-uff{display:flex;gap:6px;padding:8px max(12px,env(safe-area-inset-
 #nav-uff button[aria-pressed="true"]{background:#fff;color:var(--inchiostro)}
 #nav-uff .badge{display:inline-block;min-width:20px;margin-left:6px;padding:1px 6px;border-radius:10px;background:var(--fiamma);color:#fff;font-size:12px;text-align:center}
 #nav-uff .badge[hidden],#oss-rcee[hidden]{display:none}
+/* sul PC dell'ufficio le impostazioni da tecnico non servono: restano raggiungibili toccando 5 volte il titolo «Impostazioni» */
+body.uff:not(.tec-visibile) .solo-tec{display:none}
+body.uff .no-uff{display:none}
 #nav-uff #nav-badge-inv{background:var(--petrolio)}
 body.uff #b-indietro-uff,body.uff #b-indietro-posta,body.uff #b-impostazioni{display:none}
 #tab-tec{display:none}
@@ -444,7 +447,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <label class="spunta" style="margin:8px 0 0"><input type="checkbox" id="nascondi-gestiti"> <span id="nascondi-testo"></span></label>
     <div id="lista"></div>
     <div id="da-completare"></div>
-    <button class="btn sec pieno" id="b-nuovo" type="button" style="margin-top:14px">Nuovo intervento senza appuntamento</button>
+    <button class="btn sec pieno solo-tec" id="b-nuovo" type="button" style="margin-top:14px">Nuovo intervento senza appuntamento</button>
   </section>
 
   <div id="destra">
@@ -529,24 +532,27 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-indietro-imp" type="button">Indietro</button>
       <h1>Impostazioni</h1>
     </header>
-    <div class="campo"><label for="i-azienda">Nome azienda (in alto nel PDF)</label><input type="text" id="i-azienda"></div>
-    <div class="campo"><label for="i-tecnico">Nome del tecnico (precompila la scheda)</label><input type="text" id="i-tecnico"></div>
-    <div class="campo"><label class="spunta"><input type="checkbox" id="i-posizione"> Registra la posizione quando tocco «Adesso» su arrivo e fine</label>
+    <div class="campo solo-tec"><label for="i-azienda">Nome azienda (in alto nel PDF)</label><input type="text" id="i-azienda"></div>
+    <div class="campo solo-tec"><label for="i-tecnico">Nome del tecnico (precompila la scheda)</label><input type="text" id="i-tecnico"></div>
+    <div class="campo solo-tec"><label class="spunta"><input type="checkbox" id="i-posizione"> Registra la posizione quando tocco «Adesso» su arrivo e fine</label>
       <p class="aiuto" style="margin:4px 0 0">Il telefono chiede il permesso la prima volta. La posizione si legge solo in quel momento, non in continuo, e resta nel rapportino per l'ufficio.</p></div>
-    <div class="campo"><label for="i-email-ufficio">Email dell'ufficio (per inviare i documenti)</label><input type="email" id="i-email-ufficio" inputmode="email" autocomplete="off" placeholder="ufficio@tuaazienda.it"></div>
-    <div class="campo"><span class="etichetta">La tua firma per l'RCEE (si fa una volta sola)</span>
+    <div class="campo solo-tec"><label for="i-email-ufficio">Email dell'ufficio (per inviare i documenti)</label><input type="email" id="i-email-ufficio" inputmode="email" autocomplete="off" placeholder="ufficio@tuaazienda.it"></div>
+    <div class="campo solo-tec"><span class="etichetta">La tua firma per l'RCEE (si fa una volta sola)</span>
       <div class="firma"><canvas id="firma-tec"></canvas><div class="linea"></div></div>
       <div class="strumenti"><span>Firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma-tec" type="button">Cancella firma</button></div></div>
     <p class="aiuto">Le modifiche si salvano da sole. Schede e impostazioni restano su questo dispositivo.</p>
+    <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Compilazione veloce</h2>
     <div class="campo"><label for="i-frasi">Frasi rapide (una per riga)</label><textarea id="i-frasi" rows="7" placeholder="Una frase per riga"></textarea></div>
     <div class="campo"><label for="i-frase-std">Testo della relazione per "Tutto eseguito come da programma"</label><input type="text" id="i-frase-std"></div>
     <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 6px"><button class="btn chiaro piccolo" type="button" id="b-frasi-default">Ripristina le frasi predefinite</button><button class="btn chiaro piccolo" type="button" id="b-mat-dimentica">Dimentica i materiali ricordati</button></div>
+    </div>
     <h2 class="giorno" style="margin-top:26px">App sul dispositivo</h2>
     <div id="stato-app"></div>
     <button class="btn pieno" id="b-installa" type="button" hidden style="margin-bottom:8px">Installa l'app</button>
     <button class="btn sec pieno" id="b-ricontrolla" type="button" style="margin-bottom:8px">Ricontrolla lo stato</button>
     <button class="btn sec pieno" id="b-ricarica" type="button">Aggiorna l'app (serve la connessione)</button>
+    <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Stampante</h2>
     <p class="aiuto" style="margin-bottom:10px">Premendo <b>Stampa</b> si apre il menu di condivisione del dispositivo: scegli l'app della tua stampante Bluetooth e il documento si carica lì.</p>
     <label class="tile"><input type="radio" name="stampa-formato" value="pdf"><span>Manda il PDF<small>va bene per la maggior parte delle app</small></span></label>
@@ -555,10 +561,13 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <p class="aiuto" style="margin:10px 0 6px">Qualità delle immagini (carta A4):</p>
     <label class="tile"><input type="radio" name="stampa-dpi" value="200"><span>Normale, 200 dpi<small>va bene per le stampanti a 203 dpi; file più leggeri</small></span></label>
     <label class="tile"><input type="radio" name="stampa-dpi" value="300"><span>Alta, 300 dpi<small>per le stampanti a 300 dpi: le note piccole dell'RCEE si leggono meglio</small></span></label>
+    </div>
+    <div class="no-uff">
     <h2 class="giorno" style="margin-top:26px">Ufficio</h2>
     <p class="aiuto" style="margin-bottom:10px">Da qui si caricano i file esportati da Levante e si preparano i file da mandare ai tecnici.</p>
     <button class="btn pieno" id="b-ufficio" type="button">Prepara i file da Levante</button>
     <button class="btn pieno" id="b-posta" type="button" style="margin-top:10px">Posta in arrivo (interventi dei tecnici)</button>
+    </div>
     <button class="btn sec pieno" id="b-azzera" type="button" style="margin-top:18px">Cancella le schede salvate</button>
     <button class="btn sec pieno" id="b-prova" type="button" style="margin-top:10px">Torna ai dati di prova</button>
   </section>
@@ -1434,13 +1443,14 @@ function sezioneRceeGenerica(i, r, tpl, mappa){
     ${sezD.length ? '<h3 class="sottotit">Controllo dell\'impianto</h3>' + sezD.map(riga).join('') : ''}
     ${sezE.length ? '<h3 class="sottotit">Controllo e verifica del gruppo</h3>' + sezE.map(riga).join('') : ''}
     ${cl.length ? '<h3 class="sottotit">Check-list: interventi consigliati</h3>' + cl.map(t => `<div class="controllo"><span>${esc(t.testo)}</span><span class="tris">${triBtn(i, t.col, 'T', 'Sì')}</span></div>`).join('') : ''}
+    ${ossProssima()}
     <h3 class="sottotit">Esito</h3>
     <div class="controllo"><span><b>L'impianto può funzionare</b></span><span class="tris">${triBtn(i, 'IMPPUOFUNZIONARE', 'T', 'Sì')}${triBtn(i, 'IMPPUOFUNZIONARE', 'F', 'No')}</span></div>
-    <p class="aiuto" style="margin-top:8px">I dati del generatore arrivano da Levante. Osservazioni, raccomandazioni e prescrizioni sono quelle della sezione "Relazione"; data e orari vengono da "Orari e viaggio".</p>
+    <p class="aiuto" style="margin-top:8px">I dati del generatore arrivano da Levante; data e orari vengono da "Orari e viaggio".</p>
   </div>`;
 }
 function sezioneRcee(){
-  const sup = rcSupportati(lavoro);
+  const sup = rcSupportati(lavoro); ossAssegnata = false;
   return sup.map(({r, i}) => {
     const mod = modelliRcee()[r._tpl];
     if (r._man) return sezioneManuale(i, r, mod, window.MAPPE_RCEE[r._tipo]);
@@ -1455,9 +1465,10 @@ function sezioneRcee(){
       ${RCEE_CONTROLLI.map(([tit, righe]) => `<h3 class="sottotit">${tit}</h3>${righe.map(([c, l, inv]) => rigaControllo(i, c, l, inv)).join('')}`).join('')}
       <h3 class="sottotit">Check-list: interventi consigliati</h3>
       ${RCEE_CHECKLIST.map(([c, l]) => `<div class="controllo"><span>${esc(l)}</span><span class="tris">${triBtn(i, c, 'T', 'Sì')}</span></div>`).join('')}
+      ${ossProssima()}
       <h3 class="sottotit">Esito</h3>
       <div class="controllo"><span><b>L'impianto può funzionare</b></span><span class="tris">${triBtn(i, 'IMPPUOFUNZIONARE', 'T', 'Sì')}${triBtn(i, 'IMPPUOFUNZIONARE', 'F', 'No')}</span></div>
-      <p class="aiuto" style="margin-top:8px">Osservazioni, raccomandazioni e prescrizioni sono quelle della sezione "Relazione" qui sotto. Data e orari vengono da "Orari e viaggio".</p>
+      <p class="aiuto" style="margin-top:8px">Data e orari vengono da "Orari e viaggio".</p>
     </div>`;
   }).join('');
 }
@@ -1469,12 +1480,19 @@ function righeEmailOpz(){
   if ((lavoro.email || '').trim() && !emailValida(lavoro.email)) h += '<p class="aiuto" style="color:var(--rosso);margin:-4px 0 8px">L\'indirizzo non sembra valido: controlla che ci siano la chiocciola e il dominio.</p>';
   return h;
 }
-/* Osservazioni, Raccomandazioni e Prescrizioni fanno parte dell'allegato RCEE: si vedono solo se c'e' un RCEE (o se hanno gia' del testo, per non nascondere dati) */
-function ossRceeVisibili(w){
-  try { if (rcSupportati(w).length || rcLiberi(w).length) return true; } catch(e) {}
-  return !!(w.osservazioni || w.raccomandazioni || w.prescrizioni);
+/* Osservazioni, Raccomandazioni e Prescrizioni fanno parte dell'allegato RCEE: stanno dentro il rapporto, subito prima di «L'impianto può funzionare»
+   (una sola volta, nel primo rapporto). Se non c'e' nessun RCEE ma hanno gia' del testo (vecchie bozze) restano visibili in una sezione a parte. */
+function ossHaRcee(w){ try { return rcSupportati(w).length > 0 || rcLiberi(w).length > 0; } catch(e) { return false; } }
+function ossCampi(){
+  return `<h3 class="sottotit">Osservazioni, raccomandazioni e prescrizioni</h3>
+    ${campoTesto('osservazioni', 'Osservazioni', {area:true, max:255, frasi:true})}
+    ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, frasi:true, ph:'Lavori consigliati al cliente.'})}
+    ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, frasi:true, ph:'Interventi obbligatori per la sicurezza.'})}`;
 }
-function aggiornaOssRcee(){ const e = $('#oss-rcee'); if (e) e.hidden = !ossRceeVisibili(lavoro); }
+let ossAssegnata = false;
+function ossProssima(){ if (ossAssegnata) return ''; ossAssegnata = true; return ossCampi(); }
+function ossFuori(w){ return (!ossHaRcee(w) && (w.osservazioni || w.raccomandazioni || w.prescrizioni)) ? '<h2>Osservazioni, raccomandazioni e prescrizioni</h2><p class="aiuto">Servono per l\'allegato RCEE: se non lo aggiungi, puoi svuotarle.</p>' + ossCampi().replace(/<h3[^>]*>.*?<\/h3>/, '') : ''; }
+function aggiornaOssRcee(){ const e = $('#oss-rcee'); if (!e) return; e.innerHTML = ossFuori(lavoro); e.hidden = !e.innerHTML; }
 function disegnaScheda(){
   const w = lavoro;
   $('#form').innerHTML = `
@@ -1494,11 +1512,7 @@ function disegnaScheda(){
     <div id="rcee">${rcBlocco()}</div>
     <div id="rcee-lib">${sezioniLibere()}</div>
     ${sezioneAggiungiLibero()}
-    <div class="passo" id="oss-rcee"${ossRceeVisibili(w) ? '' : ' hidden'}><h2>Osservazioni, raccomandazioni e prescrizioni</h2><p class="aiuto">Vanno nell'allegato RCEE.</p>
-      ${campoTesto('osservazioni', 'Osservazioni', {area:true, max:255, frasi:true})}
-      ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, frasi:true, ph:'Lavori consigliati al cliente.'})}
-      ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, frasi:true, ph:'Interventi obbligatori per la sicurezza.'})}
-    </div>
+    <div class="passo" id="oss-rcee" hidden></div>
     <div class="passo"><h2>Relazione</h2>
       ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
     </div>
@@ -1534,6 +1548,7 @@ function disegnaScheda(){
       <p class="aiuto" id="invio-guida" style="margin:0 0 10px"></p>
       <div class="azioni2"><button class="btn" id="b-condividi" type="button">Invia in ufficio</button>
       <button class="btn sec" id="b-scarica" type="button">Scarica i file</button></div></div>`;
+  aggiornaOssRcee();
   if (!lavoro.foto) lavoro.foto = [];
   disegnaFoto();
   aggiornaOre();
@@ -2459,6 +2474,7 @@ function sezioneLibera(i, r){
   const tpl = modelloLibero(r);
   if (!tpl) return `<div class="passo rcee-blocco"><h2>Allegato ${esc(r._tipo)}</h2><p class="aiuto">Il modello di questo rapporto non è disponibile su questo dispositivo.</p>
     <button class="btn sec piccolo" type="button" data-togli-lib="${i}">Togli</button></div>`;
+  const dovevo = !ossAssegnata;
   const d = descrizioneLibera(tpl), mods = modelliLiberi(r._tipo), nomiMod = Object.keys(mods), apps = (lavoro.r && lavoro.r.a) || [];
   const input = (c, v) => `<div class="campo${c.w > 150 ? ' largo' : ''}"><label>${esc(c.et)}</label><input type="text" ${c.num ? 'inputmode="decimal" ' : ''}data-rcl="${i}|${esc(c.field)}" value="${esc(v || '')}"></div>`;
   const riga = g => {
@@ -2466,7 +2482,7 @@ function sezioneLibera(i, r){
     return `<div class="controllo" style="align-items:flex-start;flex-direction:column"><span>${esc(g.titolo)}</span><span class="chips">${g.voci.map(x => chipLib(i, x.k, x.label || 'Sì', r[x.k] === '1')).join('')}</span></div>`;
   };
   let h = `<div class="passo rcee-blocco"><h2>Allegato RCEE ${esc(TIPI_LIB[r._tipo] || r._tipo)}</h2>
-    <p class="aiuto">Dati di cliente, impianto e azienda già inseriti da Levante: controllali e completa il resto. Data, orari, tecnico e firme si compilano da soli; osservazioni, raccomandazioni e prescrizioni sono quelle della sezione "Relazione".</p>`;
+    <p class="aiuto">Dati di cliente, impianto e azienda già inseriti da Levante: controllali e completa il resto. Data, orari, tecnico e firme si compilano da soli.</p>`;
   if (nomiMod.length > 1) h += `<div class="campo"><label>Modulo</label><select data-rcmod="${i}">${nomiMod.map(n => `<option value="${esc(n)}"${n === r._tpl ? ' selected' : ''}>${esc(n.replace(/\.QR2$/i, '').replace(/_/g, ' '))}</option>`).join('')}</select></div>`;
   if (apps.length) h += `<div class="campo"><label>Apparecchio (riempie fabbricante, modello, matricola, potenza)</label><select data-rcapp="${i}"><option value="">— scrivo io —</option>${apps.map(a => `<option value="${esc(a.id)}"${a.id === r._app ? ' selected' : ''}>${esc([a.c, a.m, a.s ? 'matr. ' + a.s : ''].filter(Boolean).join(' ') || ('Apparecchio ' + a.id))}</option>`).join('')}</select></div>`;
   d.sezioni.forEach(s => {
@@ -2489,15 +2505,16 @@ function sezioneLibera(i, r){
     const voci = [].concat(campi.map(c => ({y: c.y, x: c.x, c})), gr.map(g => ({y: g.y, x: g.x, g}))).sort((a, z) => (Math.round(a.y / 6) - Math.round(z.y / 6)) || (a.x - z.x));
     let blocco = [];
     const chiudi = () => { if (blocco.length) { b += '<div class="tre">' + blocco.map(c => input(c, r[c.field])).join('') + '</div>'; blocco = []; } };
-    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); b += riga(v.g); } });
+    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (/funzionare/i.test(v.g.titolo || '')) b += ossProssima(); b += riga(v.g); } });
     chiudi();
     h += `<h3 class="sottotit">${esc(titoloSez(s.titolo))}</h3>${b}`;
   });
+  if (dovevo && !ossAssegnata) h += ossProssima();
   h += `<div style="margin-top:12px"><button class="btn sec piccolo" type="button" data-togli-lib="${i}">Togli questo rapporto</button></div></div>`;
   return h;
 }
-function sezioniLibere(){ return rcLiberi(lavoro).map(x => sezioneLibera(x.i, x.r)).join(''); }
-function disegnaLiberi(){ const c = $('#rcee-lib'); if (c) c.innerHTML = sezioniLibere(); aggiornaOssRcee(); }
+function sezioniLibere(){ ossAssegnata = rcSupportati(lavoro).length > 0; return rcLiberi(lavoro).map(x => sezioneLibera(x.i, x.r)).join(''); }
+function disegnaLiberi(){ const r = $('#rcee'); if (r) r.innerHTML = rcBlocco(); const c = $('#rcee-lib'); if (c) c.innerHTML = sezioniLibere(); aggiornaOssRcee(); }
 /* ==================================================================
    RCEE tipo 1, 1B e 2 creati dal tecnico (quando l'ufficio non ha creato l'allegato in Levante)
    Il record e' identico a quello che arriva da Levante, cosi' il PDF e' lo stesso modulo verificato.
@@ -2604,7 +2621,7 @@ function inizialiMan(w, tipo, ap){
   }, datiApparecchioMan(tipo, ap));
 }
 function rcBlocco(){ return rcSupportati(lavoro).length ? sezioneRcee() : '<div class="passo"><h2>Analisi di combustione</h2><div id="analisi">' + schedeAnalisi() + '</div></div>'; }
-function ridisegnaRcee(){ const c = $('#rcee'); if (c) c.innerHTML = rcBlocco(); aggiornaOssRcee(); }
+function ridisegnaRcee(){ const c = $('#rcee'); if (c) c.innerHTML = rcBlocco(); const l = $('#rcee-lib'); if (l) l.innerHTML = sezioniLibere(); aggiornaOssRcee(); }
 function nuovoRapportoManuale(tipo){
   const m = modelloMan(tipo); if (!m) { alert('Modello non disponibile.'); return; }
   const R = lavoro.r || {}, ap = (R.a || []).filter(x => x.x)[0] || ((R.a || []).length === 1 ? R.a[0] : null);
@@ -2622,11 +2639,12 @@ function sezioneManuale(i, r, tpl, mappa){
       ? `<div class="controllo"><span>${esc(g.titolo)}</span><span class="tris">${g.opz.map(o => chip(g, o)).join('')}</span></div>`
       : `<div class="controllo" style="align-items:flex-start;flex-direction:column"><span>${esc(g.titolo)}</span><span class="chips">${g.opz.map(o => chip(g, o)).join('')}</span></div>`;
   let h = `<div class="passo rcee-blocco"><h2>Allegato RCEE ${esc(TIPI_MAN[r._tipo] || r._tipo)}</h2>
-    <p class="aiuto">Dati di cliente, impianto e azienda già inseriti: controllali e completa il resto. Data, orari, tecnico e firme si compilano da soli; osservazioni, raccomandazioni e prescrizioni sono quelle della sezione "Relazione".</p>
+    <p class="aiuto">Dati di cliente, impianto e azienda già inseriti: controllali e completa il resto. Data, orari, tecnico e firme si compilano da soli.</p>
     ${tpl.verificato ? '' : '<div class="avviso"><b>Modello non ancora confrontato con un PDF di Levante</b>Controlla bene il PDF prima di farlo firmare.</div>'}`;
   const vm = modelliDelTipo(r._tipo), nm = Object.keys(vm);
   if (nm.length > 1) h += `<div class="campo"><label>Modulo (regione)</label><select data-manmod="${i}">${nm.map(k => `<option value="${esc(k)}"${k === r._tpl ? ' selected' : ''}>${esc(etichettaModello(k))}</option>`).join('')}</select></div>`;
   if (apps.length) h += `<div class="campo"><label>Apparecchio (riempie fabbricante, modello, matricola, potenza)</label><select data-manapp="${i}"><option value="">— scrivo io —</option>${apps.map(a => `<option value="${esc(a.id)}"${a.id === r._app ? ' selected' : ''}>${esc([a.c, a.m, a.s ? 'matr. ' + a.s : ''].filter(Boolean).join(' · ') || 'Apparecchio')}</option>`).join('')}</select></div>`;
+  const dovevo = !ossAssegnata;
   const titoli = d.sezioni.map(s => s.titolo); if (titoli.indexOf('') < 0) titoli.unshift('');
   titoli.forEach(t => {
     const campi = d.campi.filter(c => c.sez === t), gr = d.gruppi.filter(g => g.sez === t);
@@ -2634,11 +2652,12 @@ function sezioneManuale(i, r, tpl, mappa){
     const voci = [].concat(campi.map(c => ({y: c.y, x: c.x, c})), gr.map(g => ({y: g.y, x: g.x, g}))).sort((a, z) => (Math.round(a.y / 6) - Math.round(z.y / 6)) || (a.x - z.x));
     let b = '', blocco = [];
     const chiudi = () => { if (blocco.length) { b += '<div class="tre">' + blocco.map(input).join('') + '</div>'; blocco = []; } };
-    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); b += riga(v.g); } });
+    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (v.g.col === 'IMPPUOFUNZIONARE') b += ossProssima(); b += riga(v.g); } });
     chiudi();
     const anag = /^A\.|DATI IDENT/i.test(t);
     h += anag ? `<details class="altre"><summary>${esc(titoloSez(t))} (già compilati)</summary>${b}</details>` : `<h3 class="sottotit">${esc(titoloSez(t) || 'Dati')}</h3>${b}`;
   });
+  if (dovevo && !ossAssegnata) h += ossProssima();
   h += `<div style="margin-top:12px"><button class="btn sec piccolo" type="button" data-togli-man="${i}">Togli questo rapporto</button></div></div>`;
   return h;
 }
@@ -3880,6 +3899,7 @@ function idDaMandare(per, inviati, oggi){
     const inv = inviati[id]; return !inv || !nessunaNovita(confrontaAgende(inv.apps, per[id], oggi));
   });
 }
+const nomeAziendaMail = () => impostazioni.azienda || (datiLevante && datiLevante.azienda && datiLevante.azienda.RAGIONESOCIALE) || '';
 async function inviaMailTecnico(id){
   const chk = $('#chk-completo'); infoUff.completo = !!(chk && chk.checked);
   const pk = pacchettoPer(id, infoUff.completo), nome = pk.tecnico ? pk.tecnico.nome : 'Senza tecnico', a = emailTecnico(nome);
@@ -3889,7 +3909,7 @@ async function inviaMailTecnico(id){
   const dati = new TextEncoder().encode(JSON.stringify(pk));
   let bin = ''; for (let i = 0; i < dati.length; i += 0x8000) bin += String.fromCharCode.apply(null, dati.subarray(i, i + 0x8000));
   const nApp = pk.appuntamenti.length, leggero = pk.tipo === 'aggiornamento';
-  const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.\n\n${impostazioni.azienda || ''}`;
+  const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.\n\n${nomeAziendaMail()}`;
   try {
     const r = await chiamaJson('posta-invia', {a, oggetto: (leggero ? 'Aggiornamento agenda ' : 'Agenda ') + nome + ' – ' + dataIT(isoGiorno(new Date())), testo, allegati: [{nome: fn, tipo: 'text/plain', b64: btoa(bin)}]});
     if (r.ok) salvaInviato(id, pk.appuntamenti);
@@ -3975,7 +3995,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.18.0 (09/10/2026)';
+const VERSIONE_APP = '1.18.2 (09/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
@@ -4545,6 +4565,8 @@ function avvia(){
   const salvaStampa = () => { const r = document.querySelector('input[name="stampa-formato"]:checked'), d = document.querySelector('input[name="stampa-dpi"]:checked'); impostazioni.stampa = {formato: r ? r.value : 'pdf', bn: $('#stampa-bn').checked, dpi: d ? +d.value : 200}; salvaImpostazioni(); aggiornaTile(); };
   document.querySelectorAll('input[name="stampa-formato"],input[name="stampa-dpi"]').forEach(r => r.onchange = salvaStampa); $('#stampa-bn').onchange = salvaStampa;
   $('#b-indietro-imp').onclick = indietro;
+  { let tT = 0, tN = 0; const h = document.querySelector('#v-impostazioni h1'); if (store.get('ass_tec_visibile', false)) document.body.classList.add('tec-visibile');
+    if (h) h.onclick = () => { const t = Date.now(); tN = (t - tT < 1500) ? tN + 1 : 1; tT = t; if (tN >= 5) { tN = 0; const on = !document.body.classList.contains('tec-visibile'); document.body.classList.toggle('tec-visibile', on); store.set('ass_tec_visibile', on); mostraAvviso(on ? 'Impostazioni da tecnico visibili.' : 'Impostazioni da tecnico nascoste.', '', null, 4000); } }; }
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-posizione').onchange = e => { impostazioni.posizione = e.target.checked; salvaImpostazioni(); if (e.target.checked) leggiPosizione(function(){}, function(m){ alert(m); }); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
