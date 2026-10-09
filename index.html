@@ -271,10 +271,34 @@ body.uff:not(.tec-visibile) .solo-tec{display:none}
 body.uff .no-uff{display:none}
 .solo-uff{display:none}
 body.uff .solo-uff{display:block}
-#lic-blocco{position:fixed;inset:0;z-index:80;background:rgba(18,32,41,.94);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#lic-blocco{position:fixed;top:0;left:0;right:0;bottom:0;z-index:80;background:rgba(18,32,41,.94);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
 #lic-blocco[hidden]{display:none}
-.velo-foglio{position:fixed;inset:0;z-index:70;background:rgba(18,32,41,.6);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.velo-foglio{position:fixed;top:0;left:0;right:0;bottom:0;z-index:70;background:rgba(18,32,41,.6);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
 .velo-foglio[hidden]{display:none}
+#scan{position:fixed;top:0;left:0;right:0;bottom:0;z-index:80;background:#10181d;color:#fff;display:flex;flex-direction:column;overflow:auto;-webkit-overflow-scrolling:touch}
+#scan[hidden],#scan video[hidden]{display:none}
+#scan .btn.chiaro{background:#fff;color:#0d5a6a}
+#scan .scan-in{max-width:560px;width:100%;margin:0 auto;padding:14px 16px 24px}
+#scan h2{margin:4px 0 10px;font-size:20px}
+#scan video{display:block;width:100%;max-height:46vh;background:#000;border-radius:12px;object-fit:cover}
+#scan .scan-msg{margin:10px 0;font-size:16px;line-height:1.4}
+#scan .scan-az{display:flex;flex-wrap:wrap;margin:8px -4px}
+#scan .scan-az .btn{margin:4px}
+#scan input[type=text],#scan input[type=search]{width:100%;box-sizing:border-box;padding:12px;font-size:16px;border-radius:10px;border:0;margin:4px 0}
+#scan .scan-box{background:#1d2a32;border-radius:12px;padding:10px 12px;margin-top:10px}
+#scan .scan-box .btn{color:inherit}
+#pin-blocco{position:fixed;top:0;left:0;right:0;bottom:0;z-index:90;background:var(--inchiostro);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#pin-blocco[hidden]{display:none}
+#pin-blocco h2{margin:0 0 6px;font-size:22px}
+#pin-punti{display:flex;gap:14px;margin:18px 0 8px;min-height:20px}
+#pin-punti span{width:16px;height:16px;border-radius:50%;border:2px solid #fff;display:inline-block}
+#pin-punti span.on{background:#fff}
+#pin-tasti{display:grid;grid-template-columns:repeat(3,76px);gap:12px;margin:14px 0}
+#pin-tasti button{height:62px;border-radius:50%;border:0;background:#26404f;color:#fff;font-size:26px;font-weight:700;cursor:pointer}
+#pin-tasti button:active{background:#3d6178}
+#pin-tasti button.vuoto{visibility:hidden}
+#pin-msg{min-height:22px;margin:0;color:#ffb4a8;font-weight:650;text-align:center}
+#pin-scorda{background:none;border:0;color:#a9bdc9;text-decoration:underline;font-size:14px;margin-top:10px;cursor:pointer}
 .velo-foglio .scatola{background:#fff;color:var(--inchiostro);border-radius:14px;max-width:440px;width:100%;padding:18px}
 #lic-blocco .scatola{background:#fff;color:var(--inchiostro);border-radius:14px;max-width:520px;width:100%;padding:20px}
 .codice-lic{font:700 22px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;padding:8px 10px;background:#eef3f6;border-radius:8px;display:inline-block;margin:4px 0}
@@ -460,6 +484,21 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
   <p class="aiuto" id="fg-esito" role="status" style="margin:8px 0 0"></p>
   <div class="azioni" style="display:flex;gap:8px;margin-top:12px"><button class="btn" id="fg-crea" type="button">Crea il PDF</button><button class="btn chiaro" id="fg-chiudi" type="button">Chiudi</button></div>
 </div></div>
+<div id="pin-blocco" hidden role="dialog" aria-modal="true" aria-labelledby="pin-titolo">
+  <h2 id="pin-titolo">Inserisci il PIN</h2>
+  <div id="pin-punti" aria-hidden="true"></div>
+  <p id="pin-msg" role="status"></p>
+  <div id="pin-tasti"></div>
+  <button type="button" id="pin-scorda">Ho dimenticato il PIN</button>
+</div>
+<div id="scan" hidden role="dialog" aria-label="Scansione codice a barre"><div class="scan-in">
+  <h2>Scansiona il codice a barre</h2>
+  <video id="scan-video" playsinline muted autoplay hidden></video>
+  <p class="scan-msg" id="scan-msg"></p>
+  <div id="scan-trovato"></div>
+  <div class="scan-az"><label class="btn" id="scan-foto-l" style="cursor:pointer">Scatta una foto del codice<input type="file" id="scan-foto" accept="image/*" capture="environment" style="display:none"></label>
+  <button class="btn chiaro" type="button" id="scan-num">Scrivi il numero</button><button class="btn sec" type="button" id="scan-chiudi">Chiudi</button></div>
+</div></div>
 <div id="ris-cerca" role="listbox" aria-label="Risultati della ricerca" hidden></div>
 <div class="app">
 
@@ -473,6 +512,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-impostazioni" type="button">Impostazioni</button>
     </header>
     <div id="banner"></div>
+    <div id="da-inviare"></div>
     <div class="uff-azioni" hidden style="margin:0 0 12px">
       <div class="azioni" style="display:flex;flex-wrap:wrap;gap:8px;margin:0"><button class="btn piccolo js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec piccolo js-cartella" type="button">Apri la cartella delle esportazioni</button><button class="btn sec piccolo" id="b-foglio" type="button">Foglio del giorno (PDF)</button></div>
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
@@ -601,6 +641,17 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <p class="aiuto" style="margin:10px 0 6px">Qualità delle immagini (carta A4):</p>
     <label class="tile"><input type="radio" name="stampa-dpi" value="200"><span>Normale, 200 dpi<small>va bene per le stampanti a 203 dpi; file più leggeri</small></span></label>
     <label class="tile"><input type="radio" name="stampa-dpi" value="300"><span>Alta, 300 dpi<small>per le stampanti a 300 dpi: le note piccole dell'RCEE si leggono meglio</small></span></label>
+    </div>
+    <div class="solo-tec">
+    <h2 class="giorno" style="margin-top:26px">Blocco con PIN</h2>
+    <p class="aiuto" style="margin:0 0 8px">Chiede un PIN per aprire l'app: se perdi il telefono o lo lasci in giro, nessuno vede appuntamenti e dati dei clienti. È un blocco dello schermo dell'app, non una cifratura dei dati.</p>
+    <p id="pin-stato" style="margin:0 0 8px"></p>
+    <div class="campo" id="pin-c-att" hidden><label for="pin-attuale">PIN attuale</label><input id="pin-attuale" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></div>
+    <div class="campo"><label for="pin-nuovo">Nuovo PIN (da 4 a 6 cifre)</label><input id="pin-nuovo" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></div>
+    <div class="campo"><label for="pin-ripeti">Ripeti il nuovo PIN</label><input id="pin-ripeti" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></div>
+    <div class="campo" id="pin-c-dopo" hidden><label for="pin-dopo">Chiedilo di nuovo</label><select id="pin-dopo"><option value="-1">Solo quando apro l'app</option><option value="1">Dopo 1 minuto fuori dall'app</option><option value="5">Dopo 5 minuti fuori dall'app</option><option value="15">Dopo 15 minuti fuori dall'app</option><option value="60">Dopo 1 ora fuori dall'app</option></select></div>
+    <div class="azioni" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn piccolo" id="pin-salva" type="button">Imposta il PIN</button><button class="btn sec piccolo" id="pin-togli" type="button" hidden>Togli il PIN</button></div>
+    <p class="aiuto" id="pin-esito" role="status" style="margin:8px 0 0"></p>
     </div>
     <div class="no-uff">
     <h2 class="giorno" style="margin-top:26px">Ufficio</h2>
@@ -929,8 +980,9 @@ function disegnaBanner(){
   const b = $('#banner');
   b.className = 'avviso info';
   if (datiReali) {
-    const g = new Date(datiReali.generato);
-    b.innerHTML = `<b>Dati del ${dataIT(isoGiorno(g))} alle ${hhmm(g)}</b>${datiReali.tecnico ? esc(datiReali.tecnico.nome) + ' · ' : ''}${appuntamenti.length} ${appuntamenti.length === 1 ? 'appuntamento' : 'appuntamenti'}${esitoImport ? '<br>' + esc(esitoImport) : ''}
+    const g = new Date(datiReali.generato), vecchi = !inUfficio && giorniLavorativi(g, new Date()) >= 2;
+    if (vecchi) b.className = 'avviso rosso';
+    b.innerHTML = `<b>${vecchi ? 'Dati non aggiornati' : 'Dati'} del ${dataIT(isoGiorno(g))} alle ${hhmm(g)}</b>${vecchi ? 'Sono passati ' + giorniLavorativi(g, new Date()) + ' giorni di lavoro: chiedi all\'ufficio il file aggiornato, per avere gli appuntamenti e le modifiche più recenti.<br>' : ''}${datiReali.tecnico ? esc(datiReali.tecnico.nome) + ' · ' : ''}${appuntamenti.length} ${appuntamenti.length === 1 ? 'appuntamento' : 'appuntamenti'}${esitoImport ? '<br>' + esc(esitoImport) : ''}
       <div style="margin-top:8px"><button class="btn sec piccolo" id="b-carica" type="button">Aggiorna i dati</button></div>`;
   } else {
     b.innerHTML = `<b>Modalità prova</b>Questi appuntamenti sono di esempio. Per vedere i tuoi, carica il file che ti manda l'ufficio.${esitoImport ? '<br>' + esc(esitoImport) : ''}
@@ -1001,7 +1053,7 @@ function aggiornaNav(){
 }
 function disegnaAgenda(){
   aggiornaNav();
-  disegnaBanner(); disegnaNovita(); disegnaDaCompletare();
+  disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
   $('#s-sett').setAttribute('aria-pressed', periodo === 'sett');
@@ -1592,7 +1644,7 @@ function disegnaScheda(){
       <label class="spunta" style="margin-top:6px"><input type="checkbox" data-dc="1"${lavoro.dc ? ' checked' : ''}> Diritto fisso di chiamata</label>
     </div>
     <div class="passo"><h2>Materiali</h2>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
-      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn sec piccolo" type="button" id="b-add-mat">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce>${ICONA_MIC} Detta i materiali</button></div></div>
+      <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
     <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
       <div id="foto-lista"></div>
       <div class="azioni" style="margin:8px 0"><button class="btn" type="button" data-foto-scatta>Scatta una foto</button><button class="btn sec" type="button" data-foto-galleria>Dalla galleria</button></div>
@@ -3752,7 +3804,8 @@ function costruisciDaLevante(T){
   const files = {};
   (T.docfiles || []).forEach(d => { files[d.id] = {mime: d.mime, b64: d.b64, nome: d.nome}; });
   return {appuntamenti: out, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
-    articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || ''])};
+    articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '']),
+    barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || ''])};
 }
 
 
@@ -3810,7 +3863,7 @@ async function leggiUltimaEsportazione(cambia){
   }
 }
 let datiLevante = null;
-const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli'];
+const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','codici_barre'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 /* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
 async function espandiZip(file){
@@ -3918,7 +3971,7 @@ function disegnaUfficio(){
   const bt = $('#b-mail-tutti'); if (bt) bt.onclick = async () => { bt.disabled = true; const out = []; for (const id of daMandare) { const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico'; infoUff.messaggio = 'Invio a ' + nome + '…'; const m = $('#msg-consegna'); if (m) m.textContent = infoUff.messaggio; const r = await inviaMailTecnico(id); out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio)); } infoUff.messaggio = out.join(' · '); disegnaUfficio(); };
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
-  $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
+  $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
 }
 function riepilogoDocumenti(){
   const n = datiLevante.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
@@ -3949,7 +4002,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || []};
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || [], barre: datiLevante.barre || []};
 }
 async function salvaDati(d, leggero){
   const files = d.files || {}; const dd = Object.assign({}, d); delete dd.files;
@@ -4037,7 +4090,7 @@ async function caricaPacchetto(file){
     if (!d || d.formato !== 'assistenza-v1' || !Array.isArray(d.appuntamenti)) throw new Error('formato');
     const prima = store.get('ass_dati', null);
     const leggero = d.tipo === 'aggiornamento';
-    salvaArticoli(d.articoli);
+    salvaArticoli(d.articoli); salvaBarre(d.barre);
     await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
@@ -4063,10 +4116,10 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.21.1 (09/10/2026)';
+const VERSIONE_APP = '1.23.0 (09/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
-const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js'];
+const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); richiestaInstalla = e; aggiornaStatoApp(); });
 window.addEventListener('appinstalled', () => { richiestaInstalla = null; aggiornaStatoApp(); });
 function inLocaleSicuro(){ return location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); }
@@ -4221,12 +4274,142 @@ function avviaArticoli(){
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-art]'); if (!b || !lavoro) return;
     const a = leggiArticoli()[+b.dataset.art]; if (!a) return;
-    const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
-    if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
-    else lavoro.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
-    $('#materiali').innerHTML = righeMateriali(); $('#mat-cerca').value = ''; $('#mat-cerca-ris').innerHTML = '';
-    const l = document.querySelectorAll('#materiali input[data-c="qta"]'); if (l.length) { l[l.length - 1].focus(); l[l.length - 1].select(); }
-    bozzaModificata();
+    aggiungiArticolo(a);
+    $('#mat-cerca').value = ''; $('#mat-cerca-ris').innerHTML = '';
+  });
+  avviaScanner();
+}
+function aggiungiArticolo(a){
+  const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
+  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
+  else lavoro.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
+  $('#materiali').innerHTML = righeMateriali();
+  const l = document.querySelectorAll('#materiali input[data-c="qta"]'); if (l.length) { l[l.length - 1].focus(); l[l.length - 1].select(); }
+  bozzaModificata();
+}
+/* ==================================================================
+   SCANNER CODICI A BARRE (materiali)
+   Libreria ZXing, caricata solo alla prima scansione. Con la fotocamera "dal vivo" dove il dispositivo la permette;
+   altrimenti (iPad/iPhone vecchi, app sulla schermata Home) si scatta una foto del codice e viene letta da quella.
+   Ricerca: codici imparati dal tecnico -> codici a barre di Levante -> codice articolo uguale al numero letto.
+   ================================================================== */
+let barre = null, barreMappa = null, barreLoc = null, zxLettore = null, scanFlusso = null, scanAttivo = false, scanUltimo = '';
+function leggiBarre(){ if (barre === null) barre = store.get('ass_barre', []) || []; return barre; }
+function salvaBarre(l){
+  if (!Array.isArray(l) || !l.length) return;
+  barre = l; barreMappa = null;
+  try { localStorage.setItem('ass_barre', JSON.stringify(l)); return; } catch(e) {}
+  const ridotto = l.map(r => [r[0], r[1], String(r[2] || '').slice(0, 40), r[3], r[4]]);          // memoria piena: descrizioni accorciate
+  try { localStorage.setItem('ass_barre', JSON.stringify(ridotto)); barre = ridotto; return; } catch(e) {}
+  try { localStorage.removeItem('ass_barre'); } catch(e) {}
+}
+const chiaveBarre = t => String(t == null ? '' : t).toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, '');
+function cercaBarre(testo){
+  const k = chiaveBarre(testo); if (!k) return null;
+  if (barreLoc === null) barreLoc = store.get('ass_barre_loc', {}) || {};
+  if (barreLoc[k]) return barreLoc[k];
+  if (!barreMappa) { barreMappa = {}; leggiBarre().forEach(r => { const c = chiaveBarre(r[0]); if (c && !barreMappa[c]) barreMappa[c] = [r[1], r[2], r[3], r[4]]; }); }
+  if (barreMappa[k]) return barreMappa[k];
+  const art = leggiArticoli();
+  for (let i = 0; i < art.length; i++) if (chiaveBarre(art[i][0]) === k) return art[i];
+  return null;
+}
+function ricordaBarre(testo, a){ const k = chiaveBarre(testo); if (!k) return; if (barreLoc === null) barreLoc = store.get('ass_barre_loc', {}) || {}; barreLoc[k] = a; store.set('ass_barre_loc', barreLoc); }
+function scanMsg(t, errore){ const m = $('#scan-msg'); m.textContent = t; m.style.color = errore ? '#ffb4a8' : '#fff'; }
+function scanFerma(){
+  scanAttivo = false;
+  try { if (zxLettore) zxLettore.reset(); } catch(e) {}
+  const v = $('#scan-video'); if (v) { try { v.pause(); } catch(e) {} v.srcObject = null; v.hidden = true; }
+  if (scanFlusso) { try { scanFlusso.getTracks().forEach(t => t.stop()); } catch(e) {} scanFlusso = null; }
+}
+function scanChiudi(){ scanFerma(); $('#scan').hidden = true; }
+async function scanLibreria(){
+  if (window.ZXing) return;
+  await caricaScript(['zxing.min.js', 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js']);
+}
+function scanLettore(){
+  if (zxLettore) return zxLettore;
+  const Z = window.ZXing, h = new Map();
+  h.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.CODE_93, Z.BarcodeFormat.ITF, Z.BarcodeFormat.CODABAR, Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.DATA_MATRIX]);
+  h.set(Z.DecodeHintType.TRY_HARDER, true);
+  zxLettore = new Z.BrowserMultiFormatReader(h, 300);
+  return zxLettore;
+}
+async function scanApri(){
+  $('#scan').hidden = false; $('#scan-trovato').innerHTML = ''; scanUltimo = '';
+  scanMsg('Preparo lo scanner…');
+  try { await scanLibreria(); } catch(e) {
+    scanMsg('Lo scanner non è ancora salvato su questo dispositivo e senza connessione non si può caricare. Puoi scrivere il numero a mano.', true); return;
+  }
+  const live = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  if (!live) { scanMsg('Questo dispositivo non permette la fotocamera dal vivo: tocca "Scatta una foto del codice" e inquadra bene il codice a barre.'); return; }
+  try {
+    const v = $('#scan-video'); v.hidden = false; scanAttivo = true;
+    scanMsg('Inquadra il codice a barre e tieni fermo.');
+    await scanLettore().decodeFromConstraints({video: {facingMode: {ideal: 'environment'}}, audio: false}, 'scan-video', (ris) => {
+      if (ris && scanAttivo) { const t = ris.getText(); if (t && t !== scanUltimo) { scanUltimo = t; scanRisultato(t); } }
+    });
+  } catch(e) {
+    scanFerma();
+    scanMsg('La fotocamera non è disponibile (permesso negato?). Usa "Scatta una foto del codice" oppure scrivi il numero.', true);
+  }
+}
+function scanImmagine(file){
+  return new Promise((ok, ko) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const max = 1600, r = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); ok(c);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); ko(new Error('immagine')); };
+    img.src = url;
+  });
+}
+function ruotaTela(c){ const o = document.createElement('canvas'); o.width = c.height; o.height = c.width; const x = o.getContext('2d'); x.translate(o.width / 2, o.height / 2); x.rotate(Math.PI / 2); x.drawImage(c, -c.width / 2, -c.height / 2); return o; }
+async function scanDaFoto(file){
+  scanMsg('Leggo la foto…');
+  try {
+    await scanLibreria();
+    let c = await scanImmagine(file), t = null;
+    for (let giro = 0; giro < 2 && !t; giro++) {
+      try { const r = await scanLettore().decodeFromImageUrl(c.toDataURL('image/jpeg', 0.92)); t = r.getText(); } catch(e) {}
+      if (!t) c = ruotaTela(c);                                  // codice scattato in verticale
+    }
+    if (t) scanRisultato(t); else scanMsg('Non riesco a leggere il codice in questa foto. Avvicinati, con buona luce e il codice dritto, e riprova; oppure scrivi il numero.', true);
+  } catch(e) { scanMsg('Non riesco a leggere la foto (' + (e && e.message || 'errore') + '). Puoi scrivere il numero.', true); }
+}
+function scanRisultato(testo){
+  const a = cercaBarre(testo);
+  if (a && lavoro) { scanChiudi(); aggiungiArticolo(a); mostraAvviso('Letto ' + testo + ': ' + a[1]); return; }
+  scanFerma();
+  scanMsg('Codice ' + testo + ' non conosciuto. Scegli l\'articolo oppure scrivilo: la prossima volta verrà riconosciuto da solo.');
+  const ha = leggiArticoli().length > 0;
+  $('#scan-trovato').innerHTML = '<div class="scan-box">' + (ha ? '<input type="search" id="scan-cerca" placeholder="Cerca tra i tuoi articoli" autocomplete="off"><div id="scan-cerca-ris"></div><p style="margin:8px 0 2px">oppure scrivilo a mano:</p>' : '') +
+    '<input type="text" id="scan-descr" placeholder="Descrizione (es. Valvola di zona 3 vie)" autocomplete="off"><input type="text" id="scan-cod" placeholder="Codice articolo (facoltativo)" autocomplete="off"><button class="btn" type="button" id="scan-agg" style="margin-top:6px">Aggiungi e ricorda questo codice</button></div>';
+  $('#scan-trovato').dataset.barre = testo;
+}
+function avviaScanner(){
+  document.addEventListener('click', e => {
+    const t = e.target; if (!t || !t.closest) return;
+    if (t.closest('#b-scan-mat')) { if (lavoro) scanApri(); return; }
+    if (t.closest('#scan-chiudi')) { scanChiudi(); return; }
+    if (t.closest('#scan-num')) { const n = prompt('Numero del codice a barre:'); if (n && n.trim()) scanRisultato(n.trim()); return; }
+    const art = t.closest('[data-scan-art]');
+    if (art) { const a = leggiArticoli()[+art.dataset.scanArt]; const bc = $('#scan-trovato').dataset.barre; if (a && bc) { ricordaBarre(bc, a); scanChiudi(); aggiungiArticolo(a); mostraAvviso('Codice ricordato: ' + a[1]); } return; }
+    if (t.closest('#scan-agg')) {
+      const bc = $('#scan-trovato').dataset.barre, d = $('#scan-descr').value.trim(), c = $('#scan-cod').value.trim();
+      if (!d && !c) { scanMsg('Scrivi almeno la descrizione.', true); return; }
+      const a = [c, d || c, 'pz', '']; ricordaBarre(bc, a); scanChiudi(); aggiungiArticolo(a); mostraAvviso('Codice ricordato per la prossima volta.'); return;
+    }
+  });
+  document.addEventListener('input', e => {
+    if (!e.target || e.target.id !== 'scan-cerca') return;
+    const tutti = leggiArticoli(), ris = risultatiArticoli(e.target.value);
+    $('#scan-cerca-ris').innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-scan-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}</button>`; }).join('');
+  });
+  document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'scan-foto' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanFerma(); scanDaFoto(f); }
   });
 }
 /* ==================================================================
@@ -4482,7 +4665,7 @@ async function controllaServizio(){
       box.className = 'avviso info';
       ultimoZipLetto = j.nome;
       if (datiLevante) {                                 // l'agenda di questo PC (tutti i tecnici) si aggiorna da sola: niente piu' "modalita' prova"
-        salvaArticoli(datiLevante.articoli);
+        salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre);
         await salvaDati({generato: new Date().toISOString(), tecnico: null, appuntamenti: datiLevante.appuntamenti, modelli: datiLevante.modelli, azienda: datiLevante.azienda, files: datiLevante.files});
         if (vistaCorrente === 'agenda') disegnaAgenda();
       }
@@ -4894,10 +5077,119 @@ function avviaFoglio(){
     scaricaBlob(blob, nome); es.textContent = '✔ ' + nome + ' scaricato: aprilo e stampa.';
   };
 }
+
+/* ---- 1.22: avviso rapporti non inviati, dati vecchi, blocco con PIN (app del tecnico) ---- */
+function giorniLavorativi(da, a){
+  const d = new Date(da.getFullYear(), da.getMonth(), da.getDate()), fine = new Date(a.getFullYear(), a.getMonth(), a.getDate()); let n = 0;
+  while (d < fine) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) n++; }
+  return n;
+}
+function disegnaDaInviare(){
+  const box = $('#da-inviare'); if (!box) return;
+  const el = inUfficio ? [] : Object.values(bozze).filter(b => b && b.stato === 'pdf' && !b.inviatoUff).sort((x, y) => (x.aggiornata || 0) - (y.aggiornata || 0));
+  if (!el.length) { box.innerHTML = ''; box.className = ''; return; }
+  const vecchio = el.some(b => Date.now() - (b.aggiornata || 0) > 18 * 3600000);
+  box.className = 'avviso ' + (vecchio ? 'rosso' : 'info');
+  box.innerHTML = `<b>${el.length === 1 ? '1 rapporto da inviare in ufficio' : el.length + ' rapporti da inviare in ufficio'}</b>L'ufficio non li ha ancora ricevuti. Tocca un rapporto e poi «Invia in ufficio».
+    <div style="margin-top:8px">${el.map(b => `<button class="btn sec piccolo" type="button" data-inv="${esc(b.id)}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(b.titolo || b.cliente || 'Intervento')} · pronto alle ${esc(hhmm(new Date(b.aggiornata || Date.now())))}${isoGiorno(new Date(b.aggiornata || Date.now())) !== isoGiorno(new Date()) ? ' del ' + esc(dataIT(isoGiorno(new Date(b.aggiornata)))) : ''}</button>`).join('')}</div>`;
+  box.querySelectorAll('[data-inv]').forEach(x => x.onclick = () => apriBozza(x.dataset.inv));
+}
+function sha256(ascii){
+  const r = (v, a) => (v >>> a) | (v << (32 - a)), maxW = Math.pow(2, 32);
+  let result = '', words = [], bitLen = ascii.length * 8, hash = sha256.h = sha256.h || [], k = sha256.k = sha256.k || [], pc = k.length, comp = {}, i, j;
+  for (let c = 2; pc < 64; c++) if (!comp[c]) { for (i = 0; i < 313; i += c) comp[i] = c; hash[pc] = (Math.pow(c, .5) * maxW) | 0; k[pc++] = (Math.pow(c, 1 / 3) * maxW) | 0; }
+  ascii += '\x80'; while (ascii.length % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii.length; i++) { j = ascii.charCodeAt(i); if (j >> 8) return ''; words[i >> 2] |= j << ((3 - i) % 4) * 8; }
+  words[words.length] = ((bitLen / maxW) | 0); words[words.length] = (bitLen);
+  for (j = 0; j < words.length;) {
+    const w = words.slice(j, j += 16), old = hash; hash = hash.slice(0, 8);
+    for (i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2], a = hash[0], e = hash[4];
+      const t1 = hash[7] + (r(e, 6) ^ r(e, 11) ^ r(e, 25)) + ((e & hash[5]) ^ ((~e) & hash[6])) + k[i] + (w[i] = (i < 16) ? w[i] : (w[i - 16] + (r(w15, 7) ^ r(w15, 18) ^ (w15 >>> 3)) + w[i - 7] + (r(w2, 17) ^ r(w2, 19) ^ (w2 >>> 10))) | 0);
+      const t2 = (r(a, 2) ^ r(a, 13) ^ r(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(t1 + t2) | 0].concat(hash); hash[4] = (hash[4] + t1) | 0;
+    }
+    for (i = 0; i < 8; i++) hash[i] = (hash[i] + old[i]) | 0;
+  }
+  for (i = 0; i < 8; i++) for (j = 3; j + 1; j--) { const b = (hash[i] >> (j * 8)) & 255; result += ((b < 16) ? 0 : '') + b.toString(16); }
+  return result;
+}
+const pinHash = (pin, sale) => { let h = sha256(sale + ':' + pin); for (let i = 0; i < 2000; i++) h = sha256(h + sale); return h; };
+const pinAttivo = () => !!(impostazioni.pin && impostazioni.pin.h) && !document.body.classList.contains('uff');
+const pinGiusto = pin => !!impostazioni.pin && pinHash(pin, impostazioni.pin.s) === impostazioni.pin.h;
+let pinDigitato = '', pinNascostoDa = 0, pinTimer = null;
+function pinRumore(){ try { const a = new Uint8Array(8); (window.crypto || window.msCrypto).getRandomValues(a); return Array.from(a).map(x => ('0' + x.toString(16)).slice(-2)).join(''); } catch(e) { return String(Math.random()).slice(2) + String(Date.now()); } }
+function disegnaPin(msg){
+  const n = impostazioni.pin ? impostazioni.pin.l : 4;
+  $('#pin-punti').innerHTML = Array.from({length: n}, (_, i) => '<span class="' + (i < pinDigitato.length ? 'on' : '') + '"></span>').join('');
+  $('#pin-msg').textContent = msg || '';
+}
+function pinAttesa(){ const e = store.get('ass_pin_err', {n: 0, fino: 0}); return Math.max(0, Math.ceil((e.fino - Date.now()) / 1000)); }
+function bloccaPin(){
+  if (!pinAttivo()) return;
+  pinDigitato = ''; $('#pin-blocco').hidden = false; disegnaPin(); controllaAttesaPin();
+}
+function controllaAttesaPin(){
+  clearInterval(pinTimer); const s = pinAttesa(); if (!s) return;
+  const agg = () => { const r = pinAttesa(); if (!r) { clearInterval(pinTimer); disegnaPin(); } else $('#pin-msg').textContent = 'Troppi tentativi: riprova tra ' + r + ' secondi.'; };
+  agg(); pinTimer = setInterval(agg, 1000);
+}
+function tastoPin(t){
+  if ($('#pin-blocco').hidden || pinAttesa()) return;
+  if (t === 'canc') pinDigitato = pinDigitato.slice(0, -1);
+  else if (/^\d$/.test(t) && pinDigitato.length < impostazioni.pin.l) pinDigitato += t;
+  disegnaPin();
+  if (pinDigitato.length === impostazioni.pin.l) {
+    setTimeout(() => {
+      if (pinGiusto(pinDigitato)) { store.set('ass_pin_err', {n: 0, fino: 0}); $('#pin-blocco').hidden = true; pinDigitato = ''; return; }
+      const e = store.get('ass_pin_err', {n: 0, fino: 0}); e.n++; if (e.n >= 5) e.fino = Date.now() + Math.min(300, 30 * Math.pow(2, e.n - 5)) * 1000; store.set('ass_pin_err', e);
+      pinDigitato = ''; disegnaPin('PIN errato.'); controllaAttesaPin();
+    }, 60);
+  }
+}
+function aggiornaImpPin(){
+  const att = !!(impostazioni.pin && impostazioni.pin.h);
+  $('#pin-stato').innerHTML = att ? '<b>Il blocco con PIN è attivo.</b>' : 'Il blocco con PIN non è attivo.';
+  $('#pin-c-att').hidden = !att; $('#pin-c-dopo').hidden = !att; $('#pin-togli').hidden = !att;
+  $('#pin-salva').textContent = att ? 'Cambia il PIN' : 'Imposta il PIN';
+  if (att) $('#pin-dopo').value = String(impostazioni.pin.min);
+}
+function avviaPin(){
+  const tasti = $('#pin-tasti'); tasti.innerHTML = ['1','2','3','4','5','6','7','8','9','','0','canc'].map(t => t === '' ? '<button type="button" class="vuoto" tabindex="-1" aria-hidden="true"></button>' : `<button type="button" data-pt="${t}" aria-label="${t === 'canc' ? 'Cancella' : t}">${t === 'canc' ? '⌫' : t}</button>`).join('');
+  tasti.onclick = e => { const b = e.target.closest('[data-pt]'); if (b) tastoPin(b.dataset.pt); };
+  document.addEventListener('keydown', e => { if ($('#pin-blocco').hidden) return; if (/^\d$/.test(e.key)) tastoPin(e.key); else if (e.key === 'Backspace') tastoPin('canc'); });
+  $('#pin-scorda').onclick = () => {
+    if (!confirm('Per sbloccare l\'app devo cancellare tutti i dati di questo dispositivo: appuntamenti, schede, bozze e foto non ancora inviate. I rapporti già inviati in ufficio non vengono toccati.\n\nContinuo?')) return;
+    try { Object.keys(localStorage).filter(k => /^ass_/.test(k)).forEach(k => localStorage.removeItem(k)); } catch(e) {}
+    try { indexedDB.deleteDatabase(DB_NOME); } catch(e) {}
+    location.reload();
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { pinNascostoDa = Date.now(); return; }
+    if (pinAttivo() && pinNascostoDa) { const m = impostazioni.pin.min; if (m >= 0 && Date.now() - pinNascostoDa >= m * 60000) bloccaPin(); }
+    pinNascostoDa = 0;
+  });
+  const esito = t => { $('#pin-esito').textContent = t; };
+  $('#pin-salva').onclick = () => {
+    const att = !!(impostazioni.pin && impostazioni.pin.h), n = $('#pin-nuovo').value.trim(), r = $('#pin-ripeti').value.trim();
+    if (att && !pinGiusto($('#pin-attuale').value.trim())) { esito('Il PIN attuale non è giusto.'); return; }
+    if (!/^\d{4,6}$/.test(n)) { esito('Il PIN deve essere di 4, 5 o 6 cifre (solo numeri).'); return; }
+    if (n !== r) { esito('I due PIN non sono uguali.'); return; }
+    const sale = pinRumore();
+    impostazioni.pin = {h: pinHash(n, sale), s: sale, l: n.length, min: att ? impostazioni.pin.min : 5}; salvaImpostazioni();
+    ['#pin-attuale', '#pin-nuovo', '#pin-ripeti'].forEach(x => { $(x).value = ''; }); aggiornaImpPin(); esito('✔ PIN impostato. Non dimenticarlo: se lo perdi si sblocca solo cancellando i dati del dispositivo.');
+  };
+  $('#pin-togli').onclick = () => {
+    if (!pinGiusto($('#pin-attuale').value.trim())) { esito('Scrivi il PIN attuale per toglierlo.'); return; }
+    delete impostazioni.pin; salvaImpostazioni(); $('#pin-attuale').value = ''; aggiornaImpPin(); esito('Blocco con PIN tolto.');
+  };
+  $('#pin-dopo').onchange = e => { if (impostazioni.pin) { impostazioni.pin.min = +e.target.value; salvaImpostazioni(); } };
+  aggiornaImpPin(); bloccaPin();
+}
 function avvia(){
   appuntamenti = caricaAppuntamenti();
   avviaServizio();
-  avviaPosta(); avviaArticoli(); avviaFoglio();
+  avviaPosta(); avviaArticoli(); avviaFoglio(); avviaPin();
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
@@ -4912,6 +5204,7 @@ function avvia(){
   $('#b-indietro-scheda').onclick = indietro;
   $('#b-pdf').onclick = creaPdf;
   $('#b-impostazioni').onclick = () => {
+    try { aggiornaImpPin(); } catch(e) {}
     $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || ''; $('#i-posizione').checked = !!impostazioni.posizione;
     $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});

@@ -5,13 +5,13 @@
      arrivano da soli); se la rete manca o e' troppo lenta si usa la copia memorizzata;
    - il resto (icone, librerie) si usa dalla copia memorizzata.
    Se aggiungi file nuovi all'app, cambia VERSIONE qui sotto e aggiungili all'elenco. */
-const VERSIONE = 'v46';
+const VERSIONE = 'v47';
 const CACHE_APP = 'assistenza-app-' + VERSIONE;
 const CACHE_RICEVUTI = 'assistenza-ricevuti';       // file arrivati dal menu Condividi di Android (per esempio da WhatsApp)
 const FILE_APP = [
   './', './index.html', './manifest.webmanifest',
   './icona-192.png', './icona-512.png', './icona-maskable-512.png', './apple-touch-icon.png',
-  './jspdf.umd.min.js', './pdf.min.js', './pdf.worker.min.js', './pdf-lib.min.js'
+  './jspdf.umd.min.js', './pdf.min.js', './pdf.worker.min.js', './pdf-lib.min.js', './zxing.min.js'
 ];
 const ATTESA_RETE_MS = 4000;
 

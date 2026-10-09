@@ -7,6 +7,7 @@ COSA C'E' IN QUESTA CARTELLA
   manifest.webmanifest    nome e icona dell'app
   icona-192.png, icona-512.png, icona-maskable-512.png, apple-touch-icon.png    le icone
   jspdf.umd.min.js, pdf.min.js, pdf.worker.min.js, pdf-lib.min.js    le librerie per creare, leggere e modificare i PDF
+  zxing.min.js                                                       lo scanner dei codici a barre (si carica solo alla prima scansione)
                           (incluse: non servono siti esterni)
   LICENZE-librerie.txt    le licenze delle librerie
 
