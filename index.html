@@ -295,7 +295,7 @@ body.uff .solo-uff{display:block}
 #login-rete input{font-size:18px;padding:10px 12px;border-radius:8px;border:0;width:min(320px,90vw);margin:14px 0 10px;text-align:center}
 #login-rete p{margin:4px 0;max-width:340px}
 body.remoto .solo-server{display:none !important}
-body.sola #b-nuovo,body.sola #da-completare{display:none !important}
+body.sola #b-nuovo,body.sola #da-completare,body.sola [data-modifica],body.sola [data-carica-mod],body.sola [data-ripristina],body.sola .solo-mod{display:none !important}
 .nota-sola{margin:0;padding:10px 12px;border-radius:8px;background:#eef3f6;color:#26404f;font-size:14px}
 #pin-blocco h2{margin:0 0 6px;font-size:22px}
 #pin-punti{display:flex;gap:14px;margin:18px 0 8px;min-height:20px}
@@ -1347,7 +1347,7 @@ function sezioneDocumenti(a){
   const mie = docs.filter(d => !d.altro), altri = docs.filter(d => d.altro);
   return `<div class="sez"><h2>Documenti<small>${mie.length || docs.length}</small></h2>${mie.map(riga).join('')}
     ${altri.length ? `<details class="altre"><summary>Altri documenti (${altri.length})</summary>${altri.map(riga).join('')}</details>` : ''}
-    <details class="altre"><summary>Modificare con un altro programma</summary>${guidaAltroProgramma()}</details>
+    <details class="altre solo-mod"><summary>Modificare con un altro programma</summary>${guidaAltroProgramma()}</details>
     <p class="aiuto" id="doc-msg" role="status" style="margin-top:6px"></p></div>`;
 }
 function apriDettaglio(id, push = true){
@@ -3209,6 +3209,7 @@ const ED_PENNA = [0.0022, 0.0038, 0.0065], ED_TESTO = [0.0125, 0.0175, 0.0245];
 let ed = null;      // stato dell'editor aperto
 
 async function apriEditor(id, nome){
+  if (sola()) return;
   const msg = $('#doc-msg');
   try {
     if (msg) msg.textContent = 'Preparo l\'editor…';
@@ -3330,6 +3331,7 @@ function annullaUltimo(){
 let docModTarget = null;
 let novitaDaMostrare = false;
 async function caricaVersioneModificata(t, f){
+  if (sola()) return;
   const msg = () => $('#doc-msg');
   try {
     if (f.size > 15 * 1048576) { msg().textContent = 'Il file pesa ' + dimStr(f.size) + ': il limite è 15 MB.'; return; }
@@ -4322,7 +4324,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.25.1 (10/10/2026)';
+const VERSIONE_APP = '1.25.2 (10/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
