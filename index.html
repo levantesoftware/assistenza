@@ -638,9 +638,9 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="strumenti"><span>Firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma-tec" type="button">Cancella firma</button></div></div>
     <p class="aiuto">Le modifiche si salvano da sole. Schede e impostazioni restano su questo dispositivo.</p>
     <h2 class="giorno" style="margin-top:26px">Protezione dei file</h2>
-    <p class="aiuto">I file che viaggiano per mail o WhatsApp (agende dei tecnici e interventi chiusi) vengono <b>cifrati</b> con questo codice: senza, nessuno può leggerli. Il codice è <b>lo stesso in ufficio e su ogni tecnico</b>: si crea una volta in ufficio e si scrive sui dispositivi dei tecnici. Vuoto = file non protetti.</p>
+    <p class="aiuto">I file che viaggiano per mail o WhatsApp (agende dei tecnici e interventi chiusi) vengono <b>cifrati</b> con questo codice: senza, nessuno può leggerli. Il codice è <b>lo stesso in ufficio e su ogni tecnico</b>: lo crea l'ufficio e va scritto qui, uguale. Vuoto = file non protetti.</p>
     <div class="campo"><label for="i-codice">Codice di sicurezza</label><input type="text" id="i-codice" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="nessun codice: file non protetti"></div>
-    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 6px"><button class="btn chiaro piccolo" type="button" id="b-codice-nuovo">Crea un nuovo codice</button><button class="btn chiaro piccolo" type="button" id="b-codice-copia">Copia</button></div>
+    <div class="solo-uff"><div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 6px"><button class="btn chiaro piccolo" type="button" id="b-codice-nuovo">Crea un nuovo codice</button><button class="btn chiaro piccolo" type="button" id="b-codice-copia">Copia</button></div></div>
     <p class="aiuto" id="codice-stato" role="status"></p>
     <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Compilazione veloce</h2>
@@ -4525,7 +4525,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.26.1 (10/10/2026)';
+const VERSIONE_APP = '1.26.2 (10/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
