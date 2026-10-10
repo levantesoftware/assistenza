@@ -637,6 +637,11 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="firma"><canvas id="firma-tec"></canvas><div class="linea"></div></div>
       <div class="strumenti"><span>Firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma-tec" type="button">Cancella firma</button></div></div>
     <p class="aiuto">Le modifiche si salvano da sole. Schede e impostazioni restano su questo dispositivo.</p>
+    <h2 class="giorno" style="margin-top:26px">Protezione dei file</h2>
+    <p class="aiuto">I file che viaggiano per mail o WhatsApp (agende dei tecnici e interventi chiusi) vengono <b>cifrati</b> con questo codice: senza, nessuno può leggerli. Il codice è <b>lo stesso in ufficio e su ogni tecnico</b>: si crea una volta in ufficio e si scrive sui dispositivi dei tecnici. Vuoto = file non protetti.</p>
+    <div class="campo"><label for="i-codice">Codice di sicurezza</label><input type="text" id="i-codice" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="nessun codice: file non protetti"></div>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 6px"><button class="btn chiaro piccolo" type="button" id="b-codice-nuovo">Crea un nuovo codice</button><button class="btn chiaro piccolo" type="button" id="b-codice-copia">Copia</button></div>
+    <p class="aiuto" id="codice-stato" role="status"></p>
     <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Compilazione veloce</h2>
     <div class="campo"><label for="i-frasi">Frasi rapide (una per riga)</label><textarea id="i-frasi" rows="7" placeholder="Una frase per riga"></textarea></div>
@@ -697,7 +702,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:8px"><button class="btn piccolo" id="lic-attiva" type="button">Attiva la chiave</button></div>
     <p class="aiuto" id="lic-esito" role="status" style="margin:8px 0 0"></p>
     <h2 class="giorno" style="margin-top:26px">Copia di sicurezza</h2>
-    <p class="aiuto" style="margin:0 0 8px">Interventi ricevuti, indirizzi email dei tecnici, impostazioni e registro degli invii. Ogni giorno l'app salva da sola una copia nella cartella <b>backup</b> accanto al programma (ultime 14).</p>
+    <p class="aiuto" style="margin:0 0 8px">Interventi ricevuti, indirizzi email dei tecnici, impostazioni e registro degli invii. Ogni giorno l'app salva da sola una copia nella cartella <b>backup</b> accanto al programma (ultime 14). Se hai impostato il <b>codice di sicurezza</b>, le copie sono cifrate: per ripristinarle serve lo stesso codice, quindi <b>conservalo anche fuori dal programma</b>.</p>
     <p class="aiuto" id="bk-stato" role="status" style="margin:0 0 8px"></p>
     <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn sec piccolo" id="bk-salva" type="button">Salva una copia in un file</button><button class="btn sec piccolo" id="bk-apri" type="button">Ripristina da un file…</button></div>
     <input type="file" id="bk-file" accept=".json,application/json" hidden>
@@ -2234,10 +2239,200 @@ async function registraInUfficio(w, files){
     mostraAvviso('Intervento registrato fra quelli ricevuti: lo vedono tutte le postazioni.', '', null, 6000);
   } catch(e) { mostraAvviso('Non sono riuscito a inserirlo fra gli interventi ricevuti: ' + (e.message || e), '', null, 8000); }
 }
-function scaricaPdf(){
-  const fl = filesDaInviare();
-  if (fl.inAttesa) return;
-  const lista = (zipAttivo() && zipCache.zip && fl.length > 1) ? [zipCache.zip] : fl;      // anche dove lo zip non si puo' condividere, il download e' uno zip solo
+/* ==================================================================
+   CIFRATURA dei file che viaggiano (AES-256-CBC + HMAC-SHA256)
+   Formato: "ASSENC1\0" + sale(16) + iv(16) + dati cifrati + firma HMAC(32)
+   Le chiavi derivano dal codice di sicurezza dell'azienda e dal sale (casuale per ogni file).
+   Usa WebCrypto quando c'e'; altrimenti (per esempio in http su rete locale) un'implementazione in JavaScript.
+   ================================================================== */
+const CIFRA = (() => {
+  const MAGIC = [65, 83, 83, 69, 78, 67, 49, 0];
+  /* ---- SHA-256 / HMAC ---- */
+  const primi = []; for (let n = 2; primi.length < 64; n++) { let p = true; for (let d = 2; d * d <= n; d++) if (n % d === 0) { p = false; break; } if (p) primi.push(n); }
+  const frac = x => Math.floor((x - Math.floor(x)) * 4294967296) >>> 0;
+  const K256 = new Uint32Array(primi.map(p => frac(Math.cbrt(p)))), H0 = new Uint32Array(primi.slice(0, 8).map(p => frac(Math.sqrt(p))));
+  function sha256(dati){
+    const h = new Uint32Array(H0), w = new Uint32Array(64), n = dati.length, nBlocchi = Math.floor(n / 64);
+    const blocco = (b, o) => {
+      for (let i = 0; i < 16; i++) { const j = o + i * 4; w[i] = (b[j] << 24) | (b[j + 1] << 16) | (b[j + 2] << 8) | b[j + 3]; }
+      for (let i = 16; i < 64; i++) { const a = w[i - 15], c = w[i - 2]; w[i] = (((a >>> 7) | (a << 25)) ^ ((a >>> 18) | (a << 14)) ^ (a >>> 3)) + w[i - 7] + (((c >>> 17) | (c << 15)) ^ ((c >>> 19) | (c << 13)) ^ (c >>> 10)) + w[i - 16] | 0; }
+      let a = h[0], b2 = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+      for (let i = 0; i < 64; i++) {
+        const t1 = (hh + (((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7))) + ((e & f) ^ (~e & g)) + K256[i] + w[i]) | 0;
+        const t2 = ((((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10))) + ((a & b2) ^ (a & c) ^ (b2 & c))) | 0;
+        hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b2; b2 = a; a = (t1 + t2) | 0;
+      }
+      h[0] = (h[0] + a) | 0; h[1] = (h[1] + b2) | 0; h[2] = (h[2] + c) | 0; h[3] = (h[3] + d) | 0; h[4] = (h[4] + e) | 0; h[5] = (h[5] + f) | 0; h[6] = (h[6] + g) | 0; h[7] = (h[7] + hh) | 0;
+    };
+    for (let i = 0; i < nBlocchi; i++) blocco(dati, i * 64);
+    const resto = n - nBlocchi * 64, coda = new Uint8Array(resto + 9 <= 64 ? 64 : 128);
+    coda.set(dati.subarray(nBlocchi * 64)); coda[resto] = 0x80;
+    const dv = new DataView(coda.buffer); dv.setUint32(coda.length - 8, Math.floor(n / 536870912), false); dv.setUint32(coda.length - 4, (n << 3) >>> 0, false);
+    for (let o = 0; o < coda.length; o += 64) blocco(coda, o);
+    const out = new Uint8Array(32), dv2 = new DataView(out.buffer); for (let i = 0; i < 8; i++) dv2.setUint32(i * 4, h[i] >>> 0, false);
+    return out;
+  }
+  function hmacJS(chiave, dati){
+    let k = chiave; if (k.length > 64) k = sha256(k);
+    const ip = new Uint8Array(64 + dati.length), op = new Uint8Array(96);
+    for (let i = 0; i < 64; i++) { const b = i < k.length ? k[i] : 0; ip[i] = b ^ 0x36; op[i] = b ^ 0x5c; }
+    ip.set(dati, 64); op.set(sha256(ip), 64);
+    return sha256(op);
+  }
+  /* ---- AES ---- */
+  const S = new Uint8Array(256), SI = new Uint8Array(256);
+  { let p = 1, q = 1; do { p = p ^ ((p << 1) & 255) ^ (p & 128 ? 0x1b : 0); q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 255; if (q & 128) q ^= 0x09; const x = q ^ ((q << 1) | (q >> 7)) ^ ((q << 2) | (q >> 6)) ^ ((q << 3) | (q >> 5)) ^ ((q << 4) | (q >> 4)); S[p] = (x ^ 0x63) & 255; } while (p !== 1); S[0] = 0x63; for (let i = 0; i < 256; i++) SI[S[i]] = i; }
+  const mul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = ((a << 1) ^ (a & 128 ? 0x11b : 0)) & 255; b >>= 1; } return r; };
+  const TE = [0, 1, 2, 3].map(() => new Uint32Array(256)), TD = [0, 1, 2, 3].map(() => new Uint32Array(256));
+  for (let i = 0; i < 256; i++) {
+    const s = S[i], t = ((mul(s, 2) << 24) | (s << 16) | (s << 8) | mul(s, 3)) >>> 0;
+    TE[0][i] = t; TE[1][i] = ((t >>> 8) | (t << 24)) >>> 0; TE[2][i] = ((t >>> 16) | (t << 16)) >>> 0; TE[3][i] = ((t >>> 24) | (t << 8)) >>> 0;
+    const v = SI[i], u = ((mul(v, 14) << 24) | (mul(v, 9) << 16) | (mul(v, 13) << 8) | mul(v, 11)) >>> 0;
+    TD[0][i] = u; TD[1][i] = ((u >>> 8) | (u << 24)) >>> 0; TD[2][i] = ((u >>> 16) | (u << 16)) >>> 0; TD[3][i] = ((u >>> 24) | (u << 8)) >>> 0;
+  }
+  function chiaviAes(k){            // k: 32 byte -> {e, d} (14 round)
+    const nk = 8, nr = 14, e = new Uint32Array(4 * (nr + 1));
+    for (let i = 0; i < nk; i++) e[i] = ((k[4 * i] << 24) | (k[4 * i + 1] << 16) | (k[4 * i + 2] << 8) | k[4 * i + 3]) >>> 0;
+    let rc = 1;
+    for (let i = nk; i < e.length; i++) {
+      let t = e[i - 1];
+      if (i % nk === 0) { t = ((S[(t >>> 16) & 255] << 24) | (S[(t >>> 8) & 255] << 16) | (S[t & 255] << 8) | S[t >>> 24]) ^ (rc << 24); rc = mul(rc, 2); }
+      else if (i % nk === 4) t = (S[t >>> 24] << 24) | (S[(t >>> 16) & 255] << 16) | (S[(t >>> 8) & 255] << 8) | S[t & 255];
+      e[i] = (e[i - nk] ^ t) >>> 0;
+    }
+    const d = new Uint32Array(e.length);
+    for (let r = 0; r <= nr; r++) for (let c = 0; c < 4; c++) {
+      const w = e[4 * (nr - r) + c];
+      d[4 * r + c] = (r === 0 || r === nr) ? w : (TD[0][S[w >>> 24]] ^ TD[1][S[(w >>> 16) & 255]] ^ TD[2][S[(w >>> 8) & 255]] ^ TD[3][S[w & 255]]) >>> 0;
+    }
+    return {e, d};
+  }
+  function cbcCifraJS(chiave, iv, dati){      // dati gia' con padding PKCS7, multiplo di 16; modifica sul posto
+    const {e} = chiaviAes(chiave), T0 = TE[0], T1 = TE[1], T2 = TE[2], T3 = TE[3];
+    let p0 = (iv[0] << 24 | iv[1] << 16 | iv[2] << 8 | iv[3]) >>> 0, p1 = (iv[4] << 24 | iv[5] << 16 | iv[6] << 8 | iv[7]) >>> 0, p2 = (iv[8] << 24 | iv[9] << 16 | iv[10] << 8 | iv[11]) >>> 0, p3 = (iv[12] << 24 | iv[13] << 16 | iv[14] << 8 | iv[15]) >>> 0;
+    for (let o = 0; o < dati.length; o += 16) {
+      let s0 = ((dati[o] << 24 | dati[o + 1] << 16 | dati[o + 2] << 8 | dati[o + 3]) ^ p0 ^ e[0]) >>> 0, s1 = ((dati[o + 4] << 24 | dati[o + 5] << 16 | dati[o + 6] << 8 | dati[o + 7]) ^ p1 ^ e[1]) >>> 0, s2 = ((dati[o + 8] << 24 | dati[o + 9] << 16 | dati[o + 10] << 8 | dati[o + 11]) ^ p2 ^ e[2]) >>> 0, s3 = ((dati[o + 12] << 24 | dati[o + 13] << 16 | dati[o + 14] << 8 | dati[o + 15]) ^ p3 ^ e[3]) >>> 0;
+      for (let r = 1; r < 14; r++) {
+        const t0 = T0[s0 >>> 24] ^ T1[(s1 >>> 16) & 255] ^ T2[(s2 >>> 8) & 255] ^ T3[s3 & 255] ^ e[4 * r], t1 = T0[s1 >>> 24] ^ T1[(s2 >>> 16) & 255] ^ T2[(s3 >>> 8) & 255] ^ T3[s0 & 255] ^ e[4 * r + 1], t2 = T0[s2 >>> 24] ^ T1[(s3 >>> 16) & 255] ^ T2[(s0 >>> 8) & 255] ^ T3[s1 & 255] ^ e[4 * r + 2], t3 = T0[s3 >>> 24] ^ T1[(s0 >>> 16) & 255] ^ T2[(s1 >>> 8) & 255] ^ T3[s2 & 255] ^ e[4 * r + 3];
+        s0 = t0 >>> 0; s1 = t1 >>> 0; s2 = t2 >>> 0; s3 = t3 >>> 0;
+      }
+      p0 = (((S[s0 >>> 24] << 24) | (S[(s1 >>> 16) & 255] << 16) | (S[(s2 >>> 8) & 255] << 8) | S[s3 & 255]) ^ e[56]) >>> 0;
+      p1 = (((S[s1 >>> 24] << 24) | (S[(s2 >>> 16) & 255] << 16) | (S[(s3 >>> 8) & 255] << 8) | S[s0 & 255]) ^ e[57]) >>> 0;
+      p2 = (((S[s2 >>> 24] << 24) | (S[(s3 >>> 16) & 255] << 16) | (S[(s0 >>> 8) & 255] << 8) | S[s1 & 255]) ^ e[58]) >>> 0;
+      p3 = (((S[s3 >>> 24] << 24) | (S[(s0 >>> 16) & 255] << 16) | (S[(s1 >>> 8) & 255] << 8) | S[s2 & 255]) ^ e[59]) >>> 0;
+      dati[o] = p0 >>> 24; dati[o + 1] = p0 >>> 16; dati[o + 2] = p0 >>> 8; dati[o + 3] = p0; dati[o + 4] = p1 >>> 24; dati[o + 5] = p1 >>> 16; dati[o + 6] = p1 >>> 8; dati[o + 7] = p1;
+      dati[o + 8] = p2 >>> 24; dati[o + 9] = p2 >>> 16; dati[o + 10] = p2 >>> 8; dati[o + 11] = p2; dati[o + 12] = p3 >>> 24; dati[o + 13] = p3 >>> 16; dati[o + 14] = p3 >>> 8; dati[o + 15] = p3;
+    }
+  }
+  function cbcDecifraJS(chiave, iv, dati){    // dati: multiplo di 16 (cifrato); modifica sul posto, restituisce true
+    const {d} = chiaviAes(chiave), T0 = TD[0], T1 = TD[1], T2 = TD[2], T3 = TD[3];
+    let c0 = (iv[0] << 24 | iv[1] << 16 | iv[2] << 8 | iv[3]) >>> 0, c1 = (iv[4] << 24 | iv[5] << 16 | iv[6] << 8 | iv[7]) >>> 0, c2 = (iv[8] << 24 | iv[9] << 16 | iv[10] << 8 | iv[11]) >>> 0, c3 = (iv[12] << 24 | iv[13] << 16 | iv[14] << 8 | iv[15]) >>> 0;
+    for (let o = 0; o < dati.length; o += 16) {
+      const n0 = (dati[o] << 24 | dati[o + 1] << 16 | dati[o + 2] << 8 | dati[o + 3]) >>> 0, n1 = (dati[o + 4] << 24 | dati[o + 5] << 16 | dati[o + 6] << 8 | dati[o + 7]) >>> 0, n2 = (dati[o + 8] << 24 | dati[o + 9] << 16 | dati[o + 10] << 8 | dati[o + 11]) >>> 0, n3 = (dati[o + 12] << 24 | dati[o + 13] << 16 | dati[o + 14] << 8 | dati[o + 15]) >>> 0;
+      let s0 = (n0 ^ d[0]) >>> 0, s1 = (n1 ^ d[1]) >>> 0, s2 = (n2 ^ d[2]) >>> 0, s3 = (n3 ^ d[3]) >>> 0;
+      for (let r = 1; r < 14; r++) {
+        const t0 = T0[s0 >>> 24] ^ T1[(s3 >>> 16) & 255] ^ T2[(s2 >>> 8) & 255] ^ T3[s1 & 255] ^ d[4 * r], t1 = T0[s1 >>> 24] ^ T1[(s0 >>> 16) & 255] ^ T2[(s3 >>> 8) & 255] ^ T3[s2 & 255] ^ d[4 * r + 1], t2 = T0[s2 >>> 24] ^ T1[(s1 >>> 16) & 255] ^ T2[(s0 >>> 8) & 255] ^ T3[s3 & 255] ^ d[4 * r + 2], t3 = T0[s3 >>> 24] ^ T1[(s2 >>> 16) & 255] ^ T2[(s1 >>> 8) & 255] ^ T3[s0 & 255] ^ d[4 * r + 3];
+        s0 = t0 >>> 0; s1 = t1 >>> 0; s2 = t2 >>> 0; s3 = t3 >>> 0;
+      }
+      const q0 = (((SI[s0 >>> 24] << 24) | (SI[(s3 >>> 16) & 255] << 16) | (SI[(s2 >>> 8) & 255] << 8) | SI[s1 & 255]) ^ d[56] ^ c0) >>> 0,
+            q1 = (((SI[s1 >>> 24] << 24) | (SI[(s0 >>> 16) & 255] << 16) | (SI[(s3 >>> 8) & 255] << 8) | SI[s2 & 255]) ^ d[57] ^ c1) >>> 0,
+            q2 = (((SI[s2 >>> 24] << 24) | (SI[(s1 >>> 16) & 255] << 16) | (SI[(s0 >>> 8) & 255] << 8) | SI[s3 & 255]) ^ d[58] ^ c2) >>> 0,
+            q3 = (((SI[s3 >>> 24] << 24) | (SI[(s2 >>> 16) & 255] << 16) | (SI[(s1 >>> 8) & 255] << 8) | SI[s0 & 255]) ^ d[59] ^ c3) >>> 0;
+      c0 = n0; c1 = n1; c2 = n2; c3 = n3;
+      dati[o] = q0 >>> 24; dati[o + 1] = q0 >>> 16; dati[o + 2] = q0 >>> 8; dati[o + 3] = q0; dati[o + 4] = q1 >>> 24; dati[o + 5] = q1 >>> 16; dati[o + 6] = q1 >>> 8; dati[o + 7] = q1;
+      dati[o + 8] = q2 >>> 24; dati[o + 9] = q2 >>> 16; dati[o + 10] = q2 >>> 8; dati[o + 11] = q2; dati[o + 12] = q3 >>> 24; dati[o + 13] = q3 >>> 16; dati[o + 14] = q3 >>> 8; dati[o + 15] = q3;
+    }
+  }
+  /* ---- utilita' ---- */
+  const sub = (typeof crypto !== 'undefined' && (crypto.subtle || crypto.webkitSubtle)) || null;
+  const casuali = n => { const u = new Uint8Array(n); if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(u); else for (let i = 0; i < n; i++) u[i] = Math.floor(Math.random() * 256); return u; };
+  const testo = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+  const unisci = (...p) => { const u = new Uint8Array(p.reduce((s, x) => s + x.length, 0)); let o = 0; p.forEach(x => { u.set(x, o); o += x.length; }); return u; };
+  const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const ALF = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function genera(){ const u = casuali(20); let s = ''; for (let i = 0; i < 20; i++) { s += ALF[u[i] & 31]; if (i % 5 === 4 && i < 19) s += '-'; } return s; }       // 100 bit
+  const chiavi = (cod, sale) => ({enc: hmacJS(testo(norm(cod)), unisci(testo('enc'), sale)), mac: hmacJS(testo(norm(cod)), unisci(testo('mac'), sale))});
+  const uguali = (a, b) => { let r = a.length ^ b.length; for (let i = 0; i < a.length && i < b.length; i++) r |= a[i] ^ b[i]; return r === 0; };
+  const errore = (codice, msg) => { const e = new Error(msg); e.codice = codice; return e; };
+  async function firma(kMac, dati){
+    if (sub) { try { const k = await sub.importKey('raw', kMac, {name: 'HMAC', hash: {name: 'SHA-256'}}, false, ['sign']); return new Uint8Array(await sub.sign('HMAC', k, dati)); } catch(e) {} }
+    return hmacJS(kMac, dati);
+  }
+  async function cifra(dati, codice){
+    if (!norm(codice)) throw errore('manca', 'Codice di sicurezza mancante.');
+    const sale = casuali(16), iv = casuali(16), k = chiavi(codice, sale), pad = 16 - (dati.length % 16);
+    const tot = new Uint8Array(8 + 16 + 16 + dati.length + pad + 32); tot.set(MAGIC, 0); tot.set(sale, 8); tot.set(iv, 24);
+    let fatto = false;
+    if (sub) {
+      try {
+        const kk = await sub.importKey('raw', k.enc, {name: 'AES-CBC'}, false, ['encrypt']);
+        const ct = new Uint8Array(await sub.encrypt({name: 'AES-CBC', iv}, kk, dati)); if (ct.length === dati.length + pad) { tot.set(ct, 40); fatto = true; }
+      } catch(e) {}
+    }
+    if (!fatto) { const buf = tot.subarray(40, 40 + dati.length + pad); buf.set(dati); buf.fill(pad, dati.length); cbcCifraJS(k.enc, iv, buf); }
+    const corpo = tot.subarray(0, tot.length - 32);
+    tot.set(await firma(k.mac, corpo), tot.length - 32);
+    return tot;
+  }
+  const èCifrato = u => { if (u.length < 8) return false; for (let i = 0; i < 8; i++) if (u[i] !== MAGIC[i]) return false; return true; };
+  async function decifra(dati, codice){
+    if (!èCifrato(dati)) throw errore('formato', 'Il file non è protetto.');
+    if (!norm(codice)) throw errore('manca', 'Il file è protetto: imposta il codice di sicurezza.');
+    if (dati.length < 40 + 16 + 32 || (dati.length - 40 - 32) % 16) throw errore('corrotto', 'File protetto incompleto o danneggiato: chiedi di rimandarlo.');
+    const sale = dati.subarray(8, 24), iv = dati.subarray(24, 40), k = chiavi(codice, sale), n = dati.length;
+    const atteso = await firma(k.mac, dati.subarray(0, n - 32));
+    if (!uguali(atteso, dati.subarray(n - 32))) throw errore('errato', 'Il codice di sicurezza non corrisponde (oppure il file è danneggiato).');
+    const ct = dati.subarray(40, n - 32); let chiaro = null;
+    if (sub) {
+      try { const kk = await sub.importKey('raw', k.enc, {name: 'AES-CBC'}, false, ['decrypt']); chiaro = new Uint8Array(await sub.decrypt({name: 'AES-CBC', iv}, kk, ct)); } catch(e) { chiaro = null; }
+    }
+    if (!chiaro) {
+      const buf = ct.slice(); cbcDecifraJS(k.enc, iv, buf); const pad = buf[buf.length - 1];
+      if (pad < 1 || pad > 16) throw errore('corrotto', 'File protetto danneggiato.');
+      chiaro = buf.subarray(0, buf.length - pad);
+    }
+    return chiaro;
+  }
+  return {cifra, decifra, èCifrato, genera, norm, _js: {sha256, hmacJS, cbcCifraJS, cbcDecifraJS, disattivaSub: () => { /* per i test */ }}, MAGIC};
+})();
+
+/* ---- uso della cifratura nell'app ---- */
+const codiceSic = () => CIFRA.norm(impostazioni.codiceSic || '');
+const protezioneAttiva = () => !!codiceSic();
+const bytesDi = async f => new Uint8Array(await new Response(f).arrayBuffer());
+async function cifraFile(f){ return new File([await CIFRA.cifra(await bytesDi(f), codiceSic())], f.name, {type: f.type}); }
+async function decifraSeCifrato(f){            // un file normale resta com'e'; uno protetto viene aperto col codice (se manca o e' sbagliato: errore con .codice)
+  const testa = await bytesDi(f.slice(0, 8));
+  if (!CIFRA.èCifrato(testa)) return f;
+  const cod = codiceSic(); if (!cod) throw Object.assign(new Error('è protetto: scrivi il codice di sicurezza in Impostazioni (te lo dà l\'ufficio).'), {codice: 'manca'});
+  const n = new File([await CIFRA.decifra(await bytesDi(f), cod)], f.name, {type: f.type}); n.origine = f.origine; n.arrivo = f.arrivo; return n;
+}
+const cifMap = {};
+function voceCifrata(lista){                   // i file protetti si preparano una volta e si riusano (il menu di condivisione li vuole subito pronti)
+  const k = codiceSic() + '|' + lista.map(f => f.name + ':' + f.size).join('|');
+  let v = cifMap[k];
+  if (!v) {
+    const ks = Object.keys(cifMap); if (ks.length > 8) delete cifMap[ks[0]];
+    v = cifMap[k] = {out: null, p: null};
+    v.p = Promise.all(lista.map(cifraFile)).then(o => { v.out = o; try { aggiornaPulsantiInvio(); } catch(e) {} return o; }, e => { delete cifMap[k]; const m = $('#pdf-msg'); if (m) m.textContent = 'Non sono riuscito a proteggere i file: ' + (e.message || e); throw e; });
+    v.p.catch(() => {});
+  }
+  return v;
+}
+function cifraLista(lista){
+  if (!protezioneAttiva() || destInvio === 'cli' || !lista.length) return lista;
+  const v = voceCifrata(lista); if (v.out) return v.out;
+  const l = lista.slice(); l.inAttesa = true; return l;
+}
+function listaScarico(){
+  const fl = filesDaInviarePlain();
+  if (fl.inAttesa) return fl;
+  return (zipAttivo() && zipCache.zip && fl.length > 1) ? [zipCache.zip] : fl;      // anche dove lo zip non si puo' condividere, il download e' uno zip solo
+}
+async function scaricaPdf(){
+  let lista = listaScarico();
+  if (lista.inAttesa) return;
+  if (protezioneAttiva() && destInvio !== 'cli') { const v = voceCifrata(lista); lista = v.out || await v.p; }
   lista.forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
 }
 
@@ -2273,7 +2468,8 @@ function avviaZip(k, comp){
     aggiornaPulsantiInvio();
   }, () => { if (zipCache.chiave === k) { zipCache.inCorso = false; zipCache.noShare = true; aggiornaPulsantiInvio(); } });
 }
-function filesDaInviare(){
+function filesDaInviare(){ return cifraLista(filesDaInviarePlain()); }
+function filesDaInviarePlain(){
   const comp = componentiDaInviare();
   if (!zipAttivo() || comp.length < 2) return comp;
   const k = chiaveZip(ultimiAllegati.filter(a => a.on));
@@ -2296,14 +2492,15 @@ function componentiDaInviare(){
 const blobDi = a => (destInvio === 'cli' && a.blobCli) ? a.blobCli : a.blob;
 function aggiornaPulsantiInvio(){
   const cli = destInvio === 'cli', fl = filesDaInviare();
+  if (!cli) cifraLista(listaScarico());
   const b = $('#b-condividi'), sc = $('#b-scarica'); if (!b) return;
-  b.textContent = fl.inAttesa ? 'Preparo lo zip…' : (cli ? 'Invia al cliente' : 'Invia in ufficio'); b.disabled = !fl.length || !!fl.inAttesa;
+  b.textContent = fl.inAttesa ? (protezioneAttiva() && !cli ? 'Proteggo i file…' : 'Preparo lo zip…') : (cli ? 'Invia al cliente' : 'Invia in ufficio'); b.disabled = !fl.length || !!fl.inAttesa;
   sc.textContent = (fl.length === 1 || (zipAttivo() && zipCache.zip)) ? 'Scarica il file' : 'Scarica i file'; sc.disabled = !fl.length || !!fl.inAttesa;
   const puo = !!(navigator.canShare && fl.length && navigator.canShare({files: fl}));
   const g = $('#invio-guida');
-  if (g) g.innerHTML = puo
+  if (g) g.innerHTML = (!cli && protezioneAttiva() ? (scaricaPossibile ? '<b>🔒 File protetti</b> con il codice di sicurezza: li apre solo l\'ufficio. ' : '<b>⚠ Su questo dispositivo i file partono NON protetti</b> (è troppo vecchio per la protezione). ') : '') + (puo
     ? 'Si apre il menu del dispositivo: scegli <b>WhatsApp</b> (e il contatto dell\'ufficio) oppure la tua app di posta. Per la posta l\'<b>indirizzo viene copiato</b>: nel campo <b>A</b> tieni premuto e scegli <b>Incolla</b>.'
-    : (scaricaPossibile ? 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.' : 'Su questo dispositivo l\'invio automatico non è disponibile: apri ogni file con <b>Apri</b>, poi <b>Condividi</b> e scegli <b>Mail</b> (o l\'app della stampante).');
+    : (scaricaPossibile ? 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.' : 'Su questo dispositivo l\'invio automatico non è disponibile: apri ogni file con <b>Apri</b>, poi <b>Condividi</b> e scegli <b>Mail</b> (o l\'app della stampante).'));
 }
 
 /* ---- messaggio di posta: oggetto e testo pronti ---- */
@@ -4235,10 +4432,11 @@ async function inviaMailTecnico(id, auto){
   if (!a) return {ok: false, messaggio: 'Manca l\'email di ' + nome + '.'};
   const slug = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
   const fn = `appuntamenti_${slug}_${isoGiorno(new Date())}_${hhmm(new Date()).replace(':', '')}.txt`;
-  const dati = new TextEncoder().encode(JSON.stringify(pk));
+  let dati = new TextEncoder().encode(JSON.stringify(pk));
+  const prot = protezioneAttiva(); if (prot) { try { dati = await CIFRA.cifra(dati, codiceSic()); } catch(e) { return {ok: false, messaggio: 'Non sono riuscito a proteggere il file: ' + (e.message || e)}; } }
   let bin = ''; for (let i = 0; i < dati.length; i += 0x8000) bin += String.fromCharCode.apply(null, dati.subarray(i, i + 0x8000));
   const nApp = pk.appuntamenti.length, leggero = pk.tipo === 'aggiornamento';
-  const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.\n\n${nomeAziendaMail()}`;
+  const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.${prot ? '\n\n(Il file è protetto: l\'app lo apre col codice di sicurezza che trovi in Impostazioni.)' : ''}\n\n${nomeAziendaMail()}`;
   try {
     const r = await chiamaJson('posta-invia', {a, oggetto: (leggero ? 'Aggiornamento agenda ' : 'Agenda ') + nome + ' – ' + dataIT(isoGiorno(new Date())), testo, allegati: [{nome: fn, tipo: 'text/plain', b64: btoa(bin)}]});
     if (r.ok) salvaInviato(id, pk.appuntamenti);
@@ -4272,7 +4470,9 @@ async function consegna(id, condividi){
   const pk = pacchettoPer(id, infoUff.completo);
   const slug = (pk.tecnico ? pk.tecnico.nome : 'senza_tecnico').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
   const nome = `appuntamenti_${slug}_${isoGiorno(new Date())}_${hhmm(new Date()).replace(':', '')}.txt`;
-  const file = new File([JSON.stringify(pk)], nome, {type:'text/plain'});   // testo: i browser lo lasciano condividere
+  let file;
+  try { file = new File([protezioneAttiva() ? await CIFRA.cifra(new TextEncoder().encode(JSON.stringify(pk)), codiceSic()) : JSON.stringify(pk)], nome, {type:'text/plain'}); }   // testo: i browser lo lasciano condividere
+  catch(e) { infoUff.messaggio = 'Non sono riuscito a proteggere il file: ' + (e.message || e); disegnaUfficio(); return; }
   const msg = $('#msg-consegna');
   const fatto = testo => { salvaInviato(id, pk.appuntamenti); infoUff.messaggio = testo; disegnaUfficio(); };
   if (file.size > 12 * 1048576 && msg) msg.textContent = 'Attenzione: il file pesa ' + dimStr(file.size) + '. Se WhatsApp lo rifiuta, mandalo per mail o riduci i documenti allegati.';
@@ -4294,6 +4494,7 @@ async function consegna(id, condividi){
 async function caricaPacchetto(file){
   esitoImport = '';
   try {
+    file = await decifraSeCifrato(file);
     const d = JSON.parse(await file.text());
     if (!d || d.formato !== 'assistenza-v1' || !Array.isArray(d.appuntamenti)) throw new Error('formato');
     const prima = store.get('ass_dati', null);
@@ -4313,7 +4514,7 @@ async function caricaPacchetto(file){
         else esitoImport += ' Nessuna novità rispetto a prima.';
       }
     } catch(e){}
-  } catch(e) { esitoImport = 'Il file non è valido: chiedi all\'ufficio di rimandarlo.'; }
+  } catch(e) { esitoImport = e && e.codice ? (e.codice === 'manca' ? 'Il file ' + e.message : e.message) : 'Il file non è valido: chiedi all\'ufficio di rimandarlo.'; }
   disegnaAgenda();
   if (novitaDaMostrare) { novitaDaMostrare = false; setTimeout(apriNovita, 200); }
 }
@@ -4324,7 +4525,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.25.2 (10/10/2026)';
+const VERSIONE_APP = '1.26.1 (10/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -4763,7 +4964,12 @@ function disegnaPosta(){
 }
 const ESITI_BREVI = {concluso: 'Concluso', da_completare: 'Da completare', non_eseguito: 'Non eseguito'};
 async function leggiPosta(files){
-  let nuovi = 0, agg = 0, pdf = 0, altri = 0, nZip = 0;
+  let nuovi = 0, agg = 0, pdf = 0, altri = 0, nZip = 0, protetti = 0, motivoProt = '';
+  if (files.length) {            // i file protetti si aprono col codice di sicurezza; quelli che non si riescono ad aprire restano nella cartella «arrivo»
+    const aperti = [];
+    for (const f of files) { try { aperti.push(await decifraSeCifrato(f)); } catch(e) { protetti++; motivoProt = e.codice === 'manca' ? 'manca il codice di sicurezza (Impostazioni)' : (e.codice === 'errato' ? 'il codice di sicurezza non corrisponde' : 'file protetto danneggiato'); } }
+    files = aperti;
+  }
   if (files.some(f => /\.zip$/i.test(f.name))) {            // la mail con piu' file arriva in un unico zip: lo apro e leggo quello che contiene
     let tutti = files.filter(f => !/\.zip$/i.test(f.name));
     for (const z of files.filter(f => /\.zip$/i.test(f.name))) {
@@ -4801,7 +5007,7 @@ async function leggiPosta(files){
     if (i >= 0) { o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { posta.push(o); nuovi++; }
   }
   salvaPosta();
-  $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.';
+  $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.' + (protetti ? ' ⚠ ' + protetti + (protetti === 1 ? ' file protetto non letto' : ' file protetti non letti') + ': ' + motivoProt + '.' : '');
   disegnaPosta();
   return {nuovi, agg};
 }
@@ -5212,6 +5418,19 @@ function raccogliBackup(){
   const k = {}; try { for (let i = 0; i < localStorage.length; i++) { const n = localStorage.key(i); if (/^ass_/.test(n)) k[n] = localStorage.getItem(n); } } catch(e) {}
   return {formato: 'assistenza-backup-v1', creato: new Date().toISOString(), versione: VERSIONE_APP, chiavi: k};
 }
+/* con il codice di sicurezza attivo le copie di sicurezza sono cifrate (dentro una busta JSON, cosi' il servizio le tratta come le altre) */
+async function backupPronto(b){
+  if (!protezioneAttiva()) return b;
+  const u = await CIFRA.cifra(new TextEncoder().encode(JSON.stringify(b)), codiceSic());
+  let bin = ''; for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return {formato: 'assistenza-backup-cifrato-v1', creato: b.creato, dati: btoa(bin)};
+}
+async function backupAperto(o){
+  if (!o || o.formato !== 'assistenza-backup-cifrato-v1') return o;
+  if (!codiceSic()) throw new Error('La copia è protetta: scrivi prima il codice di sicurezza in Impostazioni (lo stesso usato quando è stata fatta).');
+  const bin = atob(o.dati), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return JSON.parse(new TextDecoder().decode(await CIFRA.decifra(u, codiceSic())));
+}
 function applicaBackup(b){
   if (!b || b.formato !== 'assistenza-backup-v1' || !b.chiavi || typeof b.chiavi !== 'object') throw new Error('Non è un file di copia di sicurezza di Assistenza.');
   const nomi = Object.keys(b.chiavi).filter(n => /^ass_/.test(n) && typeof b.chiavi[n] === 'string');
@@ -5226,7 +5445,7 @@ function applicaBackup(b){
 let ultimoBackup = 0;
 async function copiaAutomatica(){
   if (!inUfficio || inRemoto || (licenzaStato && licenzaStato.ok === false)) return;
-  try { const r = await chiamaJson('backup-salva', raccogliBackup()); if (r && r.ok) ultimoBackup = Date.now(); } catch(e) {}
+  try { const r = await chiamaJson('backup-salva', await backupPronto(raccogliBackup())); if (r && r.ok) ultimoBackup = Date.now(); } catch(e) {}
   aggiornaElencoBackup();
 }
 async function aggiornaElencoBackup(){
@@ -5242,10 +5461,10 @@ function avviaLicenzaBackup(){
   controllaLicenza(); setInterval(controllaLicenza, 3600000);
   $('#lic-attiva').onclick = () => attivaLicenza('#lic-chiave', '#lic-esito');
   $('#lb-attiva').onclick = () => attivaLicenza('#lb-chiave', '#lb-esito');
-  $('#bk-salva').onclick = () => { const b = raccogliBackup(); scaricaBlob(new Blob([JSON.stringify(b)], {type: 'application/json'}), 'Backup_Assistenza_' + isoGiorno(new Date()) + '.json'); $('#bk-esito').textContent = 'Copia salvata nei download.'; };
+  $('#bk-salva').onclick = async () => { try { const b = await backupPronto(raccogliBackup()); scaricaBlob(new Blob([JSON.stringify(b)], {type: 'application/json'}), 'Backup_Assistenza_' + isoGiorno(new Date()) + '.json'); $('#bk-esito').textContent = protezioneAttiva() ? 'Copia protetta salvata nei download.' : 'Copia salvata nei download.'; } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || x); } };
   $('#bk-apri').onclick = () => $('#bk-file').click();
-  $('#bk-file').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { applicaBackup(JSON.parse(await f.text())); } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || 'File non valido.'); } };
-  $('#bk-ripristina').onclick = async () => { const n = $('#bk-elenco').value; if (!n) return; try { applicaBackup(await (await fetch('backup-file?nome=' + encodeURIComponent(n), {cache: 'no-store'})).json()); } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || 'Copia non leggibile.'); } };
+  $('#bk-file').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { applicaBackup(await backupAperto(JSON.parse(await f.text()))); } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || 'File non valido.'); } };
+  $('#bk-ripristina').onclick = async () => { const n = $('#bk-elenco').value; if (!n) return; try { applicaBackup(await backupAperto(await (await fetch('backup-file?nome=' + encodeURIComponent(n), {cache: 'no-store'})).json())); } catch(x) { $('#bk-esito').textContent = '✘ ' + (x.message || 'Copia non leggibile.'); } };
   aggiornaElencoBackup(); setTimeout(copiaAutomatica, 20000); setInterval(copiaAutomatica, 2 * 3600000);
 }
 
@@ -5471,6 +5690,7 @@ function avvia(){
   $('#b-impostazioni').onclick = () => {
     try { aggiornaImpPin(); } catch(e) {}
     $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || ''; $('#i-posizione').checked = !!impostazioni.posizione;
+    $('#i-codice').value = impostazioni.codiceSic || ''; aggiornaCodiceStato();
     $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
@@ -5485,6 +5705,10 @@ function avvia(){
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-posizione').onchange = e => { impostazioni.posizione = e.target.checked; salvaImpostazioni(); if (e.target.checked) leggiPosizione(function(){}, function(m){ alert(m); }); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
+  const aggiornaCodiceStato = () => { const c = codiceSic(), el = $('#codice-stato'); if (el) el.textContent = c ? (c.length < 12 ? '⚠ Codice troppo corto: usa «Crea un nuovo codice».' : '🔒 Protezione attiva. Non perdere questo codice: senza non si aprono i file protetti.') : 'Protezione non attiva: i file viaggiano in chiaro.'; };
+  $('#i-codice').oninput = e => { impostazioni.codiceSic = e.target.value.trim().toUpperCase() || undefined; salvaImpostazioni(); aggiornaCodiceStato(); };
+  $('#b-codice-nuovo').onclick = () => { if (codiceSic() && !confirm('Esiste già un codice. Se ne crei uno nuovo, devi riscriverlo su tutti i dispositivi dei tecnici e in ufficio, e i file già inviati col vecchio codice non si apriranno più. Continuo?')) return; impostazioni.codiceSic = CIFRA.genera(); salvaImpostazioni(); $('#i-codice').value = impostazioni.codiceSic; aggiornaCodiceStato(); };
+  $('#b-codice-copia').onclick = async () => { const c = impostazioni.codiceSic || ''; if (!c) return; try { await navigator.clipboard.writeText(c); $('#codice-stato').textContent = 'Codice copiato.'; } catch(e) { const i = $('#i-codice'); i.focus(); i.select(); $('#codice-stato').textContent = 'Seleziona e copia il codice dal campo qui sopra.'; } };
   $('#i-email-ufficio').oninput = e => { impostazioni.emailUfficio = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-frasi').oninput = e => { const f = e.target.value.split('\n').map(x => x.trim()).filter(Boolean); impostazioni.frasi = f.length ? f : undefined; salvaImpostazioni(); };
   $('#i-frase-std').oninput = e => { impostazioni.fraseStandard = e.target.value.trim() || undefined; salvaImpostazioni(); };
