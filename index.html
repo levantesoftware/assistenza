@@ -312,7 +312,8 @@ textarea.chiave-lic{width:100%;min-height:84px;font:13px/1.35 ui-monospace,Menlo
 #ris-cerca button.ris:hover,#ris-cerca button.ris:focus{background:#eef3f6}
 #ris-cerca .ris small{display:block;color:var(--grigio,#5b6b75);font-size:13px;margin-top:2px}
 #ris-cerca .vuoto-r{padding:14px 6px;color:var(--grigio,#5b6b75)}
-#nav-uff #nav-badge-inv{background:var(--petrolio)}
+#nav-uff #nav-badge-inv{background:var(--fiamma);font-weight:700;animation:campanello 2.4s ease-in-out infinite}
+@keyframes campanello{0%,100%{transform:none}8%{transform:rotate(-12deg)}16%{transform:rotate(10deg)}24%{transform:rotate(-6deg)}32%{transform:none}}
 body.uff #b-indietro-uff,body.uff #b-indietro-posta,body.uff #b-impostazioni{display:none}
 #tab-tec{display:none}
 body.uff #tab-tec{display:flex;gap:6px;margin:10px 0 4px;overflow-x:auto;padding-bottom:2px}
@@ -769,14 +770,15 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       </div>
       <div id="pa-archivio" hidden><label class="spunta" style="margin:0 0 8px"><input type="checkbox" id="pa-archivia" checked> Quando l'intervento è registrato in Levante, sposta i suoi file nella sottocartella «Registrati» (non vengono cancellati)</label></div>
       <div id="pa-comuni" hidden>
-        <div class="tre"><div class="campo largo"><label for="pa-filtro">Parola nell'oggetto della mail</label><input id="pa-filtro" type="text" autocomplete="off" value="Intervento"></div>
+        <div class="tre"><div class="campo largo"><label for="pa-filtro">Parola nell'oggetto della mail o nel nome del file</label><input id="pa-filtro" type="text" autocomplete="off" value="Intervento"></div>
           <div class="campo"><label for="pa-minuti">Ogni (minuti)</label><input id="pa-minuti" type="text" inputmode="numeric" value="3"></div></div>
         <div class="campo"><label for="pa-giorni">Guarda indietro di (giorni)</label><input id="pa-giorni" type="text" inputmode="numeric" value="14"></div>
       </div>
-      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:8px">
+      <div class="azioni" style="display:flex;flex-wrap:wrap;justify-content:start;margin-top:8px">
         <button class="btn piccolo" type="button" id="pa-salva">Salva</button>
         <button class="btn sec piccolo" type="button" id="pa-prova">Prova il collegamento</button>
         <button class="btn sec piccolo" type="button" id="pa-ora">Controlla adesso</button>
+        <button class="btn sec piccolo" type="button" id="pa-rileggi" title="Dimentica le mail già lette e rileggi quelle degli ultimi giorni">Rileggi le mail già lette</button>
       </div>
       <p class="aiuto" id="pa-msg" role="status" style="margin:8px 0 0"></p>
       <p class="aiuto" style="margin:8px 0 0"><b>Quale scegliere?</b> Con Gmail o un hosting va bene «Leggi la casella». Se usate <b>Outlook classico</b> sul PC, scegli «Leggi Outlook». Con Microsoft 365 / outlook.com (che non accettano più le password semplici) o con qualsiasi altro programma, imposta nel tuo programma di posta una regola che salva gli allegati delle mail «Intervento…» in una cartella, e scegli «Controlla una cartella».</p>
@@ -1042,6 +1044,7 @@ function tabTecnici(elenco){
   box.innerHTML = b('', 'Tutti', elenco.length) + nomi.map(n => b(n, n, conta[n] || 0)).join('');
   box.querySelectorAll('button').forEach(x => x.onclick = () => { filtroTec = x.dataset.tec; store.set('ass_tec_filtro', filtroTec); disegnaAgenda(); });
 }
+let campanelloPrima = null;
 function aggiornaNav(){
   document.body.classList.toggle('uff', !!inUfficio);
   const att = vistaCorrente === 'posta' ? 'posta' : vistaCorrente === 'ufficio' ? 'ufficio' : vistaCorrente === 'impostazioni' ? 'impostazioni' : 'agenda';
@@ -1049,7 +1052,7 @@ function aggiornaNav(){
   const n = posta.filter(r => !r.fatto).length, bd = $('#nav-badge');
   if (bd) { bd.hidden = !n; bd.textContent = n; }
   const bi = $('#nav-badge-inv');
-  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); }
+  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
 }
 function disegnaAgenda(){
   aggiornaNav();
@@ -3812,6 +3815,7 @@ function costruisciDaLevante(T){
 /* ---- ufficio: si ricorda cosa e' stato mandato a ogni tecnico, per mostrare le variazioni e mandare aggiornamenti leggeri ---- */
 const leggiInviati = () => store.get('ass_inviati', {});
 function salvaInviato(id, apps){
+  setTimeout(() => { try { aggiornaNav(); } catch(e) {} }, 0);
   const inv = leggiInviati();
   inv[id] = {quando: new Date().toISOString(),
     apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', urgente: !!a.urgente, fatto: !!a.fatto})),
@@ -3869,7 +3873,20 @@ const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCE
 async function espandiZip(file){
   const buf = new Uint8Array(await new Response(file).arrayBuffer()), dv = new DataView(buf.buffer), dec = new TextDecoder('utf-8'), out = [];
   let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
-  if (e < 0) throw new Error('zip non valido');
+  if (e < 0) {                                           // zip senza indice finale (arrivato troncato?): recupero i file completi leggendo le intestazioni una per una
+    let q = 0, rec = 0;
+    while (q + 30 <= buf.length && dv.getUint32(q, true) === 0x04034b50) {
+      const fl = dv.getUint16(q + 6, true), met = dv.getUint16(q + 8, true), csz = dv.getUint32(q + 18, true), nl = dv.getUint16(q + 26, true), el = dv.getUint16(q + 28, true);
+      if ((fl & 8) || met !== 0) break;
+      const ini = q + 30 + nl + el; if (ini + csz > buf.length) break;
+      const nome = dec.decode(buf.subarray(q + 30, q + 30 + nl)).replace(/\\/g, '/').split('/').pop().normalize('NFC');
+      if (nome && nome[0] !== '.') { out.push(new File([buf.slice(ini, ini + csz)], nome)); rec++; }
+      q = ini + csz;
+    }
+    if (!rec) throw new Error('zip non valido o incompleto (' + buf.length + ' byte): chiedi al tecnico di rimandarlo');
+    out.incompleto = true;
+    return out;
+  }
   let n = dv.getUint16(e + 10, true), q = dv.getUint32(e + 16, true);
   while (n-- > 0 && dv.getUint32(q, true) === 0x02014b50) {
     const met = dv.getUint16(q + 10, true), csz = dv.getUint32(q + 20, true), nl = dv.getUint16(q + 28, true), el = dv.getUint16(q + 30, true), cl = dv.getUint16(q + 32, true), off = dv.getUint32(q + 42, true);
@@ -3967,8 +3984,8 @@ function disegnaUfficio(){
   esito.innerHTML = h;
   esito.querySelectorAll('[data-invia]').forEach(b => b.onclick = () => consegna(b.dataset.invia, true));
   esito.querySelectorAll('[data-email]').forEach(i => i.onchange = () => { (impostazioni.emailTecnici = impostazioni.emailTecnici || {})[i.dataset.email] = i.value.trim(); salvaImpostazioni(); disegnaUfficio(); });
-  esito.querySelectorAll('[data-mail]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await inviaMailTecnico(b.dataset.mail); infoUff.messaggio = r.messaggio; disegnaUfficio(); });
-  const bt = $('#b-mail-tutti'); if (bt) bt.onclick = async () => { bt.disabled = true; const out = []; for (const id of daMandare) { const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico'; infoUff.messaggio = 'Invio a ' + nome + '…'; const m = $('#msg-consegna'); if (m) m.textContent = infoUff.messaggio; const r = await inviaMailTecnico(id); out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio)); } infoUff.messaggio = out.join(' · '); disegnaUfficio(); };
+  esito.querySelectorAll('[data-mail]').forEach(b => b.onclick = async () => { b.disabled = true; const t0 = b.textContent; b.textContent = 'Invio in corso…'; mostraAvviso('Invio della mail in corso…', '', null, 60000); let r; try { r = await inviaMailTecnico(b.dataset.mail); } catch(e) { r = {ok: false, messaggio: 'Invio non riuscito.'}; } infoUff.messaggio = (r && r.messaggio) || (r && r.ok ? 'Mail inviata.' : 'Invio non riuscito: controlla la posta in uscita.'); mostraAvviso((r && r.ok ? '✔ ' : '✖ ') + infoUff.messaggio, '', null, r && r.ok ? 6000 : 12000); disegnaUfficio(); });
+  const bt = $('#b-mail-tutti'); if (bt) bt.onclick = async () => { bt.disabled = true; const out = []; for (const id of daMandare) { const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico'; infoUff.messaggio = 'Invio a ' + nome + '…'; const m = $('#msg-consegna'); if (m) m.textContent = infoUff.messaggio; mostraAvviso(infoUff.messaggio, '', null, 60000); const r = await inviaMailTecnico(id); out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio)); } infoUff.messaggio = out.join(' · '); mostraAvviso(infoUff.messaggio, '', null, 12000); disegnaUfficio(); };
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
   $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
@@ -4116,7 +4133,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.23.0 (09/10/2026)';
+const VERSIONE_APP = '1.23.5 (10/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -4545,7 +4562,7 @@ async function leggiPosta(files){
     let tutti = files.filter(f => !/\.zip$/i.test(f.name));
     for (const z of files.filter(f => /\.zip$/i.test(f.name))) {
       try { tutti = tutti.concat((await espandiZip(z)).filter(x => !/\.zip$/i.test(x.name)).map(x => { x.origine = z.name; x.arrivo = z.arrivo; return x; })); nZip++; }
-      catch(e) { $('#posta-msg').textContent = 'Non riesco ad aprire lo zip "' + z.name + '": ' + (e.message || 'file non valido'); return; }
+      catch(e) { $('#posta-msg').textContent = 'Non riesco ad aprire lo zip "' + z.name + '": ' + (e.message || 'file non valido') + ' Il file resta nella cartella «arrivo».'; return; }
     }
     files = tutti;
   }
@@ -4665,7 +4682,7 @@ async function controllaServizio(){
       box.className = 'avviso info';
       ultimoZipLetto = j.nome;
       if (datiLevante) {                                 // l'agenda di questo PC (tutti i tecnici) si aggiorna da sola: niente piu' "modalita' prova"
-        salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre);
+        salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); try { aggiornaNav(); } catch(e) {}
         await salvaDati({generato: new Date().toISOString(), tecnico: null, appuntamenti: datiLevante.appuntamenti, modelli: datiLevante.modelli, azienda: datiLevante.azienda, files: datiLevante.files});
         if (vistaCorrente === 'agenda') disegnaAgenda();
       }
@@ -4753,6 +4770,7 @@ async function giroPostaAuto(){
     }
     if (!files.length) return;
     const ris = await leggiPosta(files.map(x => x.file));
+    if (!ris) return;                                   // lettura non riuscita (es. zip non valido): i file restano in «arrivo», non vanno tra gli importati
     for (const x of files) { try { await chiamaJson('posta-fatto', {nome: x.nome}); } catch(e) {} }
     if (ris && ris.nuovi) avvisaDesktop('Nuovo intervento in arrivo', ris.nuovi === 1 ? 'Un intervento da registrare.' : ris.nuovi + ' interventi da registrare.');
     if (ris && (ris.nuovi || ris.agg)) mostraAvviso('Posta dei tecnici: ' + (ris.nuovi ? ris.nuovi + (ris.nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') : ris.agg + ' aggiornati') + '.', 'Apri', () => { disegnaPosta(); mostra('posta'); }, 15000);
@@ -4770,6 +4788,7 @@ function avviaPostaAuto(){
   const msg = t => { $('#pa-msg').textContent = t; };
   $('#pa-salva').onclick = async () => { try { const r = await chiamaJson('posta-config', datiFormPosta()); $('#pa-pwd').value = ''; caricaPostaAuto.fatto = false; await caricaPostaAuto(); msg(r.ok ? 'Salvato.' : 'Non sono riuscito a salvare.'); } catch(e) { msg('Il servizio non risponde.'); } };
   $('#pa-prova').onclick = async () => { msg('Provo il collegamento…'); try { await chiamaJson('posta-config', datiFormPosta()); $('#pa-pwd').value = ''; const r = await chiamaJson('posta-prova'); msg((r.ok ? '✔ ' : '✘ ') + r.messaggio); } catch(e) { msg('Il servizio non risponde.'); } };
+  $('#pa-rileggi').onclick = async () => { if (!confirm('Rileggo le mail degli ultimi giorni anche se già lette? I rapporti già registrati non vengono duplicati se li hai già segnati come fatti.')) return; msg('Rileggo la posta…'); try { const z = await chiamaJson('posta-azzera-visti'); if (!z.ok) { msg('✘ Non sono riuscito ad azzerare l\'elenco.'); return; } const r = await chiamaJson('posta-controlla'); msg((r.ok ? '' : '✘ ') + r.messaggio); await giroPostaAuto(); caricaPostaAuto(); } catch(e) { msg('Il servizio non risponde.'); } };
   $('#pa-ora').onclick = async () => { msg('Controllo la posta…'); try { const r = await chiamaJson('posta-controlla'); msg((r.ok ? '' : '✘ ') + r.messaggio); await giroPostaAuto(); caricaPostaAuto(); } catch(e) { msg('Il servizio non risponde.'); } };
 }
 function aggiornaAuto(s){
