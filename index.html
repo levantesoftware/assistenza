@@ -269,6 +269,7 @@ body.uff #nav-uff{display:flex;gap:6px;padding:8px max(12px,env(safe-area-inset-
 /* sul PC dell'ufficio le impostazioni da tecnico non servono: restano raggiungibili toccando 5 volte il titolo «Impostazioni» */
 body.uff:not(.tec-visibile) .solo-tec{display:none}
 body.uff .no-uff{display:none}
+body:not(.uff):not(.tec-visibile) .blocco-uff-tec{display:none}
 .solo-uff{display:none}
 body.uff .solo-uff{display:block}
 #lic-blocco{position:fixed;top:0;left:0;right:0;bottom:0;z-index:80;background:rgba(18,32,41,.94);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
@@ -674,7 +675,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div class="azioni" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn piccolo" id="pin-salva" type="button">Imposta il PIN</button><button class="btn sec piccolo" id="pin-togli" type="button" hidden>Togli il PIN</button></div>
     <p class="aiuto" id="pin-esito" role="status" style="margin:8px 0 0"></p>
     </div>
-    <div class="no-uff">
+    <div class="no-uff blocco-uff-tec">
     <h2 class="giorno" style="margin-top:26px">Ufficio</h2>
     <p class="aiuto" style="margin-bottom:10px">Da qui si caricano i file esportati da Levante e si preparano i file da mandare ai tecnici.</p>
     <button class="btn pieno" id="b-ufficio" type="button">Prepara i file da Levante</button>
@@ -4539,7 +4540,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.27.0 (11/10/2026)';
+const VERSIONE_APP = '1.27.1 (11/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
