@@ -4465,15 +4465,18 @@ async function caricaSmtp(rifai){
   const era = smtpPronto; smtpPronto = !!c.smtp_pronto;
   if (!caricaSmtp.fatto) { caricaSmtp.fatto = true;
     $('#sm-server').value = c.smtp_server || ''; $('#sm-porta').value = c.smtp_porta || 465; $('#sm-sic').value = c.smtp_sicurezza || 'ssl'; $('#sm-utente').value = c.smtp_utente || ''; $('#sm-da').value = c.smtp_da || '';
+    $('#sm-preset').value = presetDi(c.smtp_server);
     $('#sm-pwd-nota').textContent = c.smtp_password_impostata ? '(già salvata: lascia vuoto per non cambiarla)' : '';
     if (!smtpPronto) $('#smtp-box').open = true; }
   const el = $('#smtp-stato'); el.textContent = smtpPronto ? 'pronto' : 'non impostato'; el.className = 'chip' + (smtpPronto ? ' pdf' : '');
   if (rifai || era !== smtpPronto) { try { if (datiLevante) disegnaUfficio(); } catch(e) {} }
 }
+const presetDi = srv => { srv = String(srv || '').trim().toLowerCase(); for (const k in PRESET_SMTP) if (PRESET_SMTP[k][0] === srv) return k; return ''; };
 const PRESET_SMTP = {gmail: ['smtp.gmail.com', 465, 'ssl'], aruba: ['smtps.aruba.it', 465, 'ssl'], arubapec: ['smtps.pec.aruba.it', 465, 'ssl'], outlook: ['smtp.office365.com', 587, 'starttls'], libero: ['smtp.libero.it', 465, 'ssl']};
 function avviaSmtp(){
   caricaSmtp();
   $('#sm-preset').onchange = e => { const p = PRESET_SMTP[e.target.value]; if (p) { $('#sm-server').value = p[0]; $('#sm-porta').value = p[1]; $('#sm-sic').value = p[2]; } };
+  $('#sm-server').oninput = e => { $('#sm-preset').value = presetDi(e.target.value); };
   $('#sm-sic').onchange = e => { $('#sm-porta').value = e.target.value === 'starttls' ? 587 : 465; };
   const dati = () => { const d = {smtp_server: $('#sm-server').value, smtp_porta: $('#sm-porta').value, smtp_sicurezza: $('#sm-sic').value, smtp_utente: $('#sm-utente').value, smtp_da: $('#sm-da').value}; if ($('#sm-pwd').value) d.smtp_password = $('#sm-pwd').value; return d; };
   const msg = t => { $('#sm-msg').textContent = t; };
@@ -4540,7 +4543,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.27.1 (11/10/2026)';
+const VERSIONE_APP = '1.27.2 (11/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
