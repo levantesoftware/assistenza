@@ -701,6 +701,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div class="campo" style="margin:10px 0 0"><label for="lic-chiave">Inserisci o cambia la chiave</label><textarea id="lic-chiave" class="chiave-lic" spellcheck="false" autocomplete="off" autocapitalize="none" placeholder="ASS1.…"></textarea></div>
     <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:8px"><button class="btn piccolo" id="lic-attiva" type="button">Attiva la chiave</button></div>
     <p class="aiuto" id="lic-esito" role="status" style="margin:8px 0 0"></p>
+    <div id="lic-tecnici" hidden style="margin-top:14px"><p id="lt-testo" style="margin:0 0 6px"></p><div id="lt-elenco"></div></div>
     <h2 class="giorno" style="margin-top:26px">Copia di sicurezza</h2>
     <p class="aiuto" style="margin:0 0 8px">Interventi ricevuti, indirizzi email dei tecnici, impostazioni e registro degli invii. Ogni giorno l'app salva da sola una copia nella cartella <b>backup</b> accanto al programma (ultime 14). Se hai impostato il <b>codice di sicurezza</b>, le copie sono cifrate: per ripristinarle serve lo stesso codice, quindi <b>conservalo anche fuori dal programma</b>.</p>
     <p class="aiuto" id="bk-stato" role="status" style="margin:0 0 8px"></p>
@@ -761,6 +762,8 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="campo" style="margin:0"><label for="auto-min"><b>Esporta da Levante in automatico</b></label>
         <select id="auto-min"><option value="0">Mai (premo io «Esporta ora»)</option><option value="5">Ogni 5 minuti</option><option value="10">Ogni 10 minuti</option><option value="15">Ogni 15 minuti</option><option value="30">Ogni 30 minuti</option><option value="60">Ogni ora</option></select></div>
       <p class="aiuto" id="auto-stato" role="status" style="margin:6px 0 0"></p>
+      <label class="spunta" style="margin:12px 0 0"><input type="checkbox" id="wk-attivo"> <span>Lavori automatici anche con l'app chiusa<small style="display:block;font-weight:400;color:var(--tenue)">Lettura della posta dei tecnici, invio serale delle agende e copie di sicurezza girano da soli in una copia invisibile dell'app (usa Edge o Chrome già presenti sul PC). Se non parte, restano a carico dell'app aperta su questo PC.</small></span></label>
+      <p class="aiuto" id="wk-stato" role="status" style="margin:4px 0 0"></p>
       <p class="aiuto" style="margin:4px 0 0">Solo dalle 6:30 alle 20:30, domenica esclusa. L'app legge da sola ogni nuova esportazione: gli appuntamenti dei tecnici sono sempre pronti qui sotto. Levante resta aperto e non viene toccato (lettura soltanto).</p>
     </div>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
@@ -1044,8 +1047,12 @@ async function spingi(){
 function applicaLocale(k, v){
   try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {}
   const copia = JSON.parse(JSON.stringify(v == null ? null : v));      // copia: i dati in uso non devono condividere gli oggetti con sync.base
-  if (k === 'ass_posta') posta = Array.isArray(copia) ? copia : [];
-  if (k === 'ass_impostazioni') impostazioni = Object.assign({azienda: '', tecnico: ''}, copia || {});
+  if (k === 'ass_posta') {
+    const prima = new Set((Array.isArray(posta) ? posta : []).map(r => chiavePosta(r)));
+    posta = Array.isArray(copia) ? copia : [];
+    if (!inWorker && workerVivo && notificaPostaOk) { const n = posta.filter(r => !r.fatto && !prima.has(chiavePosta(r))).length; if (n) { try { avvisaDesktop('Nuovo intervento in arrivo', n === 1 ? 'Un intervento da registrare.' : n + ' interventi da registrare.'); } catch(e) {} } }
+  }
+  if (k === 'ass_impostazioni') { impostazioni = Object.assign({azienda: '', tecnico: ''}, copia || {}); try { limiteTecniciCambiato(); } catch(e) {} }
   clearTimeout(sync.ui); sync.ui = setTimeout(rinfresca, 150);
 }
 function rinfresca(){
@@ -1080,6 +1087,12 @@ function avviaSync(){
   setInterval(tira, 8000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tira(); });
 }
+/* copia invisibile dell'app che il servizio apre da sola sul PC server per i lavori automatici (indirizzo con ?worker=1) */
+const inWorker = /[?&]worker=1(&|$)/.test(location.search);
+let workerVivo = false, notificaPostaOk = false;
+setTimeout(() => { notificaPostaOk = true; }, 20000);                                   // il servizio dice che la copia invisibile e' al lavoro: l'app aperta non deve rifare gli stessi lavori
+const faAutomatismi = () => inWorker || !workerVivo;
+if (inWorker) { window.confirm = () => false; window.alert = () => {}; window.prompt = () => null; document.addEventListener('DOMContentLoaded', () => document.body.classList.add('worker')); }
 let loginMostrato = false, inRemoto = false;
 function mostraLogin(){
   const b = document.getElementById('login-rete'); if (!b || loginMostrato) return; loginMostrato = true; b.hidden = false;
@@ -4254,7 +4267,8 @@ async function leggiUltimaEsportazione(cambia){
     if (msg) msg.textContent = 'Non sono riuscito a leggere la cartella (' + (e && e.message) + '). Puoi sempre scegliere i file a mano.';
   }
 }
-let datiLevante = null;
+let datiLevante = null;                 // quello che si usa: dati di Levante limitati ai tecnici compresi nella licenza
+let datiLevanteTutti = null;            // tutto quello che c'e' in Levante
 const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','codici_barre'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 /* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
@@ -4316,7 +4330,7 @@ async function leggiFileLevante(files){
   const esito = $('#esito-uff');
   letturaOk = false;
   if (!T.appuntamenti) { esito.innerHTML = '<div class="avviso rosso" style="margin-top:14px"><b>Manca appuntamenti.csv</b>Scegli tutti i file della cartella creata da Esporta_Levante.bat.</div>'; return; }
-  datiLevante = costruisciDaLevante(T);
+  datiLevanteTutti = costruisciDaLevante(T); applicaLimiteTecnici();
   letturaOk = true;
   infoUff.trovati = trovati;
   infoUff.mancanti = ['impianti','apparecchi','operazioni_pianificate','clienti','tecnici'].filter(n => !trovati.includes(n));
@@ -4525,7 +4539,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.26.2 (10/10/2026)';
+const VERSIONE_APP = '1.27.0 (11/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -4533,7 +4547,7 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); richie
 window.addEventListener('appinstalled', () => { richiestaInstalla = null; aggiornaStatoApp(); });
 function inLocaleSicuro(){ return location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); }
 async function registraServiceWorker(){
-  if (!('serviceWorker' in navigator) || !inLocaleSicuro()) return;
+  if (inWorker || !('serviceWorker' in navigator) || !inLocaleSicuro()) return;
   try {
     const reg = await navigator.serviceWorker.register('sw.js');
     erroreSW = '';
@@ -5099,10 +5113,9 @@ async function controllaServizio(){
       }
       box.className = 'avviso info';
       ultimoZipLetto = j.nome;
-      if (datiLevante) {                                 // l'agenda di questo PC (tutti i tecnici) si aggiorna da sola: niente piu' "modalita' prova"
-        salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); try { aggiornaNav(); } catch(e) {}
-        await salvaDati({generato: new Date().toISOString(), tecnico: null, appuntamenti: datiLevante.appuntamenti, modelli: datiLevante.modelli, azienda: datiLevante.azienda, files: datiLevante.files});
-        if (vistaCorrente === 'agenda') disegnaAgenda();
+      if (datiLevante) {                                 // l'agenda di questo PC (i tecnici della licenza) si aggiorna da sola: niente piu' "modalita' prova"
+        await rifaiAgendaUfficio();
+        try { disegnaTecniciLicenza(); } catch(e) {}
       }
     }
     const q = j.quando ? new Date(j.quando) : null;
@@ -5117,6 +5130,7 @@ async function statoServizio(){
     if (r.status === 401) { mostraLogin(); return null; }
     if (!r.ok) return null; const j = await r.json();
     if (j && j.servizio && j.remoto && !inRemoto) { inRemoto = true; document.body.classList.add('remoto'); }
+    if (j && j.servizio) workerVivo = !!(j.worker && j.worker.attivo);
     return j && j.servizio ? j : null;
   } catch(e) { return null; }
 }
@@ -5183,7 +5197,7 @@ function datiFormPosta(){
 }
 let postaAutoAvviata = false, postaAutoOccupata = false;
 async function giroPostaAuto(){
-  if (postaAutoOccupata) return; postaAutoOccupata = true;
+  if (postaAutoOccupata || !faAutomatismi()) return; postaAutoOccupata = true;
   try {
     const el = (await (await fetch('posta-elenco', {cache: 'no-store'})).json()).file || [];
     if (!el.length) return;
@@ -5218,6 +5232,10 @@ function avviaPostaAuto(){
 function aggiornaAuto(s){
   const box = $('#auto-esp'); if (!box || !s || !s.auto) return;
   box.hidden = false; const a = s.auto, sel = $('#auto-min');
+  { const w = s.worker || {}, ck = $('#wk-attivo'), st = $('#wk-stato');
+    if (ck && document.activeElement !== ck) ck.checked = !!w.voluto;
+    if (ck && !ck.dataset.pronto) { ck.dataset.pronto = '1'; ck.onchange = async () => { try { await chiamaJson('servizio-config', {worker: ck.checked}); } catch(e) {} ck.disabled = true; setTimeout(() => { ck.disabled = false; }, 4000); }; }
+    if (st) st.textContent = !w.voluto ? 'Spento: posta, invii e copie funzionano solo con l\'app aperta su questo PC.' : (w.attivo ? '✔ Attivo (' + (w.browser || 'browser') + '): funziona anche con l\'app chiusa.' : 'Non attivo (' + (w.stato || '—') + '): per ora i lavori li fa l\'app aperta su questo PC.'); }
   if (document.activeElement !== sel) sel.value = String(a.minuti || 0);
   let t;
   if (!a.minuti) t = 'Spenta: l\'esportazione parte solo quando premi «Esporta ora da Levante».';
@@ -5237,7 +5255,8 @@ async function avviaPulsantiServizio(){
     return;
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
-  inUfficio = true; aggiornaSola(); try { disegnaAgenda(); } catch(e) {}
+  inUfficio = true; aggiornaSola(); try { limiteTecniciCambiato(); } catch(e) {} try { disegnaAgenda(); } catch(e) {}
+  if (inWorker) { const batti = () => chiamaJson('worker-battito', {v: VERSIONE_APP}).catch(() => {}); batti(); setInterval(batti, 10000); }
   if (!s.remoto) { try { avviaRete(); } catch(e) { console.error(e); } }
   try { avviaExtraUfficio(); } catch(e) { console.error(e); }
   aggiornaAuto(s);
@@ -5295,7 +5314,8 @@ function disegnaAutoInvio(){
   $('#ai-stato').textContent = t;
 }
 async function giroAutoInvio(){
-  const c = cfgAuto(); if (!inUfficio || inRemoto || !c.attivo || !smtpPronto || !datiLevante || autoOccupato) return;
+  if (inWorker && !smtpPronto) { try { await caricaSmtp(); } catch(e) {} }       // la posta in uscita si imposta dall'app aperta: la copia invisibile deve accorgersene
+  const c = cfgAuto(); if (!inUfficio || inRemoto || !c.attivo || !smtpPronto || !datiLevante || autoOccupato || !faAutomatismi()) return;
   const ora = new Date(), og = isoGiorno(ora);
   if (!c.weekend && (ora.getDay() === 0 || ora.getDay() === 6)) return;
   if (hhmm(ora) < c.ora) return;
@@ -5397,10 +5417,63 @@ function disegnaLicenza(st){
   const colore = st.stato === 'licenza' ? '' : (bloccata ? ' style="color:var(--rosso);font-weight:700"' : '');
   $('#lic-stato').innerHTML = '<span' + colore + '>' + esc(st.messaggio || '') + '</span>' + (st.azienda ? '<br>Intestata a <b>' + esc(st.azienda) + '</b>' : '') + (st.errore_chiave ? '<br><span style="color:var(--rosso)">' + esc(st.errore_chiave) + '</span>' : '');
   $('#lic-codice').textContent = st.codice || ''; $('#lb-codice').textContent = st.codice || '';
+  try { limiteTecniciCambiato(); } catch(e) {}
   $('#lb-titolo').textContent = st.stato === 'scaduta' ? 'Licenza scaduta' : 'Prova gratuita finita';
   $('#lb-msg').textContent = (st.messaggio || '') + (st.errore_chiave ? ' ' + st.errore_chiave : '');
   if (!bloccata && st.stato === 'prova' && st.giorni <= 10 && !licAvvisata) { licAvvisata = true; mostraAvviso('Prova gratuita: ' + (st.giorni === 1 ? 'resta 1 giorno' : 'restano ' + st.giorni + ' giorni') + '.', 'Licenza', () => $('#b-impostazioni').click(), 12000); }
   if (!bloccata && st.stato === 'licenza' && st.giorni != null && st.giorni <= 30 && !licAvvisata) { licAvvisata = true; mostraAvviso('La licenza scade tra ' + st.giorni + (st.giorni === 1 ? ' giorno.' : ' giorni.'), 'Licenza', () => $('#b-impostazioni').click(), 12000); }
+}
+/* ---- licenza per numero di tecnici: in ufficio compaiono solo i tecnici compresi nella licenza (scelti dall'ufficio) ---- */
+function limiteTecnici(){ return (inUfficio && licenzaStato && licenzaStato.tecnici > 0) ? licenzaStato.tecnici : 0; }
+function tecniciConsentiti(){          // Set di id tecnico ammessi, oppure null = tutti
+  const n = limiteTecnici(); if (!n || !datiLevanteTutti) return null;
+  const nomi = datiLevanteTutti.tecnici || {}, ids = Object.keys(nomi);
+  if (ids.length <= n) return null;
+  let sel = Array.isArray(impostazioni.tecniciAttivi) ? impostazioni.tecniciAttivi.map(String).filter(id => ids.includes(id)) : null;
+  if (!sel) sel = ids.slice().sort((a, b) => String(nomi[a]).localeCompare(String(nomi[b]), 'it')).slice(0, n);
+  return new Set(sel.slice(0, n));
+}
+let sigTecnici = '';
+function applicaLimiteTecnici(){
+  if (!datiLevanteTutti) return false;
+  const att = tecniciConsentiti();
+  if (!att) datiLevante = datiLevanteTutti;
+  else {
+    const d = Object.assign({}, datiLevanteTutti, {tecnici: {}});
+    Object.keys(datiLevanteTutti.tecnici || {}).forEach(id => { if (att.has(id)) d.tecnici[id] = datiLevanteTutti.tecnici[id]; });
+    d.appuntamenti = datiLevanteTutti.appuntamenti.filter(a => !a.tecnico_id || att.has(String(a.tecnico_id)));
+    datiLevante = d;
+  }
+  const sig = att ? [...att].sort().join(',') : '*';
+  const cambiato = sig !== sigTecnici; sigTecnici = sig;
+  return cambiato;
+}
+async function rifaiAgendaUfficio(){            // l'agenda di questo PC si rifa con i dati (limitati) di Levante
+  if (!datiLevante) return;
+  salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); try { aggiornaNav(); } catch(e) {}
+  await salvaDati({generato: new Date().toISOString(), tecnico: null, appuntamenti: datiLevante.appuntamenti, modelli: datiLevante.modelli, azienda: datiLevante.azienda, files: datiLevante.files});
+  try { if (vistaCorrente === 'agenda') disegnaAgenda(); if (vistaCorrente === 'ufficio') disegnaUfficio(); } catch(e) {}
+}
+async function limiteTecniciCambiato(){
+  if (applicaLimiteTecnici()) { try { await rifaiAgendaUfficio(); } catch(e) {} }
+  try { disegnaTecniciLicenza(); } catch(e) {}
+}
+function disegnaTecniciLicenza(){
+  const box = $('#lic-tecnici'); if (!box) return;
+  const n = limiteTecnici();
+  if (!n) { box.hidden = true; return; }
+  box.hidden = false;
+  const nomi = datiLevanteTutti ? datiLevanteTutti.tecnici : {}, ids = Object.keys(nomi || {}), testo = $('#lt-testo'), el = $('#lt-elenco');
+  if (!ids.length) { testo.innerHTML = 'La licenza comprende <b>' + n + (n === 1 ? ' tecnico' : ' tecnici') + '</b>.'; el.innerHTML = ''; return; }
+  if (ids.length <= n) { testo.innerHTML = 'La licenza comprende <b>' + n + (n === 1 ? ' tecnico' : ' tecnici') + '</b>; in Levante ne ho trovati ' + ids.length + ': sono tutti attivi.'; el.innerHTML = ''; return; }
+  const att = tecniciConsentiti() || new Set();
+  if (!Array.isArray(impostazioni.tecniciAttivi) && !inRemoto && !inWorker) { impostazioni.tecniciAttivi = [...att]; salvaImpostazioni(); }      // la scelta di partenza si fissa, cosi' non cambia se in Levante arrivano nuovi tecnici
+  testo.innerHTML = 'La licenza comprende <b>' + n + (n === 1 ? ' tecnico' : ' tecnici') + '</b>, in Levante ce ne sono <b>' + ids.length + '</b>. Spunta quelli attivi (per cambiarne uno togli prima la spunta a un altro): gli altri non compaiono in agenda e non ricevono l\'agenda. Per averne di più serve un pacchetto più grande.';
+  el.innerHTML = ids.sort((a, b) => String(nomi[a]).localeCompare(String(nomi[b]), 'it')).map(id => `<label class="spunta" style="margin:4px 0"><input type="checkbox" data-tec="${esc(id)}"${att.has(id) ? ' checked' : ''}${(!att.has(id) && att.size >= n) || inRemoto ? ' disabled' : ''}> <span>${esc(nomi[id])}</span></label>`).join('') + '<p class="aiuto" style="margin:6px 0 0">Attivi: ' + att.size + ' su ' + n + '.</p>';
+  el.querySelectorAll('[data-tec]').forEach(c => c.onchange = () => {
+    const nuovo = new Set(att); if (c.checked) nuovo.add(c.dataset.tec); else nuovo.delete(c.dataset.tec);
+    impostazioni.tecniciAttivi = [...nuovo]; salvaImpostazioni(); limiteTecniciCambiato();
+  });
 }
 async function controllaLicenza(){
   try { const r = await fetch('licenza-stato', {cache: 'no-store'}); if (!r.ok) return; const st = await r.json(); if (st && st.stato) disegnaLicenza(st); } catch(e) {}
@@ -5444,7 +5517,7 @@ function applicaBackup(b){
 }
 let ultimoBackup = 0;
 async function copiaAutomatica(){
-  if (!inUfficio || inRemoto || (licenzaStato && licenzaStato.ok === false)) return;
+  if (!inUfficio || inRemoto || !faAutomatismi() || (licenzaStato && licenzaStato.ok === false)) return;
   try { const r = await chiamaJson('backup-salva', await backupPronto(raccogliBackup())); if (r && r.ok) ultimoBackup = Date.now(); } catch(e) {}
   aggiornaElencoBackup();
 }
