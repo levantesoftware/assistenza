@@ -763,9 +763,14 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="campo" style="margin:0"><label for="auto-min"><b>Esporta da Levante in automatico</b></label>
         <select id="auto-min"><option value="0">Mai (premo io «Esporta ora»)</option><option value="5">Ogni 5 minuti</option><option value="10">Ogni 10 minuti</option><option value="15">Ogni 15 minuti</option><option value="30">Ogni 30 minuti</option><option value="60">Ogni ora</option></select></div>
       <p class="aiuto" id="auto-stato" role="status" style="margin:6px 0 0"></p>
+      <div id="auto-fascia" style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:10px 0 0">
+        <div class="campo" style="margin:0"><label for="auto-dalle">Dalle</label><input id="auto-dalle" type="time" value="06:30"></div>
+        <div class="campo" style="margin:0"><label for="auto-alle">Alle</label><input id="auto-alle" type="time" value="20:30"></div>
+        <label class="spunta" style="margin:0 0 8px"><input type="checkbox" id="auto-dom"> Anche la domenica</label>
+      </div>
       <label class="spunta" style="margin:12px 0 0"><input type="checkbox" id="wk-attivo"> <span>Lavori automatici anche con l'app chiusa<small style="display:block;font-weight:400;color:var(--tenue)">Lettura della posta dei tecnici, invio serale delle agende e copie di sicurezza girano da soli in una copia invisibile dell'app (usa Edge o Chrome già presenti sul PC). Se non parte, restano a carico dell'app aperta su questo PC.</small></span></label>
       <p class="aiuto" id="wk-stato" role="status" style="margin:4px 0 0"></p>
-      <p class="aiuto" style="margin:4px 0 0">Solo dalle 6:30 alle 20:30, domenica esclusa. L'app legge da sola ogni nuova esportazione: gli appuntamenti dei tecnici sono sempre pronti qui sotto. Levante resta aperto e non viene toccato (lettura soltanto).</p>
+      <p class="aiuto" style="margin:4px 0 0">Esporta solo nella fascia oraria scelta qui sopra. L'app legge da sola ogni nuova esportazione: gli appuntamenti dei tecnici sono sempre pronti qui sotto. Levante resta aperto e non viene toccato (lettura soltanto).</p>
     </div>
     <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
     <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
@@ -4543,7 +4548,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.27.2 (11/10/2026)';
+const VERSIONE_APP = '1.28.0 (11/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5241,10 +5246,17 @@ function aggiornaAuto(s){
     if (ck && !ck.dataset.pronto) { ck.dataset.pronto = '1'; ck.onchange = async () => { try { await chiamaJson('servizio-config', {worker: ck.checked}); } catch(e) {} ck.disabled = true; setTimeout(() => { ck.disabled = false; }, 4000); }; }
     if (st) st.textContent = !w.voluto ? 'Spento: posta, invii e copie funzionano solo con l\'app aperta su questo PC.' : (w.attivo ? '✔ Attivo (' + (w.browser || 'browser') + '): funziona anche con l\'app chiusa.' : 'Non attivo (' + (w.stato || '—') + '): per ora i lavori li fa l\'app aperta su questo PC.'); }
   if (document.activeElement !== sel) sel.value = String(a.minuti || 0);
+  { const d1 = $('#auto-dalle'), d2 = $('#auto-alle'), d3 = $('#auto-dom');
+    if (d1 && document.activeElement !== d1) d1.value = a.dalle || '06:30';
+    if (d2 && document.activeElement !== d2) d2.value = a.alle || '20:30';
+    if (d3 && document.activeElement !== d3) d3.checked = !!a.domenica;
+    if (d1 && !d1.dataset.pronto) { d1.dataset.pronto = '1';
+      const salva = async () => { if (!/^\d\d:\d\d$/.test(d1.value) || !/^\d\d:\d\d$/.test(d2.value)) return; try { await chiamaJson('servizio-config', {dalle: d1.value, alle: d2.value, domenica: d3.checked}); aggiornaAuto(await statoServizio()); } catch(e) {} };
+      d1.onchange = d2.onchange = d3.onchange = salva; } }
   let t;
   if (!a.minuti) t = 'Spenta: l\'esportazione parte solo quando premi «Esporta ora da Levante».';
   else if (s.in_corso) t = 'Esportazione in corso…';
-  else if (!a.in_orario) t = 'Fuori orario: riprende alle ' + a.dalle + '.';
+  else if (!a.in_orario) t = (new Date().getDay() === 0 && !a.domenica) ? 'Oggi è domenica: l\'esportazione automatica riprende lunedì alle ' + a.dalle + '.' : 'Fuori orario: riprende alle ' + a.dalle + '.';
   else { const pr = a.prossima ? new Date(a.prossima) : null; const m = pr ? Math.round((pr - Date.now()) / 60000) : 0; t = m > 0 ? 'Prossima esportazione tra circa ' + m + (m === 1 ? ' minuto' : ' minuti') + ' (' + hhmm(pr) + ').' : 'La prossima esportazione parte a momenti.'; }
   if (s.esito && /^errore/.test(s.esito)) t += ' L\'ultima non è riuscita: apri la cartella delle esportazioni e leggi _riepilogo.txt.';
   $('#auto-stato').textContent = t;
