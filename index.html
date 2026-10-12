@@ -196,8 +196,11 @@ textarea.alta{min-height:150px}
 .totale b{color:var(--inchiostro)}
 .togli{min-height:48px;border:1px solid var(--riga);border-radius:8px;background:#fff;font-size:22px;line-height:1;cursor:pointer;color:var(--rosso)}
 .mat{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) 44px;gap:8px;padding:10px;background:var(--foglio);border:1px solid var(--riga);border-radius:10px;margin-bottom:8px}
-.mat .descr{grid-column:1 / 4}
-.mat input[data-c="um"]{grid-column:3 / 5}
+.mat .descr{grid-column:1 / 5}
+.mat input[data-c="codice"]{grid-column:1 / 4}
+.mat input[data-c="um"]{grid-column:1 / 3}
+.mat input[data-c="qta"]{grid-column:3 / 5}
+.mat.vm .descr{grid-column:1 / 4}
 .mat input{padding-left:10px;padding-right:8px}
 .mat .togli{grid-column:4;grid-row:1}
 .analisi{background:var(--foglio);border:1px solid var(--riga);border-radius:10px;padding:12px;margin-bottom:10px}
@@ -397,6 +400,17 @@ button.pos{margin-top:4px;font-size:13px}
 .ed-sul-testo .ed-ov{touch-action:none;cursor:text}
 .ed-sul-disegno .ed-ov{touch-action:none;cursor:crosshair}
 .ed-scorri .ed-ov{pointer-events:none}
+.ed-sul-mat .ed-ov{touch-action:pan-y;cursor:crosshair}
+#ed-mat{border:1.5px solid var(--riga);border-radius:10px;background:#fff;padding:6px 10px;margin:4px 0 6px;max-height:30vh;overflow:auto}
+#ed-mat[hidden]{display:none}
+#ed-mat .mat-campi button{min-height:34px;padding:0 9px;margin:0 5px 5px 0;font-size:.88rem;border-radius:8px;border:1.5px solid var(--riga);background:#fff;font-weight:650;cursor:pointer}
+#ed-mat .mat-campi button[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
+#ed-mat .mat-voce{display:block;padding:5px 0;border-top:1px solid var(--riga);font-size:.92rem}
+#ed-mat .mat-voce input{margin-right:8px}
+#ed-mat .mat-voce small{color:var(--tenue)}
+#ed-mat .mat-sotto{margin-top:6px}
+#ed-mat .mat-sotto button{min-height:34px;margin-right:6px}
+#ed-mat .mat-sotto input{width:4.5em}
 #ed-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
 #ed-modale[hidden]{display:none}
 .ed-fogli{background:var(--carta);width:100%;max-width:640px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));border-radius:14px 14px 0 0}
@@ -600,6 +614,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
         <button type="button" class="ed-str" data-str="penna" aria-pressed="false">Penna</button>
         <button type="button" class="ed-str" data-str="spunta" aria-pressed="false">✓</button>
         <button type="button" class="ed-str" data-str="croce" aria-pressed="false">✗</button>
+        <button type="button" class="ed-str" data-str="mat" aria-pressed="false">Materiali</button>
         <span class="ed-sep"></span>
         <button type="button" class="ed-col" data-col="#111111" style="background:#111111" aria-label="Nero" aria-pressed="true"></button>
         <button type="button" class="ed-col" data-col="#0B4DB8" style="background:#0B4DB8" aria-label="Blu" aria-pressed="false"></button>
@@ -612,6 +627,15 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
         <button type="button" id="b-ed-annulla" class="ed-str" disabled>Annulla</button>
       </div>
       <p class="aiuto" id="ed-aiuto" style="margin:4px 0 6px"></p>
+      <div id="ed-mat" hidden>
+        <div class="mat-campi" id="ed-mat-campi">
+          <button type="button" data-mcampo="codice" aria-pressed="true">Codice</button><button type="button" data-mcampo="descr" aria-pressed="false">Descrizione</button><button type="button" data-mcampo="um" aria-pressed="false">Unità</button><button type="button" data-mcampo="qta" aria-pressed="false">Q.tà</button><button type="button" data-mcampo="riga" aria-pressed="false">Elenco in blocco</button></div>
+        <p class="aiuto" id="ed-mat-guida" role="status" style="margin:4px 0 6px"></p>
+        <details id="ed-mat-det"><summary id="ed-mat-sum" style="cursor:pointer;font-weight:650">Voci</summary>
+          <div id="ed-mat-voci"></div>
+          <div class="mat-sotto"><button type="button" class="btn chiaro piccolo" id="b-mat-tutte">Tutte</button><button type="button" class="btn chiaro piccolo" id="b-mat-nessuna">Nessuna</button> <label style="font-size:.88rem">Taglia a <input type="text" inputmode="numeric" id="ed-mat-max" placeholder="0"> caratteri (0 = intero)</label></div>
+        </details>
+      </div>
     </div>
     <div id="ed-pagine"></div>
     <div id="ed-modale" hidden>
@@ -1653,11 +1677,11 @@ function righeOrari(){
 }
 function righeMateriali(){
   return lavoro.materiali.map((m, n) => `<div class="mat">
-    <input class="descr" type="text" data-mat="${n}" data-c="descr" placeholder="Descrizione del materiale" aria-label="Descrizione" value="${esc(m.descr)}">
-    <button class="togli" type="button" data-togli-mat="${n}" aria-label="Togli questo materiale">×</button>
     <input type="text" data-mat="${n}" data-c="codice" placeholder="Codice" aria-label="Codice" value="${esc(m.codice)}">
-    <input type="text" inputmode="decimal" data-mat="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(m.qta)}">
-    <input type="text" list="lista-um" data-mat="${n}" data-c="um" placeholder="Unità" aria-label="Unità di misura" autocapitalize="none" autocomplete="off" value="${esc(m.um || '')}"></div>`).join('');
+    <button class="togli" type="button" data-togli-mat="${n}" aria-label="Togli questo materiale">×</button>
+    <input class="descr" type="text" data-mat="${n}" data-c="descr" placeholder="Descrizione del materiale" aria-label="Descrizione" value="${esc(m.descr)}">
+    <input type="text" list="lista-um" data-mat="${n}" data-c="um" placeholder="Unità" aria-label="Unità di misura" autocapitalize="none" autocomplete="off" value="${esc(m.um || '')}">
+    <input type="text" inputmode="decimal" data-mat="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(m.qta)}"></div>`).join('');
 }
 const rr = () => (lavoro && lavoro.r) || (corrente && corrente.r) || {};
 function nomeApparecchio(id){
@@ -2154,14 +2178,14 @@ function costruisciPdf(w, ctx){
   const mats = (w.materiali || []).filter(m => m.descr || m.codice || m.qta);
   if (!mats.length) { serve(8); doc.setFontSize(10.5); colore(GRIGIO); doc.text('Nessun materiale indicato.', M, y + 3); y += 8; }
   else {
-    const c1 = 34, c3 = 24, c2 = CW - c1 - c3; serve(10);
+    const c1 = 30, c3 = 16, c4 = 20, c2 = CW - c1 - c3 - c4; serve(10);
     doc.setFillColor(238,243,244); doc.rect(M, y, CW, 7, 'F'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5); colore(GRIGIO);
-    doc.text('Codice', M + 2, y + 4.8); doc.text('Descrizione', M + c1 + 2, y + 4.8); doc.text('Q.tà', M + CW - 2, y + 4.8, {align:'right'}); y += 7;
+    doc.text('Codice', M + 2, y + 4.8); doc.text('Descrizione', M + c1 + 2, y + 4.8); doc.text('Unità', M + c1 + c2 + 2, y + 4.8); doc.text('Q.tà', M + CW - 2, y + 4.8, {align:'right'}); y += 7;
     doc.setFont('helvetica','normal'); doc.setFontSize(10); colore(INK);
     mats.forEach(m => {
       const cl = doc.splitTextToSize(m.codice || '', c1 - 4), dl = doc.splitTextToSize(m.descr || '', c2 - 4);
       const h = Math.max(cl.length, dl.length, 1) * 4.8 + 3; serve(h);
-      doc.text(cl, M + 2, y + 4.8); doc.text(dl, M + c1 + 2, y + 4.8); doc.text(((m.qta || '') + (m.um ? ' ' + m.um : '')).trim(), M + CW - 2, y + 4.8, {align:'right'});
+      doc.text(cl, M + 2, y + 4.8); doc.text(dl, M + c1 + 2, y + 4.8); doc.text(String(m.um || ''), M + c1 + c2 + 2, y + 4.8); doc.text(String(m.qta || ''), M + CW - 2, y + 4.8, {align:'right'});
       y += h; doc.setDrawColor(RIGA[0], RIGA[1], RIGA[2]); doc.setLineWidth(0.2); doc.line(M, y, M + CW, y); });
     y += 2;
   }
@@ -3437,7 +3461,7 @@ async function apriEditor(id, nome){
     const i0 = inizioPdf(bytes);
     if (i0 < 0) { if (msg) msg.textContent = 'Questo file non è un PDF valido: non si può modificare.'; return; }
     if (i0 > 0) bytes = bytes.slice(i0);
-    ed = {id, nome, bytes, azioni: [], sporco: false, str: 'scorri', col: '#111111', dim: 1, pagine: [], giaModificato: !!m};
+    ed = {id, nome, bytes, azioni: [], sporco: false, str: 'scorri', col: '#111111', dim: 1, pagine: [], giaModificato: !!m, mat: {campo: 'codice', sel: {}, passo: 0, p1: null, max: 0}};
     $('#ed-titolo').textContent = nome.replace(/\.pdf$/i, '');
     $('#ed-pagine').innerHTML = '<p class="aiuto">Carico le pagine…</p>';
     mostra('editor');
@@ -3474,12 +3498,14 @@ function aggiornaBarraEditor(){
   document.querySelectorAll('.ed-col').forEach(b => b.setAttribute('aria-pressed', b.dataset.col === ed.col));
   document.querySelectorAll('.ed-dim').forEach(b => b.setAttribute('aria-pressed', +b.dataset.dim === ed.dim));
   $('#b-ed-annulla').disabled = !ed.azioni.length;
-  const aiuti = {scorri: 'Scorri le pagine. Scegli uno strumento per scrivere o disegnare.', testo: 'Tocca dove vuoi scrivere.', penna: 'Disegna con il dito.', spunta: 'Tocca dove mettere la spunta.', croce: 'Tocca dove mettere la croce.'};
+  const aiuti = {scorri: 'Scorri le pagine. Scegli uno strumento per scrivere o disegnare.', testo: 'Tocca dove vuoi scrivere.', penna: 'Disegna con il dito.', spunta: 'Tocca dove mettere la spunta.', croce: 'Tocca dove mettere la croce.', mat: 'Scegli cosa scrivere, poi tocca sul documento.'};
   $('#ed-aiuto').textContent = aiuti[ed.str] + (ed.giaModificato ? ' (Stai modificando la tua versione già salvata.)' : '');
   const box = $('#ed-pagine');
   box.classList.toggle('ed-scorri', ed.str === 'scorri');
   box.classList.toggle('ed-sul-testo', ed.str === 'testo');
   box.classList.toggle('ed-sul-disegno', ['penna', 'spunta', 'croce'].includes(ed.str));
+  box.classList.toggle('ed-sul-mat', ed.str === 'mat');
+  const pm = $('#ed-mat'); if (pm) { pm.hidden = ed.str !== 'mat'; if (ed.str === 'mat') matDisegna(); }
 }
 function ridisegnaPagina(i){
   const pg = ed.pagine[i]; if (!pg) return;
@@ -3496,6 +3522,7 @@ function ridisegnaPagina(i){
       a.s.split('\n').forEach((r, n) => ctx.fillText(r, a.x * pg.cssW, a.y * pg.cssH + sz * 0.8 + n * sz * 1.2));
     }
   });
+  if (ed.mat && ed.mat.p1 && ed.mat.p1.p === i) { ctx.fillStyle = '#C62828'; ctx.beginPath(); ctx.arc(ed.mat.p1.x * pg.cssW, ed.mat.p1.y * pg.cssH, 4, 0, 7); ctx.fill(); }
 }
 function collegaOverlay(ov, i){
   let corrente = null;
@@ -3503,6 +3530,7 @@ function collegaOverlay(ov, i){
   ov.addEventListener('pointerdown', e => {
     if (!ed || ed.str === 'scorri') return;
     const [x, y] = pos(e);
+    if (ed.str === 'mat') { matInizio = {i, cx: e.clientX, cy: e.clientY, x, y}; return; }
     if (ed.str === 'testo') { e.preventDefault(); chiediTesto(i, x, y); return; }
     e.preventDefault(); ov.setPointerCapture(e.pointerId);
     if (ed.str === 'penna') { corrente = {p: i, t: 'tratto', c: ed.col, w: ED_PENNA[ed.dim], pt: [[x, y]]}; ed.azioni.push(corrente); }
@@ -3521,9 +3549,15 @@ function collegaOverlay(ov, i){
     corrente.pt.push([x, y]); ridisegnaPagina(i);
   });
   const fine = () => { if (corrente) { ed.sporco = true; corrente = null; aggiornaBarraEditor(); } };
+  ov.addEventListener('pointerup', e => {                  // Materiali: vale solo un tocco, non uno scorrimento della pagina
+    if (!ed || ed.str !== 'mat' || !matInizio || matInizio.i !== i) return;
+    const m = matInizio; matInizio = null;
+    if (Math.abs(e.clientX - m.cx) < 8 && Math.abs(e.clientY - m.cy) < 8) matTocco(i, m.x, m.y);
+  });
   ov.addEventListener('pointerup', fine); ov.addEventListener('pointercancel', fine);
 }
 let edTestoPos = null;
+let matInizio = null;
 function chiediTesto(i, x, y){
   edTestoPos = {i, x, y}; $('#ed-testo-in').value = ''; $('#ed-modale').hidden = false; setTimeout(() => $('#ed-testo-in').focus(), 50);
 }
@@ -3540,8 +3574,89 @@ function annullaUltimo(){
   const toglie = g ? ed.azioni.filter(a => a.gruppo === g).length : 1;
   const pagine = new Set(); for (let k = 0; k < toglie; k++) pagine.add(ed.azioni.pop().p);
   pagine.forEach(ridisegnaPagina); ed.sporco = ed.azioni.length > 0; aggiornaBarraEditor();
+  if (ed.str === 'mat') { matRiparti(); matDisegna(); }
 }
 
+
+/* ---- Materiali dell'intervento scritti sul documento (moduli degli enti) ----
+   Le voci vengono dalla scheda dell'intervento. Una colonna alla volta: tocchi la prima casella e la casella della riga dopo,
+   l'app ricava la distanza tra le righe e scrive tutte le voci scelte. "Elenco in blocco": un tocco, una riga per voce. */
+const MAT_CAMPI = {codice: 'il codice', descr: 'la descrizione', um: 'l\'unità', qta: 'la quantità', riga: 'l\'elenco'};
+function matScheda(){
+  if (typeof corrente === 'undefined' || !corrente) return null;
+  if (lavoro && lavoro.id === corrente.id) return lavoro;
+  return bozze[corrente.id] || null;
+}
+function matVoci(){
+  const sc = matScheda(), r = [];
+  ((sc && sc.materiali) || []).forEach((m, n) => { if (m && (m.descr || m.codice || m.qta)) r.push({n: n, m: m}); });
+  return r;
+}
+function matScritte(campo){
+  const o = {};
+  ed.azioni.forEach(a => { if (a.mat && a.mat.campo === campo) a.mat.idx.forEach(n => { o[n] = true; }); });
+  return o;
+}
+function matRiparti(){                            // seleziona le voci non ancora scritte per questo campo
+  const sc = matScritte(ed.mat.campo); ed.mat.sel = {};
+  matVoci().forEach(v => { if (!sc[v.n]) ed.mat.sel[v.n] = true; });
+  ed.mat.passo = 0; ed.mat.p1 = null;
+}
+function matTesto(m, campo){
+  const q = String(m.qta == null ? '' : m.qta).trim(), u = String(m.um || '').trim();
+  if (campo === 'descr') return String(m.descr || '');
+  if (campo === 'codice') return String(m.codice || '');
+  if (campo === 'qta') return q;
+  if (campo === 'um') return u;
+  return [String(m.codice || '').trim(), String(m.descr || '').trim(), u, q].filter(x => x).join('  ');         // ordine: codice, descrizione, unità, quantità
+}
+function matDisegna(){
+  if (!ed || !ed.mat) return;
+  const t = ed.mat, voci = matVoci(), sc = matScritte(t.campo);
+  document.querySelectorAll('#ed-mat-campi [data-mcampo]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mcampo === t.campo));
+  const box = $('#ed-mat-voci');
+  box.innerHTML = voci.map(v => `<label class="mat-voce"><input type="checkbox" data-mv="${v.n}"${t.sel[v.n] ? ' checked' : ''}>${v.n + 1}. ${esc(v.m.descr || v.m.codice || '—')} <small>${esc((String(v.m.qta || '') + ' ' + (v.m.um || '')).trim())}${sc[v.n] ? ' · già scritta' : ''}</small></label>`).join('');
+  const scelte = voci.filter(v => t.sel[v.n]), g = $('#ed-mat-guida'), nome = MAT_CAMPI[t.campo];
+  let testo;
+  if (!voci.length) testo = 'Per questo intervento non ci sono materiali. Inseriscili nella scheda (sezione Materiali), poi riapri il documento.';
+  else if (!scelte.length) testo = 'Non c\'è nessuna voce da scrivere: tutte fatte, oppure nessuna spuntata.';
+  else if (t.campo === 'riga') testo = 'Tocca il punto dove iniziare: scrivo ' + scelte.length + (scelte.length === 1 ? ' voce' : ' voci') + ', una per riga.';
+  else if (scelte.length === 1) testo = 'Tocca la casella dove scrivere ' + nome + '.';
+  else if (!t.passo) testo = '1) Tocca la prima casella della colonna: ci scrivo ' + nome + ' di «' + (scelte[0].m.descr || scelte[0].m.codice || '1ª voce') + '». Poi un secondo tocco sulla riga dopo (' + scelte.length + ' voci in tutto).';
+  else testo = '2) Ora tocca la stessa colonna nella riga successiva: da lì ricavo la distanza e scrivo le altre ' + (scelte.length - 1) + '. (Per ricominciare tocca di nuovo il campo qui sopra.)';
+  g.textContent = testo;
+  $('#ed-mat-sum').textContent = 'Voci da scrivere: ' + scelte.length + ' su ' + voci.length + ' (tocca per scegliere)';
+}
+function matTocco(i, x, y){
+  if (!ed || !ed.mat) return;
+  const t = ed.mat, scelte = matVoci().filter(v => t.sel[v.n]);
+  if (!scelte.length) { matDisegna(); return; }
+  const pg = ed.pagine[i]; if (!pg) return;
+  const f = ED_TESTO[ed.dim], altRiga = f * pg.cssW / pg.cssH;         // altezza del carattere come frazione della pagina
+  const taglia = s => (t.max > 0 && s.length > t.max) ? s.slice(0, t.max) : s;
+  const aggiungi = (p, xx, yy, s, idx) => ed.azioni.push({p: p, t: 'testo', c: ed.col, f: f, x: xx, y: Math.max(0, yy - altRiga * 0.5), s: s, mat: {campo: t.campo, idx: idx}, gruppo: matGruppo});
+  const matGruppo = Date.now();
+  if (t.campo === 'riga') {
+    aggiungi(i, x, y, scelte.map(v => taglia(matTesto(v.m, 'riga'))).join('\n'), scelte.map(v => v.n));
+  } else if (scelte.length === 1) {
+    aggiungi(i, x, y, taglia(matTesto(scelte[0].m, t.campo)), [scelte[0].n]);
+  } else if (!t.passo) {
+    t.passo = 1; t.p1 = {p: i, x: x, y: y}; ridisegnaPagina(i); matDisegna(); return;
+  } else {
+    if (t.p1.p !== i) { t.p1 = {p: i, x: x, y: y}; ridisegnaPagina(i); matDisegna(); return; }       // altra pagina: riparto da qui
+    const dy = y - t.p1.y;
+    if (Math.abs(dy) < altRiga * 0.9) { $('#ed-mat-guida').textContent = 'Il secondo tocco è troppo vicino al primo: tocca la riga successiva della stessa colonna.'; return; }
+    let scritte = 0;
+    scelte.forEach((v, k) => {
+      const yy = t.p1.y + k * dy; if (yy > 1 - altRiga || yy < 0) return;                  // fuori dalla pagina: resta da scrivere
+      aggiungi(t.p1.p, t.p1.x, yy, taglia(matTesto(v.m, t.campo)), [v.n]); scritte++;
+    });
+    if (scritte < scelte.length) mostraAvviso(scritte + ' voci su ' + scelte.length + ' entrano in questa pagina. Le altre restano da scrivere: vai alla pagina dopo e ripeti.', '', null, 6000);
+  }
+  ed.sporco = true;
+  const p1 = t.p1; matRiparti(); ridisegnaPagina(i); if (p1 && p1.p !== i) ridisegnaPagina(p1.p);
+  aggiornaBarraEditor();
+}
 
 /* ---- versione modificata caricata da file (modificata con Edge, Excel, Anteprima...) ---- */
 let docModTarget = null;
@@ -3834,11 +3949,11 @@ function chiudiMaterialiVoce(){ if (dett && dett.dest === 'vm') fermaDettatura()
 function rigaVmHtml(r, n){
   const tutti = leggiArticoli(), c = r.cand || [];
   const sel = c.length ? `<select class="vm-art" data-vmart="${n}" aria-label="Collega a un articolo preferito" style="grid-column:1/-1;margin-top:4px"><option value="">Nessun articolo preferito</option>${c.map(i => `<option value="${i}"${String(r.art) === String(i) ? ' selected' : ''}>${esc((tutti[i][0] ? tutti[i][0] + ' · ' : '') + tutti[i][1])}</option>`).join('')}</select>` : '';
-  return `<div class="mat">
+  return `<div class="mat vm">
     <input class="descr" type="text" data-vm="${n}" data-c="descr" aria-label="Descrizione" value="${esc(r.descr)}">
     <button class="togli" type="button" data-vm-togli="${n}" aria-label="Togli questa riga">×</button>
-    <input type="text" inputmode="decimal" data-vm="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(r.qta)}"${r.qta ? '' : ' style="border-color:var(--rosso)"'}>
-    <input type="text" list="lista-um" data-vm="${n}" data-c="um" aria-label="Unità" autocapitalize="none" value="${esc(r.um)}">${sel}</div>`;
+    <input type="text" list="lista-um" data-vm="${n}" data-c="um" placeholder="Unità" aria-label="Unità" autocapitalize="none" value="${esc(r.um)}">
+    <input type="text" inputmode="decimal" data-vm="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(r.qta)}"${r.qta ? '' : ' style="border-color:var(--rosso)"'}>${sel}</div>`;
 }
 function collegaArticoliVm(){
   vmRighe.forEach(r => { r.cand = r.descr ? risultatiArticoli(r.descr, true).slice(0, 5) : []; r.art = r.cand.length === 1 ? r.cand[0] : ''; });
@@ -4548,7 +4663,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.28.0 (11/10/2026)';
+const VERSIONE_APP = '1.29.2 (12/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5831,9 +5946,14 @@ function avvia(){
   $('#vm-modale').addEventListener('click', e => { const b = e.target.closest('[data-mic],[data-vm-togli]'); if (!b) return;
     if (b.dataset.mic) avviaDettatura('vm'); else { vmRighe.splice(+b.dataset.vmTogli, 1); const n = vmRighe.length; interpretaDaRighe(); } });
   $('#in-doc-mod').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f && docModTarget) { const t = docModTarget; docModTarget = null; await caricaVersioneModificata(t, f); } };
-  document.querySelectorAll('.ed-str[data-str]').forEach(b => b.onclick = () => { if (ed) { ed.str = b.dataset.str; aggiornaBarraEditor(); } });
+  document.querySelectorAll('.ed-str[data-str]').forEach(b => b.onclick = () => { if (ed) { ed.str = b.dataset.str; if (ed.str === 'mat') matRiparti(); aggiornaBarraEditor(); } });
   document.querySelectorAll('.ed-col').forEach(b => b.onclick = () => { if (ed) { ed.col = b.dataset.col; aggiornaBarraEditor(); } });
   document.querySelectorAll('.ed-dim').forEach(b => b.onclick = () => { if (ed) { ed.dim = +b.dataset.dim; aggiornaBarraEditor(); } });
+  document.querySelectorAll('#ed-mat-campi [data-mcampo]').forEach(b => b.onclick = () => { if (ed) { ed.mat.campo = b.dataset.mcampo; const p = ed.mat.p1; matRiparti(); if (p) ridisegnaPagina(p.p); matDisegna(); } });
+  $('#ed-mat-voci').addEventListener('change', e => { const n = e.target.dataset && e.target.dataset.mv; if (!ed || n === undefined) return; if (e.target.checked) ed.mat.sel[n] = true; else delete ed.mat.sel[n]; ed.mat.passo = 0; const p = ed.mat.p1; ed.mat.p1 = null; if (p) ridisegnaPagina(p.p); matDisegna(); });
+  $('#b-mat-tutte').onclick = () => { if (!ed) return; ed.mat.sel = {}; matVoci().forEach(v => { ed.mat.sel[v.n] = true; }); ed.mat.passo = 0; ed.mat.p1 = null; matDisegna(); };
+  $('#b-mat-nessuna').onclick = () => { if (!ed) return; ed.mat.sel = {}; ed.mat.passo = 0; ed.mat.p1 = null; matDisegna(); };
+  $('#ed-mat-max').oninput = e => { if (ed) ed.mat.max = Math.max(0, parseInt(e.target.value, 10) || 0); };
   $('#b-ed-annulla').onclick = annullaUltimo; $('#b-ed-salva').onclick = salvaEditor; $('#b-ed-chiudi').onclick = chiudiEditor;
   $('#b-ed-testo-ok').onclick = confermaTesto; $('#b-ed-testo-no').onclick = () => { $('#ed-modale').hidden = true; edTestoPos = null; };
   // se la pagina viene chiusa o nascosta mentre una modifica aspetta di essere salvata, la salvo subito
