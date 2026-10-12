@@ -405,6 +405,7 @@ button.pos{margin-top:4px;font-size:13px}
 #ed-mat[hidden]{display:none}
 #ed-mat .mat-campi button{min-height:34px;padding:0 9px;margin:0 5px 5px 0;font-size:.88rem;border-radius:8px;border:1.5px solid var(--riga);background:#fff;font-weight:650;cursor:pointer}
 #ed-mat .mat-campi button[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
+#ed-mat .mat-solo{display:inline-block;margin:0 6px 5px 4px;font-size:.84rem;color:var(--tenue)}
 #ed-mat .mat-voce{display:block;padding:5px 0;border-top:1px solid var(--riga);font-size:.92rem}
 #ed-mat .mat-voce input{margin-right:8px}
 #ed-mat .mat-voce small{color:var(--tenue)}
@@ -629,8 +630,10 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto" id="ed-aiuto" style="margin:4px 0 6px"></p>
       <div id="ed-mat" hidden>
         <div class="mat-campi" id="ed-mat-campi">
-          <button type="button" data-mcampo="codice" aria-pressed="true">Codice</button><button type="button" data-mcampo="descr" aria-pressed="false">Descrizione</button><button type="button" data-mcampo="um" aria-pressed="false">Unità</button><button type="button" data-mcampo="qta" aria-pressed="false">Q.tà</button><button type="button" data-mcampo="riga" aria-pressed="false">Elenco in blocco</button></div>
-        <p class="aiuto" id="ed-mat-guida" role="status" style="margin:4px 0 6px"></p>
+          <button type="button" data-mcampo="tab" aria-pressed="true">Tabella</button><button type="button" data-mcampo="riga" aria-pressed="false">Elenco in blocco</button>
+          <span class="mat-solo">Solo una colonna:</span><button type="button" data-mcampo="codice" aria-pressed="false">Codice</button><button type="button" data-mcampo="descr" aria-pressed="false">Descrizione</button><button type="button" data-mcampo="um" aria-pressed="false">Unità</button><button type="button" data-mcampo="qta" aria-pressed="false">Q.tà</button></div>
+        <p class="aiuto" id="ed-mat-guida" role="status" style="margin:4px 0 6px;min-height:3.9em"></p>
+        <div id="ed-mat-azioni" hidden class="mat-sotto" style="margin:0 0 6px"><button type="button" class="btn chiaro piccolo" id="b-mat-salta">Salta colonna</button><button type="button" class="btn chiaro piccolo" id="b-mat-riparti">Ricomincia</button></div>
         <details id="ed-mat-det"><summary id="ed-mat-sum" style="cursor:pointer;font-weight:650">Voci</summary>
           <div id="ed-mat-voci"></div>
           <div class="mat-sotto"><button type="button" class="btn chiaro piccolo" id="b-mat-tutte">Tutte</button><button type="button" class="btn chiaro piccolo" id="b-mat-nessuna">Nessuna</button> <label style="font-size:.88rem">Taglia a <input type="text" inputmode="numeric" id="ed-mat-max" placeholder="0"> caratteri (0 = intero)</label></div>
@@ -1274,7 +1277,7 @@ function aggiornaNav(){
   const n = posta.filter(r => !r.fatto).length, bd = $('#nav-badge');
   if (bd) { bd.hidden = !n; bd.textContent = n; }
   const bi = $('#nav-badge-inv');
-  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
+  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og, giaEseguitoInPosta))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
 }
 function disegnaAgenda(){
   aggiornaNav();
@@ -3461,7 +3464,7 @@ async function apriEditor(id, nome){
     const i0 = inizioPdf(bytes);
     if (i0 < 0) { if (msg) msg.textContent = 'Questo file non è un PDF valido: non si può modificare.'; return; }
     if (i0 > 0) bytes = bytes.slice(i0);
-    ed = {id, nome, bytes, azioni: [], sporco: false, str: 'scorri', col: '#111111', dim: 1, pagine: [], giaModificato: !!m, mat: {campo: 'codice', sel: {}, passo: 0, p1: null, max: 0}};
+    ed = {id, nome, bytes, azioni: [], sporco: false, str: 'scorri', col: '#111111', dim: 1, pagine: [], giaModificato: !!m, mat: {campo: 'tab', sel: {}, passo: 0, p1: null, max: 0, tab: {passo: 0, cols: {}, p: null, y1: null, punti: []}}};
     $('#ed-titolo').textContent = nome.replace(/\.pdf$/i, '');
     $('#ed-pagine').innerHTML = '<p class="aiuto">Carico le pagine…</p>';
     mostra('editor');
@@ -3522,6 +3525,7 @@ function ridisegnaPagina(i){
       a.s.split('\n').forEach((r, n) => ctx.fillText(r, a.x * pg.cssW, a.y * pg.cssH + sz * 0.8 + n * sz * 1.2));
     }
   });
+  if (ed.mat && ed.mat.tab) ed.mat.tab.punti.forEach(q => { if (q.p === i) { ctx.fillStyle = '#C62828'; ctx.beginPath(); ctx.arc(q.x * pg.cssW, q.y * pg.cssH, 4, 0, 7); ctx.fill(); } });
   if (ed.mat && ed.mat.p1 && ed.mat.p1.p === i) { ctx.fillStyle = '#C62828'; ctx.beginPath(); ctx.arc(ed.mat.p1.x * pg.cssW, ed.mat.p1.y * pg.cssH, 4, 0, 7); ctx.fill(); }
 }
 function collegaOverlay(ov, i){
@@ -3581,7 +3585,8 @@ function annullaUltimo(){
 /* ---- Materiali dell'intervento scritti sul documento (moduli degli enti) ----
    Le voci vengono dalla scheda dell'intervento. Una colonna alla volta: tocchi la prima casella e la casella della riga dopo,
    l'app ricava la distanza tra le righe e scrive tutte le voci scelte. "Elenco in blocco": un tocco, una riga per voce. */
-const MAT_CAMPI = {codice: 'il codice', descr: 'la descrizione', um: 'l\'unità', qta: 'la quantità', riga: 'l\'elenco'};
+const MAT_CAMPI = {codice: 'il codice', descr: 'la descrizione', um: 'l\'unità', qta: 'la quantità', riga: 'l\'elenco', tab: 'la tabella'};
+const MAT_ORDINE = ['codice', 'descr', 'um', 'qta'], MAT_NOMI = {codice: 'CODICE', descr: 'DESCRIZIONE', um: 'UNITÀ', qta: 'QUANTITÀ'};
 function matScheda(){
   if (typeof corrente === 'undefined' || !corrente) return null;
   if (lavoro && lavoro.id === corrente.id) return lavoro;
@@ -3600,7 +3605,14 @@ function matScritte(campo){
 function matRiparti(){                            // seleziona le voci non ancora scritte per questo campo
   const sc = matScritte(ed.mat.campo); ed.mat.sel = {};
   matVoci().forEach(v => { if (!sc[v.n]) ed.mat.sel[v.n] = true; });
-  ed.mat.passo = 0; ed.mat.p1 = null;
+  ed.mat.passo = 0; ed.mat.p1 = null; ed.mat.tab = {passo: 0, cols: {}, p: null, y1: null, punti: []};
+}
+function matAzzeraSel(nuova){                      // cambia la selezione delle voci e ricomincia il percorso
+  const sel = nuova || ed.mat.sel; matAzzera(); ed.mat.sel = sel;
+}
+function matAzzera(){                              // riparte da capo e toglie i puntini rossi
+  const pag = {}; if (ed.mat.p1) pag[ed.mat.p1.p] = 1; ed.mat.tab.punti.forEach(q => { pag[q.p] = 1; });
+  matRiparti(); Object.keys(pag).forEach(n => ridisegnaPagina(+n));
 }
 function matTesto(m, campo){
   const q = String(m.qta == null ? '' : m.qta).trim(), u = String(m.um || '').trim();
@@ -3616,26 +3628,74 @@ function matDisegna(){
   document.querySelectorAll('#ed-mat-campi [data-mcampo]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mcampo === t.campo));
   const box = $('#ed-mat-voci');
   box.innerHTML = voci.map(v => `<label class="mat-voce"><input type="checkbox" data-mv="${v.n}"${t.sel[v.n] ? ' checked' : ''}>${v.n + 1}. ${esc(v.m.descr || v.m.codice || '—')} <small>${esc((String(v.m.qta || '') + ' ' + (v.m.um || '')).trim())}${sc[v.n] ? ' · già scritta' : ''}</small></label>`).join('');
-  const scelte = voci.filter(v => t.sel[v.n]), g = $('#ed-mat-guida'), nome = MAT_CAMPI[t.campo];
-  let testo;
+  const scelte = voci.filter(v => t.sel[v.n]), g = $('#ed-mat-guida'), nome = MAT_CAMPI[t.campo], T = t.tab;
+  let testo, azioni = false;
   if (!voci.length) testo = 'Per questo intervento non ci sono materiali. Inseriscili nella scheda (sezione Materiali), poi riapri il documento.';
   else if (!scelte.length) testo = 'Non c\'è nessuna voce da scrivere: tutte fatte, oppure nessuna spuntata.';
+  else if (t.campo === 'tab') {
+    azioni = true;
+    if (T.passo < 4) testo = 'Tabella (' + (T.passo + 1) + '/4): tocca la casella ' + MAT_NOMI[MAT_ORDINE[T.passo]] + ' della PRIMA riga.' + ' Se non c\'è, premi Salta.' + (T.p === null ? ' Il primo tocco fissa la riga; per le altre colonne basta toccare la casella sopra.' : '');
+    else testo = 'Ora tocca la prima casella della SECONDA riga (una colonna qualsiasi): da lì ricavo la distanza e scrivo le altre ' + (scelte.length - 1) + ' voci.';
+    if (T.passo === 0) testo += ' (' + scelte.length + (scelte.length === 1 ? ' voce' : ' voci') + ' da scrivere.)';
+    $('#b-mat-salta').hidden = T.passo >= 4;
+  }
   else if (t.campo === 'riga') testo = 'Tocca il punto dove iniziare: scrivo ' + scelte.length + (scelte.length === 1 ? ' voce' : ' voci') + ', una per riga.';
   else if (scelte.length === 1) testo = 'Tocca la casella dove scrivere ' + nome + '.';
   else if (!t.passo) testo = '1) Tocca la prima casella della colonna: ci scrivo ' + nome + ' di «' + (scelte[0].m.descr || scelte[0].m.codice || '1ª voce') + '». Poi un secondo tocco sulla riga dopo (' + scelte.length + ' voci in tutto).';
-  else testo = '2) Ora tocca la stessa colonna nella riga successiva: da lì ricavo la distanza e scrivo le altre ' + (scelte.length - 1) + '. (Per ricominciare tocca di nuovo il campo qui sopra.)';
+  else { testo = '2) Ora tocca la stessa colonna nella riga successiva: da lì ricavo la distanza e scrivo le altre ' + (scelte.length - 1) + '.'; azioni = true; $('#b-mat-salta').hidden = true; }
+  if (t.campo !== 'tab') $('#b-mat-salta').hidden = true;
+  $('#ed-mat-azioni').hidden = (t.campo === 'riga');                      // sempre visibile negli altri modi: così la pagina non si sposta tra un tocco e l'altro
   g.textContent = testo;
   $('#ed-mat-sum').textContent = 'Voci da scrivere: ' + scelte.length + ' su ' + voci.length + ' (tocca per scegliere)';
+}
+function matCtx(i){
+  const t = ed.mat, f = ED_TESTO[ed.dim], pg = ed.pagine[i] || ed.pagine[0], altRiga = f * pg.cssW / pg.cssH;
+  const gruppo = Date.now();
+  return {t: t, altRiga: altRiga,
+    taglia: s => (t.max > 0 && s.length > t.max) ? s.slice(0, t.max) : s,
+    aggiungi: (p, xx, yy, s, idx) => ed.azioni.push({p: p, t: 'testo', c: ed.col, f: f, x: xx, y: Math.max(0, yy - altRiga * 0.5), s: s, mat: {campo: t.campo, idx: idx}, gruppo: gruppo})};
+}
+function matScriviTabella(dy){                         // scrive tutte le colonne scelte, per tutte le voci, a partire dalla prima riga
+  const T = ed.mat.tab, c = matCtx(T.p), scelte = matVoci().filter(v => ed.mat.sel[v.n]);
+  let scritte = 0;
+  scelte.forEach((v, k) => {
+    const yy = T.y1 + k * dy; if (yy > 1 - c.altRiga || yy < 0) return;                  // fuori dalla pagina: resta da scrivere
+    MAT_ORDINE.forEach(col => { if (T.cols[col] !== undefined) c.aggiungi(T.p, T.cols[col], yy, c.taglia(matTesto(v.m, col)), [v.n]); });
+    scritte++;
+  });
+  if (scritte < scelte.length) mostraAvviso(scritte + ' voci su ' + scelte.length + ' entrano in questa pagina. Le altre restano da scrivere: vai alla pagina dopo e ripeti.', '', null, 6000);
+  const pag = T.p; ed.sporco = true; matRiparti(); ridisegnaPagina(pag); aggiornaBarraEditor();
+}
+function matAvanzaTab(){                               // dopo l'ultima colonna: con una sola voce si scrive subito
+  const T = ed.mat.tab;
+  if (T.passo < 4) { matDisegna(); return; }
+  if (T.p === null) { matRiparti(); $('#ed-mat-guida').textContent = 'Non hai indicato nessuna colonna: ricomincia dalla prima.'; return; }
+  if (matVoci().filter(v => ed.mat.sel[v.n]).length === 1) { matScriviTabella(0); return; }
+  const pg = T.p; ridisegnaPagina(pg); matDisegna();
+}
+function matSalta(){
+  if (!ed || ed.mat.campo !== 'tab' || ed.mat.tab.passo >= 4) return;
+  ed.mat.tab.passo++; matAvanzaTab();
+}
+function matToccoTab(i, x, y){
+  const t = ed.mat, T = t.tab, c = matCtx(i);
+  if (T.passo < 4) {
+    if (T.p === null) { T.p = i; T.y1 = y; } else if (i !== T.p) { $('#ed-mat-guida').textContent = 'Tocca la riga sulla stessa pagina del primo tocco.'; return; }
+    T.cols[MAT_ORDINE[T.passo]] = x; T.punti.push({p: i, x: x, y: T.y1}); T.passo++;
+    ridisegnaPagina(i); matAvanzaTab(); return;
+  }
+  if (i !== T.p) { $('#ed-mat-guida').textContent = 'La seconda riga deve essere sulla stessa pagina della prima.'; return; }
+  const dy = y - T.y1;
+  if (Math.abs(dy) < c.altRiga * 0.9) { $('#ed-mat-guida').textContent = 'Il tocco è troppo vicino alla prima riga: tocca la casella della riga successiva.'; return; }
+  matScriviTabella(dy);
 }
 function matTocco(i, x, y){
   if (!ed || !ed.mat) return;
   const t = ed.mat, scelte = matVoci().filter(v => t.sel[v.n]);
   if (!scelte.length) { matDisegna(); return; }
-  const pg = ed.pagine[i]; if (!pg) return;
-  const f = ED_TESTO[ed.dim], altRiga = f * pg.cssW / pg.cssH;         // altezza del carattere come frazione della pagina
-  const taglia = s => (t.max > 0 && s.length > t.max) ? s.slice(0, t.max) : s;
-  const aggiungi = (p, xx, yy, s, idx) => ed.azioni.push({p: p, t: 'testo', c: ed.col, f: f, x: xx, y: Math.max(0, yy - altRiga * 0.5), s: s, mat: {campo: t.campo, idx: idx}, gruppo: matGruppo});
-  const matGruppo = Date.now();
+  if (!ed.pagine[i]) return;
+  if (t.campo === 'tab') { matToccoTab(i, x, y); return; }
+  const c = matCtx(i), altRiga = c.altRiga, taglia = c.taglia, aggiungi = c.aggiungi;
   if (t.campo === 'riga') {
     aggiungi(i, x, y, scelte.map(v => taglia(matTesto(v.m, 'riga'))).join('\n'), scelte.map(v => v.n));
   } else if (scelte.length === 1) {
@@ -4155,8 +4215,11 @@ async function stampaDocumento(id, nome){
    e annullati (spariti dall'agenda).
    ================================================================== */
 const fmtQuando = iso => { const d = new Date(iso); return maius(d.toLocaleDateString('it-IT', {weekday: 'short', day: 'numeric', month: 'short'}).replace('.', '')) + ' ' + hhmm(d); };
+/* Un appuntamento sparito dall'agenda perche' il tecnico lo ha eseguito (ne e' arrivato il rapporto) non e' una novita' da comunicargli:
+   sul suo telefono e' gia' segnato come fatto. Se invece e' sparito senza che sia arrivato nulla, puo' essere stato annullato: va comunicato. */
+const giaEseguitoInPosta = p => (typeof posta !== 'undefined' && Array.isArray(posta) ? posta : []).some(x => x && ((x.id && x.id === p.id) || (x.li && p.r && p.r.li && String(x.li) === String(p.r.li))));
 const nessunaNovita = c => !c.nuovi.length && !c.spostati.length && !c.modificati.length && !c.annullati.length;
-function confrontaAgende(vecchie, nuove, oggiISO){
+function confrontaAgende(vecchie, nuove, oggiISO, scarta){       // scarta(p): vero se un appuntamento sparito non e' una novita' (per esempio perche' il tecnico lo ha eseguito)
   const da = oggiISO + 'T00:00:00';
   const v = new Map((vecchie || []).filter(a => a.inizio >= da && !a.fatto).map(a => [a.id, a]));
   const tutteNuove = new Map((nuove || []).filter(a => a.inizio >= da && !a.fatto).map(a => [a.id, a]));
@@ -4173,7 +4236,7 @@ function confrontaAgende(vecchie, nuove, oggiISO){
     if (!!p.urgente !== !!a.urgente) cosa.push(a.urgente ? 'ora urgente' : 'non più urgente');
     if (cosa.length) c.modificati.push({a, prima: p, cosa});
   });
-  v.forEach((p, id) => { if (!tutteNuove.has(id)) c.annullati.push(p); });
+  v.forEach((p, id) => { if (!tutteNuove.has(id) && !(scarta && scarta(p))) c.annullati.push(p); });
   const perOra = (x, y) => (x.a || x).inizio.localeCompare((y.a || y).inizio);
   ['nuovi', 'spostati', 'modificati', 'annullati'].forEach(k => c[k].sort(perOra));
   return c;
@@ -4183,7 +4246,7 @@ function riassuntoNovita(c){
   if (c.nuovi.length) t.push(c.nuovi.length + (c.nuovi.length === 1 ? ' nuovo' : ' nuovi'));
   if (c.spostati.length) t.push(c.spostati.length + (c.spostati.length === 1 ? ' spostato' : ' spostati'));
   if (c.modificati.length) t.push(c.modificati.length + (c.modificati.length === 1 ? ' modificato' : ' modificati'));
-  if (c.annullati.length) t.push(c.annullati.length + (c.annullati.length === 1 ? ' annullato' : ' annullati'));
+  if (c.annullati.length) t.push(c.annullati.length + (c.annullati.length === 1 ? ' tolto dall\'agenda' : ' tolti dall\'agenda'));
   return t.join(' · ');
 }
 function righeNovita(c, conBozze){
@@ -4192,7 +4255,7 @@ function righeNovita(c, conBozze){
   c.nuovi.forEach(a => h += riga('Nuovo', 'var(--ok)', a));
   c.spostati.forEach(x => h += riga('Spostato', 'var(--fiamma)', x.a, 'prima era ' + esc(fmtQuando(x.prima.inizio))));
   c.modificati.forEach(x => h += riga('Modificato', 'var(--petrolio)', x.a, 'cambiato: ' + esc(x.cosa.join(', '))));
-  c.annullati.forEach(a => h += riga('Tolto (annullato, chiuso o già eseguito)', 'var(--rosso)', a, conBozze && bozze[a.id] ? 'Hai una scheda iniziata: resta tra le "Schede da completare".' : ''));
+  c.annullati.forEach(a => h += riga('Tolto dall\'agenda (eseguito, chiuso o annullato)', 'var(--rosso)', a, conBozze && bozze[a.id] ? 'Hai una scheda iniziata: resta tra le "Schede da completare".' : ''));
   return h ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h.replace(/<li>/g, '<li style="padding:6px 0;border-bottom:1px solid var(--riga)">') + '</ul>' : '';
 }
 
@@ -4492,7 +4555,7 @@ function disegnaUfficio(){
     const inv = inviati[id];
     let stato = '<span class="chip">Mai inviato da questo dispositivo</span>', dettaglio = '', primario = true, etichetta = 'Invia il file';
     if (inv) {
-      const c = confrontaAgende(inv.apps, per[id], oggi), ora = hhmm(new Date(inv.quando));
+      const c = confrontaAgende(inv.apps, per[id], oggi, giaEseguitoInPosta), ora = hhmm(new Date(inv.quando));
       if (nessunaNovita(c)) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
       else { stato = `<span class="chip nov">Novità dall'ultimo invio (${ora}): ${esc(riassuntoNovita(c))}</span>`; dettaglio = righeNovita(c, false); etichetta = 'Invia gli aggiornamenti'; }
     }
@@ -4557,7 +4620,7 @@ function idDaMandare(per, inviati, oggi){
   return Object.keys(per).filter(id => {
     const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
     if (!emailTecnico(nome)) return false;
-    const inv = inviati[id]; return !inv || !nessunaNovita(confrontaAgende(inv.apps, per[id], oggi));
+    const inv = inviati[id]; return !inv || !nessunaNovita(confrontaAgende(inv.apps, per[id], oggi, giaEseguitoInPosta));
   });
 }
 const nomeAziendaMail = () => impostazioni.azienda || (datiLevante && datiLevante.azienda && datiLevante.azienda.RAGIONESOCIALE) || '';
@@ -4663,7 +4726,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.29.2 (12/10/2026)';
+const VERSIONE_APP = '1.30.3 (12/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5052,7 +5115,7 @@ function controlliIntervento(r){
   if (!nonEseg && !min) c.push({t: 'Mancano gli orari: nessuna ora da registrare.', grave: true});
   if (!nonEseg && !r.relazione && !r.osservazioni) c.push({t: 'Manca la relazione del tecnico.', grave: false});
   if (!(r.file || []).length) c.push({t: 'Nessun PDF del rapporto indicato.', grave: false});
-  else (r.file || []).filter(n => !pdfPosta[n]).forEach(n => c.push({t: 'PDF non ancora arrivato: ' + n + '.', grave: true}));
+  else (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF non ancora arrivato: ' + n + '.', grave: true}));
   if (min > 0) { const somma = ripartizione(r).reduce((q, x) => q + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0); if (Math.abs(somma - min / 60) > 0.011) c.push({t: 'Le ore ripartite per la manodopera non tornano con il totale.', grave: true}); }
   return c;
 }
@@ -5082,7 +5145,7 @@ function disegnaPosta(){
     const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), diff = Math.abs(somma - min / 60) > 0.011;
     const ripHtml = min > 0 ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
     const extra = (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
-    const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(n)) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
+    const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
     const ctrl = controlliIntervento(r), nGravi = ctrl.filter(x => x.grave).length;
     const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
     const ctrlChip = r.fatto || !ctrl.length ? '' : ` <span class="chip ${nGravi ? 'urg' : 'bozza'}">${ctrl.length} ${ctrl.length === 1 ? 'controllo' : 'controlli'}</span>`;
@@ -5949,10 +6012,11 @@ function avvia(){
   document.querySelectorAll('.ed-str[data-str]').forEach(b => b.onclick = () => { if (ed) { ed.str = b.dataset.str; if (ed.str === 'mat') matRiparti(); aggiornaBarraEditor(); } });
   document.querySelectorAll('.ed-col').forEach(b => b.onclick = () => { if (ed) { ed.col = b.dataset.col; aggiornaBarraEditor(); } });
   document.querySelectorAll('.ed-dim').forEach(b => b.onclick = () => { if (ed) { ed.dim = +b.dataset.dim; aggiornaBarraEditor(); } });
-  document.querySelectorAll('#ed-mat-campi [data-mcampo]').forEach(b => b.onclick = () => { if (ed) { ed.mat.campo = b.dataset.mcampo; const p = ed.mat.p1; matRiparti(); if (p) ridisegnaPagina(p.p); matDisegna(); } });
-  $('#ed-mat-voci').addEventListener('change', e => { const n = e.target.dataset && e.target.dataset.mv; if (!ed || n === undefined) return; if (e.target.checked) ed.mat.sel[n] = true; else delete ed.mat.sel[n]; ed.mat.passo = 0; const p = ed.mat.p1; ed.mat.p1 = null; if (p) ridisegnaPagina(p.p); matDisegna(); });
-  $('#b-mat-tutte').onclick = () => { if (!ed) return; ed.mat.sel = {}; matVoci().forEach(v => { ed.mat.sel[v.n] = true; }); ed.mat.passo = 0; ed.mat.p1 = null; matDisegna(); };
-  $('#b-mat-nessuna').onclick = () => { if (!ed) return; ed.mat.sel = {}; ed.mat.passo = 0; ed.mat.p1 = null; matDisegna(); };
+  document.querySelectorAll('#ed-mat-campi [data-mcampo]').forEach(b => b.onclick = () => { if (ed) { ed.mat.campo = b.dataset.mcampo; matAzzera(); matDisegna(); } });
+  $('#ed-mat-voci').addEventListener('change', e => { const n = e.target.dataset && e.target.dataset.mv; if (!ed || n === undefined) return; if (e.target.checked) ed.mat.sel[n] = true; else delete ed.mat.sel[n]; matAzzeraSel(); matDisegna(); });
+  $('#b-mat-salta').onclick = matSalta; $('#b-mat-riparti').onclick = () => { if (ed) { matAzzera(); matDisegna(); } };
+  $('#b-mat-tutte').onclick = () => { if (!ed) return; const s0 = {}; matVoci().forEach(v => { s0[v.n] = true; }); matAzzeraSel(s0); matDisegna(); };
+  $('#b-mat-nessuna').onclick = () => { if (!ed) return; matAzzeraSel({}); matDisegna(); };
   $('#ed-mat-max').oninput = e => { if (ed) ed.mat.max = Math.max(0, parseInt(e.target.value, 10) || 0); };
   $('#b-ed-annulla').onclick = annullaUltimo; $('#b-ed-salva').onclick = salvaEditor; $('#b-ed-chiudi').onclick = chiudiEditor;
   $('#b-ed-testo-ok').onclick = confermaTesto; $('#b-ed-testo-no').onclick = () => { $('#ed-modale').hidden = true; edTestoPos = null; };
