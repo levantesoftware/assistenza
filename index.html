@@ -100,6 +100,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .seg{display:flex;gap:8px;margin:2px 0 6px}
 .seg button{flex:1;min-height:44px;border-radius:10px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
+.seg button.nuovo:not([aria-pressed="true"]){border-color:var(--fiamma);color:#9a4a00;background:#FFF4E5}
 .giorno{font-size:15px;font-weight:700;margin:20px 0 8px}
 .giorno small{font-weight:400;color:var(--tenue);margin-left:6px}
 
@@ -555,6 +556,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button type="button" id="s-oggi" aria-pressed="true">Oggi</button>
       <button type="button" id="s-sett" aria-pressed="false">Settimana</button>
       <button type="button" id="s-scorsa" aria-pressed="false">Scorsa</button>
+      <button type="button" id="s-chiamate" aria-pressed="false" hidden>Chiamate</button>
     </div>
     <label class="spunta" style="margin:8px 0 0"><input type="checkbox" id="nascondi-gestiti"> <span id="nascondi-testo"></span></label>
     <div id="lista"></div>
@@ -1294,23 +1296,23 @@ function aggiornaNav(){
   const bi = $('#nav-badge-inv');
   if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = costruisciPer(); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => haNovita(id, per, inv, og)).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
 }
-function disegnaChiamate(){
-  let box = $('#chiamate-box');
-  if (!box) { box = document.createElement('div'); box.id = 'chiamate-box'; $('#lista').before(box); }
-  const L = inUfficio ? [] : chiamateTec();
-  if (!L.length) { box.innerHTML = ''; return; }
+function listaChiamate(L){          // la scheda "Chiamate": quelle ancora senza appuntamento
+  const box = $('#lista');
   L.sort((x, y) => (y.urgente ? 1 : 0) - (x.urgente ? 1 : 0) || x.inizio - y.inizio);
   const nuove = new Set(store.get('ass_ch_nuove', []));
-  box.innerHTML = `<h2 class="giorno">Chiamate da gestire (${L.length})</h2>` + L.map(c => {
+  box.innerHTML = '<p class="aiuto" style="margin:6px 0 10px">Chiamate dei clienti ancora <b>senza appuntamento</b>. Decidi tu quando andare: <b>fissa un appuntamento</b> (entra in agenda nel giorno scelto) oppure <b>trasformala subito in intervento</b>.</p>' + L.map(c => {
     const chips = [];
     if (nuove.has(c.id)) chips.push('<span class="chip nov">Nuova</span>');
     if (c.urgente) chips.push('<span class="chip urg">Urgente</span>');
     if (c.r && c.r.li) chips.push(`<span class="chip num">N. ${esc(c.r.li)}</span>`);
     if (c.r && c.r.tp) chips.push(`<span class="chip info">${esc(c.r.tp)}</span>`);
-    return `<button class="visita ${c.urgente ? 'urgente ' : ''}" type="button" data-ch="${esc(c.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(isoGiorno(c.inizio)).slice(0, 5))}<small>chiamata</small></span>
-      <span class="corpo"><span class="nome">${esc(c.titolo)}</span><span class="dove" style="display:block">${esc(c.luogo)}</span>${c.messaggio ? `<span class="dove" style="display:block;font-style:italic">${esc(c.messaggio.slice(0, 110))}</span>` : ''}<span class="riga">${chips.join('')}</span></span></button>`;
+    return `<div style="margin-bottom:14px"><button class="visita ${c.urgente ? 'urgente ' : ''}" type="button" data-ch="${esc(c.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(isoGiorno(c.inizio)).slice(0, 5))}<small>chiamata</small></span>
+      <span class="corpo"><span class="nome">${esc(c.titolo)}</span><span class="dove" style="display:block">${esc(c.luogo)}</span>${c.messaggio ? `<span class="dove" style="display:block;font-style:italic">${esc(c.messaggio.slice(0, 140))}</span>` : ''}<span class="riga">${chips.join('')}</span></span></button>
+      <div class="azioni" style="margin:6px 0 0"><button class="btn sec piccolo" type="button" data-ch-fissa="${esc(c.id)}">Fissa un appuntamento</button><button class="btn piccolo" type="button" data-ch-int="${esc(c.id)}">Trasforma in intervento</button></div></div>`;
   }).join('');
   box.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => apriDettaglio(b.dataset.ch));
+  box.querySelectorAll('[data-ch-fissa]').forEach(b => b.onclick = () => apriDettaglio(b.dataset.chFissa));
+  box.querySelectorAll('[data-ch-int]').forEach(b => b.onclick = () => { const c = L.find(x => x.id === b.dataset.chInt); if (c && confirm('Inizio adesso l\'intervento per ' + c.titolo + '?')) trasformaChiamata(c); });
 }
 function pianificaChiamata(a, quando){
   pianoCh[a.id] = quando.toISOString(); salvaPianoCh();
@@ -1332,8 +1334,13 @@ function fissaChiamata(a){
 }
 function disegnaAgenda(){
   aggiornaNav();
-  disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaChiamate(); disegnaDaCompletare();
+  disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
+  { const Lc = inUfficio ? [] : chiamateTec(), sc = $('#s-chiamate'), nv = new Set(store.get('ass_ch_nuove', []));
+    if (periodo === 'chiamate' && !Lc.length) periodo = 'oggi';
+    sc.hidden = !Lc.length; sc.textContent = 'Chiamate · ' + Lc.length; sc.classList.toggle('nuovo', Lc.some(c => nv.has(c.id))); sc.setAttribute('aria-pressed', periodo === 'chiamate');
+    const lab = $('#nascondi-gestiti'); if (lab && lab.parentNode) lab.parentNode.style.display = periodo === 'chiamate' ? 'none' : '';
+    if (periodo === 'chiamate') { $('#s-oggi').setAttribute('aria-pressed', false); $('#s-sett').setAttribute('aria-pressed', false); $('#s-scorsa').setAttribute('aria-pressed', false); const tt = $('#tab-tec'); if (tt) tt.innerHTML = ''; listaChiamate(Lc); return; } }
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
   $('#s-sett').setAttribute('aria-pressed', periodo === 'sett');
   $('#s-scorsa').setAttribute('aria-pressed', periodo === 'scorsa');
@@ -4853,7 +4860,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.31.0 (12/10/2026)';
+const VERSIONE_APP = '1.31.1 (13/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6072,6 +6079,7 @@ function avvia(){
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
+  $('#s-chiamate').onclick = () => { periodo = 'chiamate'; disegnaAgenda(); };
   $('#b-nuovo').onclick = apriSchedaManuale;
   document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.onclick = () => {
     const v = b.dataset.nav;
