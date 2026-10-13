@@ -895,6 +895,13 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 let datiReali = null;
 const riattiva = a => Object.assign({}, a, {inizio: new Date(a.inizio), fine: new Date(a.fine)});
 /* ---- lato tecnico: CHIAMATE (senza appuntamento). Il tecnico le trasforma in intervento o fissa lui un giorno e un'ora (solo sul suo dispositivo) ---- */
+const pad2 = n => (n < 10 ? '0' : '') + n;
+const inLocale = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());       // ora del dispositivo, senza fusi
+function daLocale(t){                      // 'AAAA-MM-GGTHH:MM' = ora del dispositivo, costruita a pezzi (non dipende da come il browser legge le stringhe)
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(t || ''));
+  if (m && !/(Z|[+-]\d\d:?\d\d)$/.test(String(t))) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 0, 0);
+  return new Date(t);                      // vecchi dati salvati con il fuso (ISO con Z)
+}
 let pianoCh = {};          // id chiamata -> inizio (ISO) fissato dal tecnico (si legge all'avvio, dopo store)
 const salvaPianoCh = () => store.set('ass_ch_piano', pianoCh);
 const riattivaCh = c => { const t = new Date(c.richiesta || Date.now()); return Object.assign({}, c, {inizio: t, fine: t}); };
@@ -903,7 +910,7 @@ function chiamatePianificate(d){          // le chiamate con un giorno fissato e
   const ch = Array.isArray(d.chiamate) ? d.chiamate : [], ids = new Set(ch.map(c => c.id)); let mod = false;
   Object.keys(pianoCh).forEach(k => { if (!ids.has(k)) { delete pianoCh[k]; mod = true; } });      // diventata appuntamento o intervento (o tolta) in Levante: non e' piu' una chiamata
   if (mod) salvaPianoCh();
-  return ch.filter(c => pianoCh[c.id]).map(c => { const i = new Date(pianoCh[c.id]); return Object.assign({}, c, {inizio: i, fine: new Date(i.getTime() + 3600000), programmata: true}); });
+  return ch.filter(c => pianoCh[c.id]).map(c => { const i = daLocale(pianoCh[c.id]); return Object.assign({}, c, {inizio: i, fine: new Date(i.getTime() + 3600000), programmata: true}); });
 }
 function chiamateTec(){
   const d = datiReali; if (!d || !Array.isArray(d.chiamate)) return [];
@@ -1315,7 +1322,7 @@ function listaChiamate(L){          // la scheda "Chiamate": quelle ancora senza
   box.querySelectorAll('[data-ch-int]').forEach(b => b.onclick = () => { const c = L.find(x => x.id === b.dataset.chInt); if (c && confirm('Inizio adesso l\'intervento per ' + c.titolo + '?')) trasformaChiamata(c); });
 }
 function pianificaChiamata(a, quando){
-  pianoCh[a.id] = quando.toISOString(); salvaPianoCh();
+  pianoCh[a.id] = inLocale(quando); salvaPianoCh();
   const n = store.get('ass_ch_nuove', []).filter(x => x !== a.id); store.set('ass_ch_nuove', n);
   appuntamenti = caricaAppuntamenti();
   return appuntamenti.find(x => x.id === a.id);
@@ -1327,7 +1334,7 @@ function trasformaChiamata(a){            // la chiamata diventa un intervento d
 function fissaChiamata(a){
   const g = $('#ch-giorno').value, o = $('#ch-ora').value;
   if (!g || !o) { mostraAvviso('Scegli il giorno e l\'ora.', '', null, 4000); return; }
-  const q = new Date(g + 'T' + o + ':00'); if (isNaN(q.getTime())) { mostraAvviso('Giorno o ora non validi.', '', null, 4000); return; }
+  const q = daLocale(g + 'T' + o); if (isNaN(q.getTime())) { mostraAvviso('Giorno o ora non validi.', '', null, 4000); return; }
   pianificaChiamata(a, q);
   mostraAvviso('Fissata per ' + fmtQuando(q.toISOString()) + ': la trovi in agenda.', '', null, 6000);
   indietro(); disegnaAgenda();
@@ -4860,13 +4867,30 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.31.1 (13/10/2026)';
+const VERSIONE_APP = '1.31.2 (13/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); richiestaInstalla = e; aggiornaStatoApp(); });
 window.addEventListener('appinstalled', () => { richiestaInstalla = null; aggiornaStatoApp(); });
 function inLocaleSicuro(){ return location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); }
+/* Aggiornamento dell'app SENZA perdere i dati (agenda, bozze e documenti restano sul dispositivo):
+   si toglie la copia dell'app memorizzata e si ricarica la pagina dal sito. Non serve piu' cancellare l'icona. */
+async function forzaAggiornamento(){
+  try { if ('serviceWorker' in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); for (const r of rs) await r.unregister(); } } catch(e) {}
+  try { if (window.caches) { for (const k of await caches.keys()) if (/^assistenza-app-/.test(k)) await caches.delete(k); } } catch(e) {}
+  location.replace(location.pathname + '?agg=' + Date.now());
+}
+let ultimoControlloVersione = 0;
+async function controllaNuovaVersione(){      // se sul sito c'e' una versione piu' recente di quella aperta, lo dice e offre di aggiornare
+  if (inWorker || navigator.onLine === false || Date.now() - ultimoControlloVersione < 10 * 60000) return;
+  ultimoControlloVersione = Date.now();
+  try {
+    const r = await fetch(location.pathname + '?v=' + Date.now(), {cache: 'no-store'}); if (!r.ok) return;
+    const t = await r.text(), m = /VERSIONE_APP = '(\d[^']*)'/.exec(t);
+    if (m && m[1] !== VERSIONE_APP) mostraAvviso('Nuova versione disponibile (' + m[1].split(' ')[0] + '). I tuoi dati restano.', 'Aggiorna', forzaAggiornamento, 120000);
+  } catch(e) {}
+}
 async function registraServiceWorker(){
   if (inWorker || !('serviceWorker' in navigator) || !inLocaleSicuro()) return;
   try {
@@ -6132,8 +6156,9 @@ function avvia(){
   $('#novita-modale').addEventListener('click', e => { if (e.target.id === 'novita-modale') $('#novita-modale').hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#novita-modale').hidden) $('#novita-modale').hidden = true; });
   $('#b-ricontrolla').onclick = () => { tentativiStato = 0; aggiornaStatoApp(); };
-  $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } location.reload(); };
-  registraServiceWorker();
+  $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } forzaAggiornamento(); };
+  registraServiceWorker(); setTimeout(controllaNuovaVersione, 4000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(controllaNuovaVersione, 1500); });
   $('#vm-mic-slot').outerHTML = bottoneMic('vm');
   $('#in-foto').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length && lavoro) await aggiungiFoto(fl); };
   $('#in-foto-gal').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length && lavoro) await aggiungiFoto(fl); };
