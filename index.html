@@ -892,9 +892,24 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
    ================================================================== */
 let datiReali = null;
 const riattiva = a => Object.assign({}, a, {inizio: new Date(a.inizio), fine: new Date(a.fine)});
+/* ---- lato tecnico: CHIAMATE (senza appuntamento). Il tecnico le trasforma in intervento o fissa lui un giorno e un'ora (solo sul suo dispositivo) ---- */
+let pianoCh = {};          // id chiamata -> inizio (ISO) fissato dal tecnico (si legge all'avvio, dopo store)
+const salvaPianoCh = () => store.set('ass_ch_piano', pianoCh);
+const riattivaCh = c => { const t = new Date(c.richiesta || Date.now()); return Object.assign({}, c, {inizio: t, fine: t}); };
+function chiamatePianificate(d){          // le chiamate con un giorno fissato entrano in agenda come gli appuntamenti
+  if (!chiamatePianificate.letto) { chiamatePianificate.letto = true; pianoCh = store.get('ass_ch_piano', {}) || {}; }
+  const ch = Array.isArray(d.chiamate) ? d.chiamate : [], ids = new Set(ch.map(c => c.id)); let mod = false;
+  Object.keys(pianoCh).forEach(k => { if (!ids.has(k)) { delete pianoCh[k]; mod = true; } });      // diventata appuntamento o intervento (o tolta) in Levante: non e' piu' una chiamata
+  if (mod) salvaPianoCh();
+  return ch.filter(c => pianoCh[c.id]).map(c => { const i = new Date(pianoCh[c.id]); return Object.assign({}, c, {inizio: i, fine: new Date(i.getTime() + 3600000), programmata: true}); });
+}
+function chiamateTec(){
+  const d = datiReali; if (!d || !Array.isArray(d.chiamate)) return [];
+  return d.chiamate.filter(c => !pianoCh[c.id] && !registrato(c)).map(riattivaCh);
+}
 function caricaAppuntamenti(){            // dati ricevuti dall'ufficio, altrimenti dati di esempio
   const d = store.get('ass_dati', null);
-  if (d && Array.isArray(d.appuntamenti)) { datiReali = d; return d.appuntamenti.map(riattiva); }
+  if (d && Array.isArray(d.appuntamenti)) { datiReali = d; return d.appuntamenti.map(riattiva).concat(chiamatePianificate(d)); }
   datiReali = null;
   return demoAppuntamenti();
 }
@@ -1277,11 +1292,47 @@ function aggiornaNav(){
   const n = posta.filter(r => !r.fatto).length, bd = $('#nav-badge');
   if (bd) { bd.hidden = !n; bd.textContent = n; }
   const bi = $('#nav-badge-inv');
-  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); }); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => !inv[id] || !nessunaNovita(confrontaAgende(inv[id].apps, per[id], og, giaEseguitoInPosta))).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
+  if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = costruisciPer(); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => haNovita(id, per, inv, og)).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
+}
+function disegnaChiamate(){
+  let box = $('#chiamate-box');
+  if (!box) { box = document.createElement('div'); box.id = 'chiamate-box'; $('#lista').before(box); }
+  const L = inUfficio ? [] : chiamateTec();
+  if (!L.length) { box.innerHTML = ''; return; }
+  L.sort((x, y) => (y.urgente ? 1 : 0) - (x.urgente ? 1 : 0) || x.inizio - y.inizio);
+  const nuove = new Set(store.get('ass_ch_nuove', []));
+  box.innerHTML = `<h2 class="giorno">Chiamate da gestire (${L.length})</h2>` + L.map(c => {
+    const chips = [];
+    if (nuove.has(c.id)) chips.push('<span class="chip nov">Nuova</span>');
+    if (c.urgente) chips.push('<span class="chip urg">Urgente</span>');
+    if (c.r && c.r.li) chips.push(`<span class="chip num">N. ${esc(c.r.li)}</span>`);
+    if (c.r && c.r.tp) chips.push(`<span class="chip info">${esc(c.r.tp)}</span>`);
+    return `<button class="visita ${c.urgente ? 'urgente ' : ''}" type="button" data-ch="${esc(c.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(isoGiorno(c.inizio)).slice(0, 5))}<small>chiamata</small></span>
+      <span class="corpo"><span class="nome">${esc(c.titolo)}</span><span class="dove" style="display:block">${esc(c.luogo)}</span>${c.messaggio ? `<span class="dove" style="display:block;font-style:italic">${esc(c.messaggio.slice(0, 110))}</span>` : ''}<span class="riga">${chips.join('')}</span></span></button>`;
+  }).join('');
+  box.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => apriDettaglio(b.dataset.ch));
+}
+function pianificaChiamata(a, quando){
+  pianoCh[a.id] = quando.toISOString(); salvaPianoCh();
+  const n = store.get('ass_ch_nuove', []).filter(x => x !== a.id); store.set('ass_ch_nuove', n);
+  appuntamenti = caricaAppuntamenti();
+  return appuntamenti.find(x => x.id === a.id);
+}
+function trasformaChiamata(a){            // la chiamata diventa un intervento di oggi, adesso
+  const q = new Date(); q.setSeconds(0, 0);
+  const n = pianificaChiamata(a, q); if (n) iniziaIntervento(n);
+}
+function fissaChiamata(a){
+  const g = $('#ch-giorno').value, o = $('#ch-ora').value;
+  if (!g || !o) { mostraAvviso('Scegli il giorno e l\'ora.', '', null, 4000); return; }
+  const q = new Date(g + 'T' + o + ':00'); if (isNaN(q.getTime())) { mostraAvviso('Giorno o ora non validi.', '', null, 4000); return; }
+  pianificaChiamata(a, q);
+  mostraAvviso('Fissata per ' + fmtQuando(q.toISOString()) + ': la trovi in agenda.', '', null, 6000);
+  indietro(); disegnaAgenda();
 }
 function disegnaAgenda(){
   aggiornaNav();
-  disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaDaCompletare();
+  disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaChiamate(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
   $('#s-sett').setAttribute('aria-pressed', periodo === 'sett');
@@ -1314,6 +1365,7 @@ function disegnaAgenda(){
     const st = stato(a.id);
     const nOp = opDaFare(a.r).length;
     const chips = [];
+    if (a.chiamata) chips.push('<span class="chip info">Chiamata</span>');
     if (a.r && a.r.li) chips.push(`<span class="chip num">N. ${esc(a.r.li)}</span>`);
     if (a.urgente) chips.push('<span class="chip urg">Urgente</span>');
     if (a.tecnico_nome && piuTecnici) chips.push(`<span class="chip tec">${esc(a.tecnico_nome)}</span>`);
@@ -1402,8 +1454,10 @@ function sezioneDocumenti(a){
     <p class="aiuto" id="doc-msg" role="status" style="margin-top:6px"></p></div>`;
 }
 function apriDettaglio(id, push = true){
-  const a = appuntamenti.find(x => x.id === id);
+  const a = appuntamenti.find(x => x.id === id) || chiamateTec().find(x => x.id === id);
   if (!a) return;
+  const libera = !!a.chiamata && !a.programmata;       // chiamata non ancora fissata
+  if (libera) { const nn = store.get('ass_ch_nuove', []).filter(x => x !== a.id); store.set('ass_ch_nuove', nn); }
   if (timer) { clearTimeout(timer); salvaBozza(); }
   corrente = a; tolgiFlag(a.id);
   const r = a.r || {}, c = r.c || {}, i = r.i || {};
@@ -1413,15 +1467,21 @@ function apriDettaglio(id, push = true){
   const durata = Math.round((a.fine - a.inizio) / 60000);
   const mappa = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(i.u || a.luogo);
   let h = `<header class="barra fissa"><button class="btn chiaro piccolo" id="b-indietro-det" type="button">Indietro</button>
-      <h1>${esc(hhmm(a.inizio))} · ${esc(r.tp || 'Intervento')}</h1></header>
+      <h1>${libera ? 'Chiamata' + (r.tp ? ' · ' + esc(r.tp) : '') : esc(hhmm(a.inizio)) + ' · ' + esc(r.tp || 'Intervento')}</h1></header>
     <div class="testata"><div class="cliente">${esc(a.titolo)}</div>
-      <div class="quando">${esc(giornoLungo(a.inizio))}, dalle ${hhmm(a.inizio)} alle ${hhmm(a.fine)} (${durata} min)</div>${r.li ? `<div class="quando">Appuntamento <b>N. ${esc(r.li)}</b> in Levante</div>` : ''}</div>
+      ${libera ? `<div class="quando">Chiamata ricevuta il ${esc(dataIT(isoGiorno(a.inizio)))} alle ${hhmm(a.inizio)} · ancora senza appuntamento</div>` : `<div class="quando">${esc(giornoLungo(a.inizio))}, dalle ${hhmm(a.inizio)} alle ${hhmm(a.fine)} (${durata} min)</div>`}${r.li ? `<div class="quando">${a.chiamata ? 'Chiamata' : 'Appuntamento'} <b>N. ${esc(r.li)}</b> in Levante</div>` : ''}</div>
     <div class="azioni">
       ${tel ? `<a class="btn sec" href="tel:${esc(soloCifre(tel))}">${ICONE.tel}Chiama</a>` : '<span></span>'}
       <a class="btn sec" href="${esc(mappa)}" target="_blank" rel="noopener">${ICONE.mappa}Naviga</a>
     </div>`;
   if (a.urgente) h += `<div class="avviso rosso"><b>Intervento urgente</b>Il cliente aspetta: chiamalo prima di partire.</div>`;
   if (a.messaggio) h += `<div class="avviso info"><b>Richiesta del cliente</b>${esc(a.messaggio)}</div>`;
+  if (a.chiamata && a.programmata && !bozze[a.id]) h += '<p style="margin:8px 0"><button class="btn chiaro piccolo" id="b-disfissa" type="button">Rimetti tra le chiamate</button></p>';
+  if (libera && !sola()) {
+    const dom = new Date(Date.now() + 3600000), g0 = isoGiorno(new Date()), o0 = String(dom.getHours()).padStart(2, '0') + ':00';
+    h += `<div class="sez"><h2>Fissa un appuntamento</h2><p class="aiuto">Scegli quando andare: la chiamata entra nella tua agenda in quel giorno. Resta sul tuo dispositivo (l'ufficio la chiude in Levante quando gli arriva l'intervento).</p>
+      <div class="riga-orario" style="grid-template-columns:1fr 1fr auto"><div><label for="ch-giorno">Giorno</label><input type="date" id="ch-giorno" value="${g0}"></div><div><label for="ch-ora">Ora</label><input type="time" id="ch-ora" value="${o0}"></div><div style="align-self:end"><button class="btn sec" id="b-fissa" type="button">Fissa</button></div></div></div>`;
+  }
   h += sezioneDocumenti(a);
   if (i.nt) h += `<div class="avviso"><b>Note sull'impianto</b>${esc(i.nt)}</div>`;
 
@@ -1453,7 +1513,8 @@ function apriDettaglio(id, push = true){
       ${c.m ? `<dt>Cellulare</dt><dd><a href="tel:${esc(soloCifre(c.m))}">${esc(c.m)}</a></dd>` : ''}
       ${c.e ? `<dt>Email</dt><dd>${esc(c.e)}</dd>` : ''}</dl></div>`;
   }
-  h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-inizia" type="button">${st === 'pdf' ? 'Rivedi la scheda' : (bozze[a.id] && bozze[a.id].inCorso) ? 'Continua l\'intervento (iniziato alle ' + esc(bozze[a.id].inizioOra || '') + ')' : st === 'bozza' ? 'Continua la scheda' : 'Inizia l\'intervento'}</button>${(bozze[a.id] && !bozze[a.id].inCorso && st !== '' && bozze[a.id].orari && bozze[a.id].orari.some(o => o.dal && o.al)) ? '<button class="btn sec" id="b-nuova-visita" type="button" style="margin-top:8px">Nuova visita: inizia adesso</button>' : ''}</div></div>`;
+  if (libera) h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-trasforma" type="button">Trasforma in intervento (inizia adesso)</button></div></div>`;
+  else h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-inizia" type="button">${st === 'pdf' ? 'Rivedi la scheda' : (bozze[a.id] && bozze[a.id].inCorso) ? 'Continua l\'intervento (iniziato alle ' + esc(bozze[a.id].inizioOra || '') + ')' : st === 'bozza' ? 'Continua la scheda' : 'Inizia l\'intervento'}</button>${(bozze[a.id] && !bozze[a.id].inCorso && st !== '' && bozze[a.id].orari && bozze[a.id].orari.some(o => o.dal && o.al)) ? '<button class="btn sec" id="b-nuova-visita" type="button" style="margin-top:8px">Nuova visita: inizia adesso</button>' : ''}</div></div>`;
   $('#v-dettaglio').innerHTML = h;
   $('#b-indietro-det').onclick = indietro;
   if (sola()) { const ba = $('#v-dettaglio .barra-azione'); if (ba) ba.innerHTML = '<div class="dentro"><p class="nota-sola">In ufficio l\'agenda è solo in visualizzazione: gli interventi li compilano i tecnici e arrivano da «Interventi in arrivo».</p></div>'; }
@@ -1469,6 +1530,9 @@ function apriDettaglio(id, push = true){
   });
   { const bi = $('#b-inizia'); if (bi) bi.onclick = () => { const b = bozze[a.id]; if (!b || b.stato === 'nuova') iniziaIntervento(a); else apriScheda(a); }; }
   const nv = $('#b-nuova-visita'); if (nv) nv.onclick = () => iniziaIntervento(a, true);
+  { const bt = $('#b-trasforma'); if (bt) bt.onclick = () => trasformaChiamata(a);
+    const bf = $('#b-fissa'); if (bf) bf.onclick = () => fissaChiamata(a);
+    const bd = $('#b-disfissa'); if (bd) bd.onclick = () => { delete pianoCh[a.id]; salvaPianoCh(); appuntamenti = caricaAppuntamenti(); indietro(); disegnaAgenda(); }; }
   mostra('dettaglio', push);
   disegnaAgenda();
 }
@@ -4345,11 +4409,7 @@ function costruisciDaLevante(T){
   const tecnici = {};
   (T.tecnici || []).forEach(t => { tecnici[t.RESOURCEID] = t.RESOURCENAME || t.NOME || ('Tecnico ' + t.RESOURCEID); });
   const out = [], stat = {totale: 0, fatti: 0, vecchi: 0};
-  (T.appuntamenti || []).forEach(a => {
-    stat.totale++;
-    const inizio = (a.START_EVENT || '').replace(' ', 'T').slice(0, 19);
-    if (!inizio || inizio.slice(0, 10) < da) { stat.vecchi++; return; }
-    const fine = (a.FINISH_EVENT || a.START_EVENT || '').replace(' ', 'T').slice(0, 19) || inizio;
+  const crea = (a, inizio, fine) => {
     const i0 = (imp[a.IDPRATICA] || [null])[0], c0 = (cli[a.CLIENTE] || [null])[0];
     const opsApp = opa[a.ID] || [], selOp = {}, selApp = new Set();
     opsApp.forEach(o => { selOp[o.IDOPPRATICA] = o; if (o.IDAPPARECCHIOPRAT && o.IDAPPARECCHIOPRAT !== '0') selApp.add(o.IDAPPARECCHIOPRAT); });
@@ -4385,25 +4445,88 @@ function costruisciDaLevante(T){
       return o;
     });
     const fatto = (a.FATTO || '').toUpperCase() === 'T' || (a.TIPOIMPEGNO || '') === 'Intervento'; if (fatto) stat.fatti++;      // Levante non segna FATTO: l'appuntamento diventa di tipo "Intervento" quando l'ufficio lo registra con F12
-    out.push({id:'lev-' + a.ID, fatto: fatto || undefined, rc: rcs.length ? rcs : undefined, docs: (docsApp.length || docsAltri.length) ? docsApp.concat(docsAltri) : undefined, inizio, fine, titolo:(c0 && c0.RAGIONESOCIALE) || a.RAGSOCCLI || 'Appuntamento', luogo, messaggio:a.EVENTMESSAGE || '',
+    return ({id:'lev-' + a.ID, fatto: fatto || undefined, rc: rcs.length ? rcs : undefined, docs: (docsApp.length || docsAltri.length) ? docsApp.concat(docsAltri) : undefined, inizio, fine, titolo:(c0 && c0.RAGIONESOCIALE) || a.RAGSOCCLI || 'Appuntamento', luogo, messaggio:a.EVENTMESSAGE || '',
       urgente:(a.URGENTE || '').toUpperCase() === 'T', tecnico_id:a.RESOURCEID || '', tecnico_nome:tecnici[a.RESOURCEID] || '', r});
+  };
+  (T.appuntamenti || []).forEach(a => {
+    stat.totale++;
+    const inizio = (a.START_EVENT || '').replace(' ', 'T').slice(0, 19);
+    if (!inizio || inizio.slice(0, 10) < da) { stat.vecchi++; return; }
+    const fine = (a.FINISH_EVENT || a.START_EVENT || '').replace(' ', 'T').slice(0, 19) || inizio;
+    out.push(crea(a, inizio, fine));
+  });
+  // chiamate aperte in Levante (senza appuntamento): stesso record, ma senza data di inizio
+  const chiamate = (T.chiamate || []).filter(a => (a.TIPOIMPEGNO || 'Chiamata') === 'Chiamata' && (a.FATTO || '').toUpperCase() !== 'T').map(a => {
+    const o = crea(a, '', ''); o.id = 'cha-' + a.ID; o.chiamata = true; o.fatto = undefined;
+    o.richiesta = (a.DATAORACHIAMATA || '').replace(' ', 'T').slice(0, 19);
+    o.titolo = o.titolo === 'Appuntamento' ? 'Chiamata' : o.titolo;
+    return o;
   });
   out.sort((x, y) => x.inizio.localeCompare(y.inizio));
   const files = {};
   (T.docfiles || []).forEach(d => { files[d.id] = {mime: d.mime, b64: d.b64, nome: d.nome}; });
-  return {appuntamenti: out, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
+  return {appuntamenti: out, chiamate, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
     articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '']),
     barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || ''])};
 }
 
 
 /* ---- ufficio: si ricorda cosa e' stato mandato a ogni tecnico, per mostrare le variazioni e mandare aggiornamenti leggeri ---- */
+
+/* ---- ufficio: CHIAMATE DI ASSISTENZA (acquisite in Levante, senza appuntamento) ----
+   Si attivano dall'ufficio (impostazioni.chiamate). Il tecnico della chiamata e' quello scritto in Levante; se manca lo sceglie l'ufficio qui
+   (impostazioni.chiamateTec). Una chiamata senza tecnico resta in attesa e non parte. */
+const chiamateAttive = () => !!impostazioni.chiamate;
+const idChiamata = a => String((a.r && a.r.li) || String(a.id).replace(/^cha-/, ''));
+const tecnicoChiamata = a => String(a.tecnico_id || (impostazioni.chiamateTec || {})[idChiamata(a)] || '');
+const postaHaChiamata = idCh => (typeof posta !== 'undefined' && Array.isArray(posta) ? posta : []).some(x => x && x.li && String(x.li) === String(idCh).replace(/^cha-/, ''));
+function chiamateAperte(){ return chiamateAttive() && datiLevante && Array.isArray(datiLevante.chiamate) ? datiLevante.chiamate.filter(a => !postaHaChiamata(idChiamata(a))) : []; }       // se il tecnico ha gia' mandato l'intervento, la chiamata non va piu' fuori (in Levante la chiudi tu)
+const chiamateDi = id => chiamateAperte().filter(a => tecnicoChiamata(a) === String(id || ''))
+  .map(a => Object.assign({}, a, {tecnico_id: String(id), tecnico_nome: id ? (datiLevante.tecnici[id] || '') : ''}));
+const chiamateSenzaTecnico = () => chiamateAperte().filter(a => !tecnicoChiamata(a));
+function costruisciPer(){
+  const per = {};
+  datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
+  chiamateAperte().forEach(a => { const t = tecnicoChiamata(a); if (t) per[t] = per[t] || []; });
+  const inv = leggiInviati(); Object.keys(inv).forEach(id => { if (id && inv[id] && (inv[id].ch || []).length) per[id] = per[id] || []; });   // chiamate gia' mandate e poi tolte: serve un aggiornamento
+  return per;
+}
+function novitaChiamate(inv, id){
+  const vecchie = new Map(((inv && inv.ch) || []).map(c => [c.id, c])), att = chiamateDi(id), nuove = [], tolte = [];
+  att.forEach(a => { if (!vecchie.has(a.id)) nuove.push(a); });
+  const ids = new Set(att.map(a => a.id)); vecchie.forEach((c, k) => { if (!ids.has(k) && !postaHaChiamata(k)) tolte.push(c); });       // sparita perche' il tecnico l'ha eseguita: non e' una novita'
+  const t = []; if (nuove.length) t.push(nuove.length + (nuove.length === 1 ? ' nuova chiamata' : ' nuove chiamate')); if (tolte.length) t.push(tolte.length + (tolte.length === 1 ? ' chiamata tolta' : ' chiamate tolte'));
+  const riga = (et, col, a) => `<li style="padding:6px 0;border-bottom:1px solid var(--riga)"><b style="color:${col}">${et}</b> ${esc(a.titolo || 'Chiamata')}${a.luogo ? ' <span class="aiuto">' + esc(a.luogo) + '</span>' : ''}</li>`;
+  const h = nuove.map(a => riga('Nuova chiamata', 'var(--ok)', a)).join('') + tolte.map(a => riga('Chiamata tolta (diventata appuntamento o intervento, chiusa o riassegnata)', 'var(--rosso)', a)).join('');
+  return {ha: !!(nuove.length || tolte.length), testo: t.join(' · '), righe: h ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h + '</ul>' : ''};
+}
+function haNovita(id, per, inviati, oggi){
+  const inv = inviati[id]; if (!inv) return true;
+  return !nessunaNovita(confrontaAgende(inv.apps, per[id] || [], oggi, giaEseguitoInPosta)) || novitaChiamate(inv, id).ha;
+}
+function riquadroChiamate(){
+  const att = chiamateAttive(), tutte = (datiLevante && datiLevante.chiamate) || [];
+  let h = `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-chiamate"${att ? ' checked' : ''}><span>Gestisci le chiamate di assistenza<small>Le chiamate aperte in Levante (senza appuntamento) vanno ai tecnici in una sezione «Chiamate»: decide il tecnico quando andare. Attiva solo se vuoi lavorare così: una chiamata può diventare appuntamento nel frattempo, quindi controlla sempre l'ultima esportazione.</small></span></label>`;
+  if (!att) return h;
+  const senza = chiamateSenzaTecnico(), nomi = datiLevante.tecnici || {};
+  h += `<p class="aiuto" style="margin:8px 0 0"><b>${tutte.length}</b> ${tutte.length === 1 ? 'chiamata aperta' : 'chiamate aperte'} in Levante${senza.length ? ' · <b style="color:var(--rosso)">' + senza.length + ' senza tecnico: restano in attesa</b>' : ''}.</p>`;
+  if (senza.length) {
+    h += '<div class="avviso" style="margin-top:8px"><b>Chiamate in attesa di un tecnico</b>Scegli chi la riceve (oppure indicalo in Levante sulla chiamata).';
+    senza.forEach(a => {
+      h += `<div class="campo" style="margin:10px 0 0"><label>${esc(a.titolo || 'Chiamata')}${a.richiesta ? ' · ' + esc(dataIT(a.richiesta.slice(0, 10))) : ''}${a.urgente ? ' · URGENTE' : ''}<br><span class="aiuto">${esc([a.luogo, a.messaggio].filter(Boolean).join(' – ').slice(0, 160))}</span></label>
+        <select data-ch="${esc(idChiamata(a))}"><option value="">— scegli il tecnico —</option>${Object.keys(nomi).map(k => `<option value="${esc(k)}">${esc(nomi[k])}</option>`).join('')}</select></div>`;
+    });
+    h += '</div>';
+  }
+  return h;
+}
 const leggiInviati = () => store.get('ass_inviati', {});
-function salvaInviato(id, apps){
+function salvaInviato(id, apps, chs){
   setTimeout(() => { try { aggiornaNav(); } catch(e) {} }, 0);
   const inv = leggiInviati();
   inv[id] = {quando: new Date().toISOString(),
     apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', urgente: !!a.urgente, fatto: !!a.fatto})),
+    ch: (chs || []).map(a => ({id: a.id, titolo: a.titolo, luogo: a.luogo})),
     docIds: apps.flatMap(a => (a.docs || []).map(d => d.id))};
   store.set('ass_inviati', inv);
 }
@@ -4453,7 +4576,7 @@ async function leggiUltimaEsportazione(cambia){
 }
 let datiLevante = null;                 // quello che si usa: dati di Levante limitati ai tecnici compresi nella licenza
 let datiLevanteTutti = null;            // tutto quello che c'e' in Levante
-const NOMI_FILE = ['appuntamenti','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','codici_barre'];
+const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','codici_barre'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 /* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
 async function espandiZip(file){
@@ -4526,8 +4649,7 @@ function disegnaUfficio(){
   try { aggiornaNav(); } catch(e) {}
   { const ae = document.activeElement; if (ae && ae.matches && ae.matches('[data-email]') && !disegnaUfficio.rinviato) { disegnaUfficio.rinviato = true; setTimeout(() => { disegnaUfficio.rinviato = false; disegnaUfficio(); }, 6000); return; } }
   const {trovati, mancanti} = infoUff;
-  const per = {};
-  datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });   // i chiusi in Levante non vanno ai tecnici
+  const per = costruisciPer();   // i chiusi in Levante non vanno ai tecnici
   const st = datiLevante.stat, esclusi = [];
   if (st.vecchi) esclusi.push(`${st.vecchi} ${st.vecchi === 1 ? 'precedente' : 'precedenti'} agli ultimi 7 giorni`);
   let origine = '';
@@ -4555,15 +4677,16 @@ function disegnaUfficio(){
     const inv = inviati[id];
     let stato = '<span class="chip">Mai inviato da questo dispositivo</span>', dettaglio = '', primario = true, etichetta = 'Invia il file';
     if (inv) {
-      const c = confrontaAgende(inv.apps, per[id], oggi, giaEseguitoInPosta), ora = hhmm(new Date(inv.quando));
-      if (nessunaNovita(c)) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
-      else { stato = `<span class="chip nov">Novità dall'ultimo invio (${ora}): ${esc(riassuntoNovita(c))}</span>`; dettaglio = righeNovita(c, false); etichetta = 'Invia gli aggiornamenti'; }
+      const c = confrontaAgende(inv.apps, per[id], oggi, giaEseguitoInPosta), ora = hhmm(new Date(inv.quando)), cn = novitaChiamate(inv, id);
+      if (nessunaNovita(c) && !cn.ha) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
+      else { stato = `<span class="chip nov">Novità dall'ultimo invio (${ora}): ${esc([nessunaNovita(c) ? '' : riassuntoNovita(c), cn.testo].filter(Boolean).join(' · '))}</span>`; dettaglio = righeNovita(c, false) + cn.righe; etichetta = 'Invia gli aggiornamenti'; }
     }
-    h += `<div class="sez" style="margin-top:16px"><h2>${esc(nome)}<small>${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}</small></h2>
+    h += `<div class="sez" style="margin-top:16px"><h2>${esc(nome)}<small>${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}${chiamateAttive() && chiamateDi(id).length ? ' · ' + chiamateDi(id).length + (chiamateDi(id).length === 1 ? ' chiamata' : ' chiamate') : ''}</small></h2>
       <p style="margin:0 0 4px">${stato}</p>${dettaglio}
       ${inUfficio ? `<div class="campo" style="margin:8px 0 0"><label for="em-${esc(id)}">Email di ${esc(nome)}</label><input id="em-${esc(id)}" type="email" data-email="${esc(nome)}" value="${esc(emailTecnico(nome))}" autocomplete="off" autocapitalize="none" placeholder="nome@esempio.it"></div>` : ''}
       <div class="azioni" style="margin-top:10px">${inUfficio && smtpPronto ? `<button class="btn${primario ? '' : ' sec'}" type="button" data-mail="${esc(id)}">${etichetta} per mail</button>` : ''}<button class="btn${primario && !(inUfficio && smtpPronto) ? '' : ' sec'}" type="button" data-invia="${esc(id)}">${inUfficio && smtpPronto ? 'Condividi' : etichetta}</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
   });
+  if (inUfficio) h += riquadroChiamate();
   h += `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-completo"${infoUff.completo ? ' checked' : ''}><span>Invia tutto, anche i documenti già mandati<small>per un dispositivo nuovo, o se il tecnico non vede più i documenti. Senza questa spunta l'aggiornamento è più leggero.</small></span></label>`;
   h += `<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px">${esc(infoUff.messaggio || '')}</p>`;
   h += `<div class="sez" style="margin-top:22px"><h2>Su questo dispositivo</h2><button class="btn sec pieno" id="b-usa-qui" type="button">Usa questi dati qui (tutti i tecnici)</button></div>`;
@@ -4574,7 +4697,9 @@ function disegnaUfficio(){
   const bt = $('#b-mail-tutti'); if (bt) bt.onclick = async () => { bt.disabled = true; const out = []; for (const id of daMandare) { const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico'; infoUff.messaggio = 'Invio a ' + nome + '…'; const m = $('#msg-consegna'); if (m) m.textContent = infoUff.messaggio; mostraAvviso(infoUff.messaggio, '', null, 60000); const r = await inviaMailTecnico(id); out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio)); } infoUff.messaggio = out.join(' · '); mostraAvviso(infoUff.messaggio, '', null, 12000); disegnaUfficio(); };
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
-  $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
+  { const cc = $('#chk-chiamate'); if (cc) cc.onchange = e => { impostazioni.chiamate = e.target.checked; salvaImpostazioni(); disegnaUfficio(); }; }
+  esito.querySelectorAll('[data-ch]').forEach(sel => sel.onchange = () => { if (!sel.value) return; (impostazioni.chiamateTec = impostazioni.chiamateTec || {})[sel.dataset.ch] = sel.value; salvaImpostazioni(); disegnaUfficio(); });
+  $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, chiamate: chiamateAperte(), modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
 }
 function riepilogoDocumenti(){
   const n = datiLevante.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
@@ -4605,7 +4730,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || [], barre: datiLevante.barre || []};
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || [], barre: datiLevante.barre || []};
 }
 async function salvaDati(d, leggero){
   const files = d.files || {}; const dd = Object.assign({}, d); delete dd.files;
@@ -4620,7 +4745,7 @@ function idDaMandare(per, inviati, oggi){
   return Object.keys(per).filter(id => {
     const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
     if (!emailTecnico(nome)) return false;
-    const inv = inviati[id]; return !inv || !nessunaNovita(confrontaAgende(inv.apps, per[id], oggi, giaEseguitoInPosta));
+    return haNovita(id, per, inviati, oggi);
   });
 }
 const nomeAziendaMail = () => impostazioni.azienda || (datiLevante && datiLevante.azienda && datiLevante.azienda.RAGIONESOCIALE) || '';
@@ -4637,7 +4762,7 @@ async function inviaMailTecnico(id, auto){
   const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.${prot ? '\n\n(Il file è protetto: l\'app lo apre col codice di sicurezza che trovi in Impostazioni.)' : ''}\n\n${nomeAziendaMail()}`;
   try {
     const r = await chiamaJson('posta-invia', {a, oggetto: (leggero ? 'Aggiornamento agenda ' : 'Agenda ') + nome + ' – ' + dataIT(isoGiorno(new Date())), testo, allegati: [{nome: fn, tipo: 'text/plain', b64: btoa(bin)}]});
-    if (r.ok) salvaInviato(id, pk.appuntamenti);
+    if (r.ok) salvaInviato(id, pk.appuntamenti, pk.chiamate);
     return r;
   } catch(e) { return {ok: false, messaggio: 'Il servizio non risponde.'}; }
 }
@@ -4675,7 +4800,7 @@ async function consegna(id, condividi){
   try { file = new File([protezioneAttiva() ? await CIFRA.cifra(new TextEncoder().encode(JSON.stringify(pk)), codiceSic()) : JSON.stringify(pk)], nome, {type:'text/plain'}); }   // testo: i browser lo lasciano condividere
   catch(e) { infoUff.messaggio = 'Non sono riuscito a proteggere il file: ' + (e.message || e); disegnaUfficio(); return; }
   const msg = $('#msg-consegna');
-  const fatto = testo => { salvaInviato(id, pk.appuntamenti); infoUff.messaggio = testo; disegnaUfficio(); };
+  const fatto = testo => { salvaInviato(id, pk.appuntamenti, pk.chiamate); infoUff.messaggio = testo; disegnaUfficio(); };
   if (file.size > 12 * 1048576 && msg) msg.textContent = 'Attenzione: il file pesa ' + dimStr(file.size) + '. Se WhatsApp lo rifiuta, mandalo per mail o riduci i documenti allegati.';
   const tipoTxt = pk.tipo === 'aggiornamento' ? 'aggiornamento' : 'file completo';
   if (condividi) {
@@ -4701,10 +4826,12 @@ async function caricaPacchetto(file){
     const prima = store.get('ass_dati', null);
     const leggero = d.tipo === 'aggiornamento';
     salvaArticoli(d.articoli); salvaBarre(d.barre);
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
+    const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
+    { const ids = new Set((d.chiamate || []).map(c => c.id)); store.set('ass_ch_nuove', Array.from(new Set(store.get('ass_ch_nuove', []).concat(chNuove.map(c => c.id)))).filter(x => ids.has(x))); }
     const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
-    esitoImport = (d.appuntamenti.length === 1 ? 'Caricato 1 appuntamento' : `Caricati ${d.appuntamenti.length} appuntamenti`) + (nd ? ` e ${nd} ${nd === 1 ? 'documento' : 'documenti'}.` : '.') + (esitoImport ? ' ' + esitoImport : '');
+    esitoImport = (d.appuntamenti.length === 1 ? 'Caricato 1 appuntamento' : `Caricati ${d.appuntamenti.length} appuntamenti`) + (nd ? ` e ${nd} ${nd === 1 ? 'documento' : 'documenti'}.` : '.') + (chNuove.length ? ` Chiamate da gestire: ${(d.chiamate || []).length} (${chNuove.length} ${chNuove.length === 1 ? 'nuova' : 'nuove'}).` : '') + (esitoImport ? ' ' + esitoImport : '');
     // cosa e' cambiato rispetto all'agenda che c'era prima (solo se erano dati di Levante dello stesso tecnico)
     try {
       const vecchi = prima && Array.isArray(prima.appuntamenti) ? prima.appuntamenti : [];
@@ -4726,7 +4853,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.30.3 (12/10/2026)';
+const VERSIONE_APP = '1.31.0 (12/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5516,7 +5643,7 @@ async function giroAutoInvio(){
   let st = store.get('ass_auto_inv', {}); if (st.giorno !== og) st = {giorno: og, tent: 0, fatto: false};
   if (st.fatto || st.tent >= 3) return;
   if (st.ultimo && ora.getTime() - st.ultimo < 15 * 60000) return;
-  const per = {}; datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
+  const per = costruisciPer();
   const da = idDaMandare(per, leggiInviati(), og);
   if (!da.length) { st.esito = 'nessun tecnico con novità (controllo alle ' + hhmm(ora) + ').'; store.set('ass_auto_inv', st); disegnaAutoInvio(); return; }
   if (sync.on) { const cl = await chiamaSync('stato-claim', {nome: 'autoinvio', secondi: 180}); if (!cl || !cl.preso) return; }      // con piu' postazioni parte da una sola
@@ -5636,6 +5763,7 @@ function applicaLimiteTecnici(){
     const d = Object.assign({}, datiLevanteTutti, {tecnici: {}});
     Object.keys(datiLevanteTutti.tecnici || {}).forEach(id => { if (att.has(id)) d.tecnici[id] = datiLevanteTutti.tecnici[id]; });
     d.appuntamenti = datiLevanteTutti.appuntamenti.filter(a => !a.tecnico_id || att.has(String(a.tecnico_id)));
+    d.chiamate = (datiLevanteTutti.chiamate || []).filter(a => !a.tecnico_id || att.has(String(a.tecnico_id)));
     datiLevante = d;
   }
   const sig = att ? [...att].sort().join(',') : '*';
