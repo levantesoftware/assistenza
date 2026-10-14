@@ -913,6 +913,7 @@ function chiamatePianificate(d){          // le chiamate con un giorno fissato e
   return ch.filter(c => pianoCh[c.id]).map(c => { const i = daLocale(pianoCh[c.id]); return Object.assign({}, c, {inizio: i, fine: new Date(i.getTime() + 3600000), programmata: true}); });
 }
 function chiamateTec(){
+  if (inUfficio) return chiamateAperte().map(a => { const t = tecnicoChiamata(a); return Object.assign(riattivaCh(a), {tecnico_id: t, tecnico_nome: t ? ((datiLevante.tecnici || {})[t] || 'Tecnico ' + t) : ''}); });      // in ufficio: tutte le chiamate aperte, con il tecnico a cui vanno (sola visualizzazione)
   const d = datiReali; if (!d || !Array.isArray(d.chiamate)) return [];
   return d.chiamate.filter(c => !pianoCh[c.id] && !registrato(c)).map(riattivaCh);
 }
@@ -1303,7 +1304,30 @@ function aggiornaNav(){
   const bi = $('#nav-badge-inv');
   if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = costruisciPer(); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => haNovita(id, per, inv, og)).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
 }
+function listaChiamateUfficio(L){          // ufficio, sola visualizzazione: a chi e' andata (o andra') ogni chiamata
+  const box = $('#lista'), inviati = leggiInviati(), per = {};
+  L.forEach(c => { (per[c.tecnico_id || ''] = per[c.tecnico_id || ''] || []).push(c); });
+  const ids = Object.keys(per).sort((a, b) => (a === '') - (b === '') || String(per[a][0].tecnico_nome).localeCompare(per[b][0].tecnico_nome));
+  let h = '<p class="aiuto" style="margin:6px 0 10px">Chiamate aperte in Levante, ancora senza appuntamento, e il tecnico a cui sono assegnate. Qui si vedono soltanto: il tecnico si sceglie e il file si manda da «Invio ai tecnici».</p>';
+  ids.forEach(id => {
+    const nome = id ? per[id][0].tecnico_nome : 'Senza tecnico';
+    h += `<h2 class="giorno">${esc(nome)} (${per[id].length})${id ? '' : ' · in attesa, non partono'}</h2>`;
+    per[id].sort((x, y) => (y.urgente ? 1 : 0) - (x.urgente ? 1 : 0) || x.inizio - y.inizio).forEach(c => {
+      const inv = id && inviati[id], mandata = inv && (inv.ch || []).some(x => x.id === c.id);
+      const chips = [];
+      chips.push(!id ? '<span class="chip urg">In attesa di un tecnico</span>' : mandata ? `<span class="chip pdf">Inviata a ${esc(nome)} · ${esc(dataIT(isoGiorno(new Date(inv.quando))).slice(0, 5))} ${esc(hhmm(new Date(inv.quando)))}</span>` : '<span class="chip nov">Non ancora inviata</span>');
+      if (c.urgente) chips.push('<span class="chip urg">Urgente</span>');
+      if (c.r && c.r.li) chips.push(`<span class="chip num">N. ${esc(c.r.li)}</span>`);
+      if (c.r && c.r.tp) chips.push(`<span class="chip info">${esc(c.r.tp)}</span>`);
+      h += `<button class="visita ${c.urgente ? 'urgente ' : ''}" type="button" data-ch="${esc(c.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(isoGiorno(c.inizio)).slice(0, 5))}<small>chiamata</small></span>
+        <span class="corpo"><span class="nome">${esc(c.titolo)}</span><span class="dove" style="display:block">${esc(c.luogo)}</span>${c.messaggio ? `<span class="dove" style="display:block;font-style:italic">${esc(c.messaggio.slice(0, 140))}</span>` : ''}<span class="riga">${chips.join('')}</span></span></button>`;
+    });
+  });
+  box.innerHTML = h;
+  box.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => apriDettaglio(b.dataset.ch));
+}
 function listaChiamate(L){          // la scheda "Chiamate": quelle ancora senza appuntamento
+  if (inUfficio) { listaChiamateUfficio(L); return; }
   const box = $('#lista');
   L.sort((x, y) => (y.urgente ? 1 : 0) - (x.urgente ? 1 : 0) || x.inizio - y.inizio);
   const nuove = new Set(store.get('ass_ch_nuove', []));
@@ -1343,9 +1367,9 @@ function disegnaAgenda(){
   aggiornaNav();
   disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
-  { const Lc = inUfficio ? [] : chiamateTec(), sc = $('#s-chiamate'), nv = new Set(store.get('ass_ch_nuove', []));
+  { const Lc = chiamateTec(), sc = $('#s-chiamate'), nv = new Set(store.get('ass_ch_nuove', []));
     if (periodo === 'chiamate' && !Lc.length) periodo = 'oggi';
-    sc.hidden = !Lc.length; sc.textContent = 'Chiamate · ' + Lc.length; sc.classList.toggle('nuovo', Lc.some(c => nv.has(c.id))); sc.setAttribute('aria-pressed', periodo === 'chiamate');
+    sc.hidden = !Lc.length; sc.textContent = 'Chiamate · ' + Lc.length; sc.classList.toggle('nuovo', Lc.some(c => inUfficio ? !c.tecnico_id : nv.has(c.id))); sc.setAttribute('aria-pressed', periodo === 'chiamate');
     const lab = $('#nascondi-gestiti'); if (lab && lab.parentNode) lab.parentNode.style.display = periodo === 'chiamate' ? 'none' : '';
     if (periodo === 'chiamate') { $('#s-oggi').setAttribute('aria-pressed', false); $('#s-sett').setAttribute('aria-pressed', false); $('#s-scorsa').setAttribute('aria-pressed', false); const tt = $('#tab-tec'); if (tt) tt.innerHTML = ''; listaChiamate(Lc); return; } }
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
@@ -4867,7 +4891,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.31.2 (13/10/2026)';
+const VERSIONE_APP = '1.31.3 (14/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
