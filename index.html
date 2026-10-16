@@ -97,8 +97,8 @@ h1,h2,h3,p{margin:0}
 button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2A8CA3;outline-offset:2px}
 
 /* schede giorno */
-.seg{display:flex;gap:8px;margin:2px 0 6px}
-.seg button{flex:1;min-height:44px;border-radius:10px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer}
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 6px}
+.seg button{flex:1;min-width:84px;min-height:44px;border-radius:10px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
 .seg button.nuovo:not([aria-pressed="true"]){border-color:var(--fiamma);color:#9a4a00;background:#FFF4E5}
 .giorno{font-size:15px;font-weight:700;margin:20px 0 8px}
@@ -566,6 +566,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button type="button" id="s-sett" aria-pressed="false">Settimana</button>
       <button type="button" id="s-scorsa" aria-pressed="false">Scorsa</button>
       <button type="button" id="s-chiamate" aria-pressed="false" hidden>Chiamate</button>
+      <button type="button" id="s-cantieri" aria-pressed="false" hidden>Cantieri</button>
     </div>
     <label class="spunta" style="margin:8px 0 0"><input type="checkbox" id="nascondi-gestiti"> <span id="nascondi-testo"></span></label>
     <div id="lista"></div>
@@ -578,6 +579,9 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 
   <!-- DETTAGLIO APPUNTAMENTO -->
   <section id="v-dettaglio" class="view"></section>
+
+  <!-- CANTIERE: ore, relazione, materiali e foto di una giornata di lavoro -->
+  <section id="v-cantiere" class="view"></section>
   <input type="file" id="in-doc-mod" hidden>
   <div id="avviso-basso" hidden role="status" aria-live="polite"><span id="avviso-testo"></span><button type="button" id="avviso-azione" class="btn piccolo" hidden></button></div>
   <div id="novita-modale" hidden>
@@ -914,7 +918,7 @@ function daLocale(t){                      // 'AAAA-MM-GGTHH:MM' = ora del dispo
 const SOGLIA_TEC = 6;      // da 6 tecnici in su l'app ufficio passa alla visualizzazione compatta
 function moltiTecnici(){
   const nomi = new Set((appuntamenti || []).map(a => a.tecnico_nome).filter(Boolean));
-  return Math.max(Object.keys((typeof datiLevante !== 'undefined' && datiLevante && datiLevante.tecnici) || {}).length, nomi.size) >= SOGLIA_TEC;
+  return Math.max(Object.keys((typeof datiLevante !== 'undefined' && datiLevante && datiLevante.tecnici) || {}).filter(k => !soloOperaio(k)).length, nomi.size) >= SOGLIA_TEC;
 }
 let filtroChTec = null;    // ufficio, scheda Chiamate in modo compatto: tecnico aperto (null = elenco dei tecnici)
 const apertiInv = {};      // «Invio ai tecnici» compatto: tecnici aperti o chiusi a mano
@@ -1400,6 +1404,15 @@ function disegnaAgenda(){
   aggiornaNav();
   disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaDaCompletare();
   $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
+  { const Lk = elencoCantieri(), sk = $('#s-cantieri');
+    sk.hidden = !Lk.length; if (periodo === 'cantieri' && !Lk.length) periodo = 'oggi';
+    sk.setAttribute('aria-pressed', periodo === 'cantieri');
+    if (periodo === 'cantieri') {
+      ['#s-oggi', '#s-sett', '#s-scorsa', '#s-chiamate'].forEach(q => $(q).setAttribute('aria-pressed', false));
+      const lab = $('#nascondi-gestiti'); if (lab && lab.parentNode) lab.parentNode.style.display = 'none';
+      const tt = $('#tab-tec'); if (tt) tt.innerHTML = '';
+      listaCantieri(); return;
+    } }
   { const Lc = chiamateTec(), sc = $('#s-chiamate'), nv = new Set(store.get('ass_ch_nuove', []));
     if (periodo === 'chiamate' && !Lc.length) periodo = 'oggi';
     sc.hidden = !Lc.length; sc.textContent = 'Chiamate · ' + Lc.length; sc.classList.toggle('nuovo', Lc.some(c => inUfficio ? !c.tecnico_id : nv.has(c.id))); sc.setAttribute('aria-pressed', periodo === 'chiamate');
@@ -4536,11 +4549,87 @@ function costruisciDaLevante(T){
   out.sort((x, y) => x.inizio.localeCompare(y.inizio));
   const files = {};
   (T.docfiles || []).forEach(d => { files[d.id] = {mime: d.mime, b64: d.b64, nome: d.nome}; });
-  return {appuntamenti: out, chiamate, tecnici, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
+  // cantieri (pratiche di tipo P visibili su Express Mag), dipendenti (senza costi) e tipi di ore
+  const oggiC = isoGiorno(new Date());
+  const cantieri = (T.cantieri || []).filter(c => c.ID && !(dt10(c.DATACHIUSURA) && dt10(c.DATACHIUSURA) <= oggiC)).map(c => {
+    const via = [c.INDIRIZZOIMM, c.NUMCIVICOIMM].filter(Boolean).join(' '); let citta = [c.CAPIMM, c.COMUNEIMM].filter(Boolean).join(' '); if (c.PROVINCIAIMM) citta += ' (' + c.PROVINCIAIMM + ')';
+    return senzaVuoti({id: String(c.ID), cod: c.CODICE, nome: c.NOME, descr: c.DESCRIZIONE, cli: c.RAGSOCCLI, ind: [via, citta.trim()].filter(Boolean).join(', ')});
+  });
+  const dipendenti = (T.dipendenti || []).filter(d => d.CODICE).map(d => senzaVuoti({k: String(d.CODICE), n: maiuscIniz(((d.NOME || '') + ' ' + (d.COGNOME || '')).trim()) || ('Dipendente ' + d.CODICE),
+    a: normNome((d.NOME || '') + ' ' + (d.COGNOME || '')), b: normNome((d.COGNOME || '') + ' ' + (d.NOME || '')), f: normNome(d.NOME), op: parseInt(d.OPERAINDEX, 10) || 0, e: d.EMAIL}));
+  dipendenti.forEach(x => { if (x.op == null) x.op = 0; });
+  const tecNomi = {}; (T.tecnici || []).forEach(t => { tecNomi[t.RESOURCEID] = [normNome(t.NOME), normNome(t.RESOURCENAME)].filter(Boolean); });
+  const tipiOre = (T.tipiore || []).filter(r => String(r.TIPO || '').toUpperCase() === 'OREDIP1' && r.DESCRIZIONE).map(r => r.DESCRIZIONE);
+  return {appuntamenti: out, chiamate, tecnici, cantieri, dipendenti, tecNomi, tipiOre, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
     articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '']),
     barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || ''])};
 }
 
+
+/* ---- CANTIERI: i cantieri di Levante (pratiche di tipo P con «visibile su Express Mag» acceso), gli operai e le ore ----
+   I cantieri non si mandano a un tecnico: li ricevono tutti. Gli operai (dipendenti senza agenda) ricevono solo i cantieri:
+   compaiono come destinatari con id «d-<codice>». Un tecnico che e' anche dipendente si abbina per nome (o a mano). */
+const cantieriAttivi = () => !!impostazioni.cantieri;
+const normNome = t => String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const maiuscIniz = t => String(t || '').toLowerCase().replace(/(^|[\s'’-])([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
+const soloOperaio = id => String(id).indexOf('d-') === 0;
+function dipDiTecnico(tid, d, senzaMano){          // il dipendente che corrisponde a un tecnico (null = nessuno)
+  d = d || datiLevanteTutti || datiLevante; if (!d) return null;
+  const dip = d.dipendenti || [], ov = senzaMano ? '' : (impostazioni.operaiTec || {})[String(tid)];
+  if (ov === '-') return null;
+  if (ov) return dip.filter(x => x.k === String(ov))[0] || null;
+  const nn = (d.tecNomi || {})[String(tid)] || [];
+  for (let i = 0; i < nn.length; i++) { const f = dip.filter(x => x.a === nn[i] || x.b === nn[i]); if (f.length === 1) return f[0]; }
+  for (let i = 0; i < nn.length; i++) { const f = dip.filter(x => x.f === nn[i]); if (f.length === 1) return f[0]; }
+  return null;
+}
+function operaiSolo(d){                             // dipendenti che non sono tecnici in agenda
+  d = d || datiLevanteTutti; if (!d) return [];
+  const presi = new Set(); Object.keys(d.tecniciBase || d.tecnici || {}).forEach(t => { const x = dipDiTecnico(t, d); if (x) presi.add(x.k); });
+  return (d.dipendenti || []).filter(x => !presi.has(x.k));
+}
+function aggiornaTecniciOperai(){                   // con i cantieri attivi gli operai entrano tra i destinatari (e contano nella licenza)
+  const d = datiLevanteTutti; if (!d) return;
+  if (!d.tecniciBase) d.tecniciBase = d.tecnici || {};
+  const t = Object.assign({}, d.tecniciBase);
+  if (cantieriAttivi() && (d.cantieri || []).length) operaiSolo(d).forEach(x => { t['d-' + x.k] = x.n; });
+  d.tecnici = t;
+}
+function ricalcolaOperai(){ aggiornaTecniciOperai(); applicaLimiteTecnici(); }
+function operaioDi(id, d){                          // chi e' il dipendente di questo destinatario
+  d = d || datiLevante; if (!d || !id) return null;
+  if (soloOperaio(id)) return (d.dipendenti || []).filter(x => 'd-' + x.k === String(id))[0] || null;
+  return dipDiTecnico(id, d);
+}
+function novitaCantieri(inv, id){
+  const vuoto = {ha: false, testo: '', righe: ''};
+  if (!cantieriAttivi() || !datiLevante) return vuoto;
+  const att = datiLevante.cantieri || [], vecchi = new Set((inv && inv.cant) || []), ids = new Set(att.map(c => c.id));
+  const nuovi = att.filter(c => !vecchi.has(c.id)), tolti = Array.from(vecchi).filter(k => !ids.has(k));
+  if (!nuovi.length && !tolti.length) return vuoto;
+  const t = []; if (nuovi.length) t.push(nuovi.length + (nuovi.length === 1 ? ' nuovo cantiere' : ' nuovi cantieri')); if (tolti.length) t.push(tolti.length + (tolti.length === 1 ? ' cantiere tolto' : ' cantieri tolti'));
+  const righe = nuovi.slice(0, 10).map(c => `<li style="padding:6px 0;border-bottom:1px solid var(--riga)"><b style="color:var(--ok)">Nuovo cantiere</b> ${esc((c.cod ? c.cod + ' · ' : '') + (c.nome || ''))}</li>`).join('') + (nuovi.length > 10 ? `<li class="aiuto">…e altri ${nuovi.length - 10}</li>` : '');
+  return {ha: true, testo: t.join(' · '), righe};
+}
+function riquadroCantieri(){
+  const att = cantieriAttivi(), d = datiLevanteTutti || datiLevante || {}, nC = (d.cantieri || []).length, dip = d.dipendenti || [];
+  let h = `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-cantieri"${att ? ' checked' : ''}><span>Gestisci i cantieri<small>I cantieri che in Levante hanno «visibile su Express Mag» acceso vanno a tutti, in una sezione «Cantieri»: ognuno scrive ore, cosa ha fatto, materiali e foto, e tutto torna nella posta in arrivo. Gli operai che non sono in agenda ricevono solo i cantieri (e contano nella licenza). Attiva solo se vuoi lavorare così.</small></span></label>`;
+  if (!att) return h;
+  const base = d.tecniciBase || d.tecnici || {}, solo = operaiSolo(d);
+  h += `<p class="aiuto" style="margin:8px 0 0"><b>${nC}</b> ${nC === 1 ? 'cantiere visibile' : 'cantieri visibili'} · <b>${dip.length}</b> ${dip.length === 1 ? 'dipendente' : 'dipendenti'}, di cui <b>${solo.length}</b> ${solo.length === 1 ? 'solo operaio (senza agenda)' : 'solo operai (senza agenda)'}.</p>`;
+  if (!nC) h += '<div class="avviso" style="margin-top:8px"><b>Nessun cantiere nell\'esportazione</b>Rilancia l\'esportazione con la versione nuova e controlla che i cantieri abbiano acceso «visibile su Express Mag» in Levante. Finché non ce ne sono, nessuno riceve la sezione Cantieri.</div>';
+  if (!dip.length) h += '<div class="avviso" style="margin-top:8px"><b>Mancano i dipendenti</b>Nell\'esportazione non c\'è dipendenti.csv: gli operai che non sono in agenda non possono ricevere i cantieri. Rilancia l\'esportazione con la versione nuova.</div>';
+  const ids = Object.keys(base).filter(t => !soloOperaio(t));
+  if (ids.length && dip.length) {
+    h += '<details class="avviso info" style="margin-top:8px"><summary><b>Tecnici e dipendenti</b> <span class="aiuto">chi è in agenda ed è anche dipendente</span></summary><p class="aiuto" style="margin:8px 0">L\'app abbina ogni tecnico al suo dipendente dal nome. Se sbaglia, correggi qui: le ore dei cantieri portano il nome del dipendente.</p>';
+    ids.sort((a, b) => String(base[a]).localeCompare(String(base[b]), 'it')).forEach(t => {
+      const ov = (impostazioni.operaiTec || {})[t] || '', auto = dipDiTecnico(t, d, true);
+      h += `<div class="campo" style="margin:8px 0 0"><label for="ot-${esc(t)}">${esc(base[t])}</label><select id="ot-${esc(t)}" data-optec="${esc(t)}"><option value=""${ov === '' ? ' selected' : ''}>Automatico: ${auto ? esc(auto.n) : 'nessun dipendente'}</option><option value="-"${ov === '-' ? ' selected' : ''}>Nessun dipendente</option>${dip.map(x => `<option value="${esc(x.k)}"${ov === x.k ? ' selected' : ''}>${esc(x.n)}</option>`).join('')}</select></div>`;
+    });
+    h += '</details>';
+  }
+  return h;
+}
 
 /* ---- ufficio: si ricorda cosa e' stato mandato a ogni tecnico, per mostrare le variazioni e mandare aggiornamenti leggeri ---- */
 
@@ -4559,7 +4648,8 @@ function costruisciPer(){
   const per = {};
   datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
   chiamateAperte().forEach(a => { const t = tecnicoChiamata(a); if (t) per[t] = per[t] || []; });
-  const inv = leggiInviati(); Object.keys(inv).forEach(id => { if (id && inv[id] && (inv[id].ch || []).length) per[id] = per[id] || []; });   // chiamate gia' mandate e poi tolte: serve un aggiornamento
+  const inv = leggiInviati(); Object.keys(inv).forEach(id => { if (id && inv[id] && ((inv[id].ch || []).length || (inv[id].cant || []).length)) per[id] = per[id] || []; });
+  if (cantieriAttivi() && (datiLevante.cantieri || []).length) Object.keys(datiLevante.tecnici || {}).forEach(id => { per[id] = per[id] || []; });      // con i cantieri attivi li ricevono tutti, anche chi non ha appuntamenti   // chiamate gia' mandate e poi tolte: serve un aggiornamento
   return per;
 }
 function novitaChiamate(inv, id){
@@ -4569,7 +4659,8 @@ function novitaChiamate(inv, id){
   const t = []; if (nuove.length) t.push(nuove.length + (nuove.length === 1 ? ' nuova chiamata' : ' nuove chiamate')); if (tolte.length) t.push(tolte.length + (tolte.length === 1 ? ' chiamata tolta' : ' chiamate tolte'));
   const riga = (et, col, a) => `<li style="padding:6px 0;border-bottom:1px solid var(--riga)"><b style="color:${col}">${et}</b> ${esc(a.titolo || 'Chiamata')}${a.luogo ? ' <span class="aiuto">' + esc(a.luogo) + '</span>' : ''}</li>`;
   const h = nuove.map(a => riga('Nuova chiamata', 'var(--ok)', a)).join('') + tolte.map(a => riga('Chiamata tolta (diventata appuntamento o intervento, chiusa o riassegnata)', 'var(--rosso)', a)).join('');
-  return {ha: !!(nuove.length || tolte.length), testo: t.join(' · '), righe: h ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h + '</ul>' : ''};
+  const cn = novitaCantieri(inv, id);
+  return {ha: !!(nuove.length || tolte.length) || cn.ha, testo: t.concat(cn.testo ? [cn.testo] : []).join(' · '), righe: (h || cn.righe) ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h + cn.righe + '</ul>' : ''};
 }
 function haNovita(id, per, inviati, oggi){
   const inv = inviati[id]; if (!inv) return true;
@@ -4585,19 +4676,20 @@ function riquadroChiamate(){
     h += '<div class="avviso" style="margin-top:8px"><b>Chiamate in attesa di un tecnico</b>Scegli chi la riceve (oppure indicalo in Levante sulla chiamata).';
     senza.forEach(a => {
       h += `<div class="campo" style="margin:10px 0 0"><label>${esc(a.titolo || 'Chiamata')}${a.richiesta ? ' · ' + esc(dataIT(a.richiesta.slice(0, 10))) : ''}${a.urgente ? ' · URGENTE' : ''}<br><span class="aiuto">${esc([a.luogo, a.messaggio].filter(Boolean).join(' – ').slice(0, 160))}</span></label>
-        <select data-ch="${esc(idChiamata(a))}"><option value="">— scegli il tecnico —</option>${Object.keys(nomi).map(k => `<option value="${esc(k)}">${esc(nomi[k])}</option>`).join('')}</select></div>`;
+        <select data-ch="${esc(idChiamata(a))}"><option value="">— scegli il tecnico —</option>${Object.keys(nomi).filter(k => !soloOperaio(k)).map(k => `<option value="${esc(k)}">${esc(nomi[k])}</option>`).join('')}</select></div>`;
     });
     h += '</div>';
   }
   return h;
 }
 const leggiInviati = () => store.get('ass_inviati', {});
-function salvaInviato(id, apps, chs){
+function salvaInviato(id, apps, chs, cants){
   setTimeout(() => { try { aggiornaNav(); } catch(e) {} }, 0);
   const inv = leggiInviati();
   inv[id] = {quando: new Date().toISOString(),
     apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', urgente: !!a.urgente, fatto: !!a.fatto})),
     ch: (chs || []).map(a => ({id: a.id, titolo: a.titolo, luogo: a.luogo})),
+    cant: (cants || []).map(c => c.id),
     docIds: apps.flatMap(a => (a.docs || []).map(d => d.id))};
   store.set('ass_inviati', inv);
 }
@@ -4647,7 +4739,7 @@ async function leggiUltimaEsportazione(cambia){
 }
 let datiLevante = null;                 // quello che si usa: dati di Levante limitati ai tecnici compresi nella licenza
 let datiLevanteTutti = null;            // tutto quello che c'e' in Levante
-const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','codici_barre'];
+const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','codici_barre','cantieri','dipendenti','tipiore'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 /* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
 async function espandiZip(file){
@@ -4708,7 +4800,7 @@ async function leggiFileLevante(files){
   const esito = $('#esito-uff');
   letturaOk = false;
   if (!T.appuntamenti) { esito.innerHTML = '<div class="avviso rosso" style="margin-top:14px"><b>Manca appuntamenti.csv</b>Scegli tutti i file della cartella creata da Esporta_Levante.bat.</div>'; return; }
-  datiLevanteTutti = costruisciDaLevante(T); applicaLimiteTecnici();
+  datiLevanteTutti = costruisciDaLevante(T); aggiornaTecniciOperai(); applicaLimiteTecnici();
   letturaOk = true;
   infoUff.trovati = trovati;
   infoUff.mancanti = ['impianti','apparecchi','operazioni_pianificate','clienti','tecnici'].filter(n => !trovati.includes(n));
@@ -4755,8 +4847,8 @@ function disegnaUfficio(){
       if (nessunaNovita(c) && !cn.ha) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
       else { stato = `<span class="chip nov">Novità dall'ultimo invio (${ora}): ${esc([nessunaNovita(c) ? '' : riassuntoNovita(c), cn.testo].filter(Boolean).join(' · '))}</span>`; dettaglio = righeNovita(c, false) + cn.righe; etichetta = 'Invia gli aggiornamenti'; }
     }
-    const nCh = chiamateAttive() ? chiamateDi(id).length : 0, riga = `${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}${nCh ? ' · ' + nCh + (nCh === 1 ? ' chiamata' : ' chiamate') : ''}`;
-    const blocco = `<div class="sez" style="margin-top:${compatto ? 4 : 16}px">${compatto ? '' : `<h2>${esc(nome)}<small>${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}${chiamateAttive() && chiamateDi(id).length ? ' · ' + chiamateDi(id).length + (chiamateDi(id).length === 1 ? ' chiamata' : ' chiamate') : ''}</small></h2>
+    const nCh = chiamateAttive() ? chiamateDi(id).length : 0, nCa = cantieriAttivi() ? (datiLevante.cantieri || []).length : 0, riga = (soloOperaio(id) ? 'Operaio' : `${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}`) + `${nCh ? ' · ' + nCh + (nCh === 1 ? ' chiamata' : ' chiamate') : ''}${nCa ? ' · ' + nCa + (nCa === 1 ? ' cantiere' : ' cantieri') : ''}`;
+    const blocco = `<div class="sez" style="margin-top:${compatto ? 4 : 16}px">${compatto ? '' : `<h2>${esc(nome)}<small>${soloOperaio(id) ? 'Operaio' : per[id].length + (per[id].length === 1 ? ' appuntamento' : ' appuntamenti')}${nCa ? ' · ' + nCa + (nCa === 1 ? ' cantiere' : ' cantieri') : ''}${chiamateAttive() && chiamateDi(id).length ? ' · ' + chiamateDi(id).length + (chiamateDi(id).length === 1 ? ' chiamata' : ' chiamate') : ''}</small></h2>
       <p style="margin:0 0 4px">${stato}</p>`}${dettaglio}
       ${inUfficio ? `<div class="campo" style="margin:8px 0 0"><label for="em-${esc(id)}">Email di ${esc(nome)}</label><input id="em-${esc(id)}" type="email" data-email="${esc(nome)}" value="${esc(emailTecnico(nome))}" autocomplete="off" autocapitalize="none" placeholder="nome@esempio.it"></div>` : ''}
       <div class="azioni" style="margin-top:10px">${inUfficio && smtpPronto ? `<button class="btn${primario ? '' : ' sec'}" type="button" data-mail="${esc(id)}">${etichetta} per mail</button>` : ''}<button class="btn${primario && !(inUfficio && smtpPronto) ? '' : ' sec'}" type="button" data-invia="${esc(id)}">${inUfficio && smtpPronto ? 'Condividi' : etichetta}</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
@@ -4764,7 +4856,7 @@ function disegnaUfficio(){
       h += `<details class="tec-comp" data-tid="${esc(id)}"${ap ? ' open' : ''}><summary><b>${esc(nome)}</b><span class="n">${riga}</span>${stato}</summary>${blocco}</details>`; }
     else h += blocco;
   });
-  if (inUfficio) h += riquadroChiamate();
+  if (inUfficio) h += riquadroChiamate() + riquadroCantieri();
   h += `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-completo"${infoUff.completo ? ' checked' : ''}><span>Invia tutto, anche i documenti già mandati<small>per un dispositivo nuovo, o se il tecnico non vede più i documenti. Senza questa spunta l'aggiornamento è più leggero.</small></span></label>`;
   h += `<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px">${esc(infoUff.messaggio || '')}</p>`;
   h += `<div class="sez" style="margin-top:22px"><h2>Su questo dispositivo</h2><button class="btn sec pieno" id="b-usa-qui" type="button">Usa questi dati qui (tutti i tecnici)</button></div>`;
@@ -4777,6 +4869,8 @@ function disegnaUfficio(){
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
   { const cc = $('#chk-chiamate'); if (cc) cc.onchange = e => { impostazioni.chiamate = e.target.checked; salvaImpostazioni(); disegnaUfficio(); }; }
+  { const ck = $('#chk-cantieri'); if (ck) ck.onchange = e => { impostazioni.cantieri = e.target.checked; salvaImpostazioni(); ricalcolaOperai(); disegnaUfficio(); }; }
+  esito.querySelectorAll('[data-optec]').forEach(sl => sl.onchange = () => { impostazioni.operaiTec = Object.assign({}, impostazioni.operaiTec || {}); if (sl.value) impostazioni.operaiTec[sl.dataset.optec] = sl.value; else delete impostazioni.operaiTec[sl.dataset.optec]; salvaImpostazioni(); ricalcolaOperai(); disegnaUfficio(); });
   esito.querySelectorAll('[data-ch]').forEach(sel => sel.onchange = () => { if (!sel.value) return; (impostazioni.chiamateTec = impostazioni.chiamateTec || {})[sel.dataset.ch] = sel.value; salvaImpostazioni(); disegnaUfficio(); });
   $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, chiamate: chiamateAperte(), modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
 }
@@ -4809,7 +4903,8 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || [], barre: datiLevante.barre || []};
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || [], barre: datiLevante.barre || [],
+    cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 async function salvaDati(d, leggero){
   const files = d.files || {}; const dd = Object.assign({}, d); delete dd.files;
@@ -4841,7 +4936,7 @@ async function inviaMailTecnico(id, auto){
   const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.${prot ? '\n\n(Il file è protetto: l\'app lo apre col codice di sicurezza che trovi in Impostazioni.)' : ''}\n\n${nomeAziendaMail()}`;
   try {
     const r = await chiamaJson('posta-invia', {a, oggetto: (leggero ? 'Aggiornamento agenda ' : 'Agenda ') + nome + ' – ' + dataIT(isoGiorno(new Date())), testo, allegati: [{nome: fn, tipo: 'text/plain', b64: btoa(bin)}]});
-    if (r.ok) salvaInviato(id, pk.appuntamenti, pk.chiamate);
+    if (r.ok) salvaInviato(id, pk.appuntamenti, pk.chiamate, pk.cantieri);
     return r;
   } catch(e) { return {ok: false, messaggio: 'Il servizio non risponde.'}; }
 }
@@ -4879,7 +4974,7 @@ async function consegna(id, condividi){
   try { file = new File([protezioneAttiva() ? await CIFRA.cifra(new TextEncoder().encode(JSON.stringify(pk)), codiceSic()) : JSON.stringify(pk)], nome, {type:'text/plain'}); }   // testo: i browser lo lasciano condividere
   catch(e) { infoUff.messaggio = 'Non sono riuscito a proteggere il file: ' + (e.message || e); disegnaUfficio(); return; }
   const msg = $('#msg-consegna');
-  const fatto = testo => { salvaInviato(id, pk.appuntamenti, pk.chiamate); infoUff.messaggio = testo; disegnaUfficio(); };
+  const fatto = testo => { salvaInviato(id, pk.appuntamenti, pk.chiamate, pk.cantieri); infoUff.messaggio = testo; disegnaUfficio(); };
   if (file.size > 12 * 1048576 && msg) msg.textContent = 'Attenzione: il file pesa ' + dimStr(file.size) + '. Se WhatsApp lo rifiuta, mandalo per mail o riduci i documenti allegati.';
   const tipoTxt = pk.tipo === 'aggiornamento' ? 'aggiornamento' : 'file completo';
   if (condividi) {
@@ -4905,12 +5000,14 @@ async function caricaPacchetto(file){
     const prima = store.get('ass_dati', null);
     const leggero = d.tipo === 'aggiornamento';
     salvaArticoli(d.articoli); salvaBarre(d.barre);
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
     { const ids = new Set((d.chiamate || []).map(c => c.id)); store.set('ass_ch_nuove', Array.from(new Set(store.get('ass_ch_nuove', []).concat(chNuove.map(c => c.id)))).filter(x => ids.has(x))); }
+    const nCan = Array.isArray(d.cantieri) ? d.cantieri.length : 0;
     const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
     esitoImport = (d.appuntamenti.length === 1 ? 'Caricato 1 appuntamento' : `Caricati ${d.appuntamenti.length} appuntamenti`) + (nd ? ` e ${nd} ${nd === 1 ? 'documento' : 'documenti'}.` : '.') + (chNuove.length ? ` Chiamate da gestire: ${(d.chiamate || []).length} (${chNuove.length} ${chNuove.length === 1 ? 'nuova' : 'nuove'}).` : '') + (esitoImport ? ' ' + esitoImport : '');
+    if (nCan) esitoImport += ' Cantieri: ' + nCan + (d.operaio ? ' (registri come ' + d.operaio.n + ')' : '') + '.';
     // cosa e' cambiato rispetto all'agenda che c'era prima (solo se erano dati di Levante dello stesso tecnico)
     try {
       const vecchi = prima && Array.isArray(prima.appuntamenti) ? prima.appuntamenti : [];
@@ -4932,7 +5029,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.32.0 (14/10/2026)';
+const VERSIONE_APP = '1.33.0 (16/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5246,6 +5343,216 @@ function avviaScanner(){
   });
 }
 /* ==================================================================
+   CANTIERI (operaio/tecnico): scelgo il cantiere e scrivo ore, cosa ho fatto, materiali e foto; poi invio in ufficio.
+   Le registrazioni stanno sul dispositivo (ass_cant_reg); le foto in IndexedDB con chiave «cant-<id registrazione>|<id foto>».
+   ================================================================== */
+let regCant = null, regCorr = null, ultimiCn = [];
+const leggiRegCant = () => { if (regCant === null) regCant = store.get('ass_cant_reg', []) || []; return regCant; };
+const salvaRegCant = () => store.set('ass_cant_reg', regCant || []);
+const elencoCantieri = () => (!inUfficio && datiReali && Array.isArray(datiReali.cantieri)) ? datiReali.cantieri : [];
+const operaioApp = () => (!inUfficio && datiReali && datiReali.operaio) || null;
+const nomeOperaioApp = () => { const o = operaioApp(); return o ? o.n : (impostazioni.tecnico || ''); };
+const numOre = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) || n < 0 ? 0 : Math.round(n * 100) / 100; };
+const fmtOreDec = n => String(Math.round(n * 100) / 100).replace('.', ',');
+function nuovaReg(c){
+  const tipi = (datiReali && datiReali.tipiOre) || [];
+  return {id: 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cid: c.id, cod: c.cod || '', nome: c.nome || c.descr || ('Cantiere ' + c.id), cli: c.cli || '', ind: c.ind || '',
+    data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: tipi[0] || '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
+}
+function oreDaOrari(r){                      // dal/al meno la pausa -> ore (solo se gli orari ci sono)
+  const m = s => { const x = /^(\d{1,2}):(\d{2})/.exec(s || ''); return x ? (+x[1]) * 60 + (+x[2]) : null; };
+  const a = m(r.dal), b = m(r.al); if (a == null || b == null || b <= a) return '';
+  return fmtOreDec(Math.max(0, b - a - (parseInt(r.pausa, 10) || 0)) / 60);
+}
+let timerReg = null;
+function salvaReg(subito){
+  const r = regCorr; if (!r) return;
+  const pieno = r.ore || (r.relazione || '').trim() || r.materiali.length || r.foto.length;
+  const vai = () => {
+    const L = leggiRegCant(), i = L.findIndex(x => x.id === r.id);
+    if (i < 0) { if (!pieno) return; delete r.nuova; L.push(r); } else L[i] = r;
+    salvaRegCant();
+  };
+  clearTimeout(timerReg); if (subito) vai(); else timerReg = setTimeout(vai, 500);
+}
+function listaCantieri(){
+  const box = $('#lista'), C = elencoCantieri(), R = leggiRegCant();
+  const daInv = R.filter(r => !r.inviato).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+  const inv = R.filter(r => r.inviato).sort((a, b) => b.inviato - a.inviato).slice(0, 5);
+  const riga = r => `<button class="visita" type="button" data-cn-reg="${esc(r.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(r.data).slice(0, 5))}<small>${esc(r.ore ? fmtOreDec(numOre(r.ore)) + ' h' : 'senza ore')}</small></span><span class="corpo"><span class="nome">${esc((r.cod ? r.cod + ' · ' : '') + r.nome)}</span><span class="riga">${r.inviato ? '<span class="chip pdf">Inviata</span>' : '<span class="chip bozza">Da inviare</span>'}</span></span></button>`;
+  let h = '<p class="aiuto" style="margin:6px 0 10px">Scegli il cantiere dove hai lavorato: scrivi le <b>ore</b>, cosa hai fatto, i materiali e le foto, poi <b>invia in ufficio</b>.</p>';
+  if (daInv.length) h += `<h2 class="giorno">Da inviare in ufficio (${daInv.length})</h2>` + daInv.map(riga).join('');
+  h += `<h2 class="giorno">Cantieri (${C.length})</h2><div class="campo" style="margin:0 0 10px"><input type="text" id="cn-filtro" autocomplete="off" placeholder="Cerca per numero, nome o cliente" value="${esc(listaCantieri.q || '')}" aria-label="Cerca un cantiere"></div><div id="cn-elenco"></div>`;
+  if (inv.length) h += '<h2 class="giorno">Inviate di recente</h2>' + inv.map(riga).join('');
+  box.innerHTML = h;
+  const disegnaElenco = () => {
+    const q = normNome(listaCantieri.q || '').split(' ').filter(Boolean);
+    const l = C.slice().sort((a, b) => String(a.cod).localeCompare(String(b.cod), 'it', {numeric: true})).filter(c => { const t = normNome([c.cod, c.nome, c.descr, c.cli, c.ind].join(' ')); return q.every(p => t.indexOf(p) >= 0); });
+    const nonInv = {}; daInv.forEach(r => { nonInv[r.cid] = (nonInv[r.cid] || 0) + 1; });
+    $('#cn-elenco').innerHTML = l.length ? l.map(c => `<button class="visita" type="button" data-cn="${esc(c.id)}"><span class="ora" style="font-size:15px">${esc(c.cod || '·')}<small>cantiere</small></span><span class="corpo"><span class="nome">${esc(c.nome || c.descr || ('Cantiere ' + c.id))}</span><span class="dove" style="display:block">${esc([c.cli, c.ind].filter(Boolean).join(' · '))}</span>${nonInv[c.id] ? `<span class="riga"><span class="chip bozza">${nonInv[c.id]} da inviare</span></span>` : ''}</span></button>`).join('') : '<p class="aiuto">Nessun cantiere corrisponde.</p>';
+  };
+  disegnaElenco();
+  $('#cn-filtro').oninput = e => { listaCantieri.q = e.target.value; disegnaElenco(); };
+}
+function apriCantiere(cid, regId){
+  let r = regId ? leggiRegCant().filter(x => x.id === regId)[0] : null;
+  if (!r) { const c = elencoCantieri().filter(x => x.id === cid)[0]; if (!c) return; r = nuovaReg(c); }
+  regCorr = r; ultimiCn = []; mostra('cantiere'); disegnaCantiere();
+}
+function righeMatCn(r){
+  return r.materiali.map((m, i) => `<div class="cn-mat" style="display:grid;grid-template-columns:1fr 64px 52px 34px;gap:6px;margin:6px 0;align-items:start"><div><input type="text" data-cn-mf="descr|${i}" value="${esc(m.descr)}" placeholder="Materiale" aria-label="Materiale ${i + 1}">${m.codice ? `<span class="aiuto">${esc(m.codice)}</span>` : ''}</div><input type="text" inputmode="decimal" data-cn-mf="qta|${i}" value="${esc(m.qta)}" placeholder="Qtà" aria-label="Quantità"><input type="text" data-cn-mf="um|${i}" value="${esc(m.um)}" placeholder="u.m." aria-label="Unità di misura"><button class="togli" type="button" data-cn-mtogli="${i}" aria-label="Togli il materiale ${i + 1}">×</button></div>`).join('');
+}
+function fotoCn(r){
+  return (r.foto || []).map((x, n) => `<div class="fotocard"><img src="${x.thumb}" alt="Foto ${n + 1}"><div class="fotodati"><div class="fototesta"><strong>Foto ${n + 1}</strong><button class="togli" type="button" data-cn-ftogli="${esc(x.id)}" aria-label="Togli la foto ${n + 1}">×</button></div><div class="cbox"><textarea rows="2" data-cn-fc="${esc(x.id)}" maxlength="300" placeholder="Commento (per esempio: tubazione montata al piano terra)" aria-label="Commento foto ${n + 1}">${esc(x.commento || '')}</textarea></div></div></div>`).join('');
+}
+function disegnaCantiere(){
+  const r = regCorr, box = $('#v-cantiere'); if (!r || !box) return;
+  const tipi = (datiReali && datiReali.tipiOre) || [], op = operaioApp(), nA = leggiArticoli().length;
+  box.innerHTML = `<header class="barra fissa"><button class="btn chiaro piccolo" id="cn-indietro" type="button">Indietro</button><h1>${esc((r.cod ? r.cod + ' · ' : '') + r.nome)}</h1></header>
+    <p class="aiuto" style="margin:0 0 10px">${esc([r.cli, r.ind].filter(Boolean).join(' · '))}${op ? '<br>Registri come <b>' + esc(op.n) + '</b>.' : ''}</p>
+    ${r.inviato ? `<div class="avviso info" style="margin:0 0 12px"><b>Inviata in ufficio</b>il ${esc(dataIT(isoGiorno(new Date(r.inviato))))} alle ${esc(hhmm(new Date(r.inviato)))}. Se cambi qualcosa, inviala di nuovo.</div>` : ''}
+    <div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
+    <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"></div>
+    ${tipi.length > 1 ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo">${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
+    <div class="campo"><label for="cn-rel">Cosa hai fatto</label><textarea id="cn-rel" rows="5" placeholder="Lavori eseguiti in questa giornata">${esc(r.relazione)}</textarea></div>
+    <div class="campo"><label>Materiali usati</label>${nA ? `<input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo"><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin-top:6px">Aggiungi un materiale a mano</button></div>
+    <div class="campo"><label>Foto</label><div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p></div>
+    <div class="campo"><label for="cn-email">Email dell'ufficio <span class="aiuto">(serve se il telefono non apre il menu di condivisione)</span></label><input id="cn-email" type="email" autocomplete="off" autocapitalize="none" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@esempio.it"></div>
+    <div class="azioni" style="margin-top:14px"><button class="btn" type="button" id="cn-invia">Invia in ufficio</button><button class="btn sec" type="button" id="cn-salva">Salva e torna indietro</button></div>
+    <p class="aiuto" id="cn-msg" role="status" style="margin:10px 0 0"></p>
+    ${leggiRegCant().some(x => x.id === r.id) ? '<button class="btn chiaro piccolo" type="button" id="cn-elimina" style="margin-top:10px">Elimina questa registrazione</button>' : ''}`;
+}
+async function aggiungiFotoCn(files){
+  const r = regCorr, msg = $('#cn-foto-msg'); if (!r) return;
+  const lista = [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|webp)$/i.test(f.name));
+  if (!lista.length) { if (msg) msg.textContent = 'Non ho trovato immagini in quello che hai scelto.'; return; }
+  let fatte = 0;
+  for (const f of lista) {
+    if (r.foto.length >= FOTO_MAX_NUMERO) { if (msg) msg.textContent = 'Puoi aggiungere al massimo ' + FOTO_MAX_NUMERO + ' foto per registrazione.'; break; }
+    try {
+      if (msg) msg.textContent = 'Preparo la foto…';
+      const x = await elaboraImmagine(f), id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      await scriviFoto(chiaveFoto('cant-' + r.id, id), {tipo: 'image/jpeg', dati: x.dati, w: x.w, h: x.h});
+      r.foto.push({id, commento: '', thumb: x.thumb, w: x.w, h: x.h}); fatte++;
+    } catch(e) { if (msg) msg.textContent = 'Non sono riuscito a leggere una foto (' + (e && e.message) + ').'; }
+  }
+  if (fatte) { salvaReg(true); const c = $('#cn-foto'); if (c) c.innerHTML = fotoCn(r); if (msg) msg.textContent = fatte === 1 ? 'Foto aggiunta.' : fatte + ' foto aggiunte.'; }
+}
+function datiCantiere(r, pdf){
+  const op = operaioApp();
+  return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, cli: r.cli, ind: r.ind},
+    operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
+    relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
+    nfoto: (r.foto || []).length, file: pdf ? [pdf] : [], inviato: Date.now()};
+}
+async function filesCantiere(r){
+  const sl = slugNome(r.nome || r.cod || 'cantiere'), g = r.data || isoGiorno(new Date()), chi = slugNome(nomeOperaioApp() || 'operaio'), out = [];
+  let pdfNome = '';
+  if ((r.foto || []).length) {
+    pdfNome = 'Foto_Cantiere_' + sl + '_' + g + '_' + chi + '.pdf';
+    const blob = await costruisciPdfFoto({id: 'cant-' + r.id, cliente: (r.cod ? r.cod + ' - ' : '') + r.nome, indirizzo: r.ind, data: g, tecnico: nomeOperaioApp(), foto: r.foto});
+    out.push(new File([blob], pdfNome, {type: 'application/pdf'}));
+  }
+  out.unshift(new File([JSON.stringify(datiCantiere(r, pdfNome))], 'Dati_Cantiere_' + sl + '_' + g + '_' + chi + '.txt', {type: 'text/plain'}));
+  let fl = out;
+  if (fl.length > 1 && impostazioni.zipUff !== false) {
+    const z = await creaZip(fl, 'Cantiere_' + sl + '_' + g + '_' + chi + '.zip');
+    const noShare = !!(navigator.canShare && !navigator.canShare({files: [z]}) && navigator.canShare({files: fl}));      // alcuni telefoni non condividono gli zip
+    if (!noShare) fl = [z];
+  }
+  if (protezioneAttiva()) fl = await Promise.all(fl.map(cifraFile));
+  return fl;
+}
+async function inviaCantiere(){
+  const r = regCorr, m = $('#cn-msg'); if (!r || !m) return;
+  if (!numOre(r.ore) && !(r.relazione || '').trim() && !(r.foto || []).length) { m.textContent = 'Scrivi almeno le ore o cosa hai fatto.'; return; }
+  if (!numOre(r.ore) && !confirm('Non hai scritto le ore. Invio lo stesso?')) return;
+  const ind = String(impostazioni.emailUfficio || '').trim();
+  if (ind && !emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
+  salvaReg(true); m.textContent = 'Preparo i file…';
+  let fl; try { fl = await filesCantiere(r); } catch(e) { m.textContent = 'Non sono riuscito a preparare i file (' + ((e && e.message) || e) + ').'; return; }
+  const d = dataIT(r.data), oggetto = 'Intervento cantiere ' + (r.cod ? r.cod + ' ' : '') + r.nome + ' del ' + d;
+  const testo = 'Cantiere: ' + (r.cod ? r.cod + ' · ' : '') + r.nome + '\nGiorno: ' + d + '\nOperaio: ' + nomeOperaioApp() + (numOre(r.ore) ? '\nOre: ' + fmtOreDec(numOre(r.ore)) : '');
+  const fatto = () => { r.inviato = Date.now(); salvaReg(true); };
+  if (navigator.canShare && navigator.canShare({files: fl})) {
+    let copia = Promise.resolve(false); try { if (ind) copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e) {}
+    try {
+      await navigator.share({files: fl, title: oggetto, text: testo}); fatto(); disegnaCantiere();
+      const mm = $('#cn-msg'); if (mm) mm.textContent = ind ? ((await copia) ? 'Indirizzo copiato (' + ind + '): nella mail, nel campo A, tieni premuto e scegli Incolla.' : 'Indirizzo del destinatario: ' + ind) : 'Inviata.';
+      return;
+    } catch(e) { if (e && e.name === 'AbortError') { m.textContent = ''; return; } }
+  }
+  ultimiCn = fl;
+  if (!scaricaPossibile) {            // iPad e iPhone con iOS vecchio: niente invio automatico
+    m.innerHTML = 'Questo dispositivo è troppo vecchio per l\'invio automatico. Per ogni file: tocca <b>Apri</b>, poi nel visualizzatore tocca <b>Condividi</b> e scegli <b>Mail</b>. Destinatario: <b>' + esc(ind || 'l\'ufficio') + '</b>.<br>' + fl.map((f, i) => `<button class="btn chiaro piccolo" type="button" data-cn-apri="${i}" style="margin:6px 6px 0 0">Apri ${esc(f.name)}</button>`).join('') + '<br><button class="btn piccolo" type="button" id="cn-fatto" style="margin-top:8px">Fatto: l\'ho inviata</button>';
+    return;
+  }
+  if (!ind) { m.textContent = 'Scrivi l\'email dell\'ufficio qui sopra.'; const x = $('#cn-email'); if (x) x.focus(); return; }
+  fl.forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
+  setTimeout(() => {
+    const a = document.createElement('a');
+    a.href = 'mailto:' + encodeURIComponent(ind).replace('%40', '@') + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(testo + '\n\n(Allega i file scaricati.)');
+    document.body.appendChild(a); a.click(); a.remove();
+  }, 500 + fl.length * 400);
+  fatto(); m.textContent = 'Ho scaricato ' + (fl.length === 1 ? 'il file' : 'i file') + ' e aperto la mail per ' + ind + ': allega ' + (fl.length === 1 ? 'il file scaricato' : 'i file scaricati') + '.';
+}
+function avviaCantieri(){
+  const lista = $('#lista');
+  lista.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('[data-cn]'), b = e.target.closest && e.target.closest('[data-cn-reg]');
+    if (a) apriCantiere(a.dataset.cn); else if (b) { const r = leggiRegCant().filter(x => x.id === b.dataset.cnReg)[0]; if (r) apriCantiere(r.cid, r.id); }
+  });
+  const v = $('#v-cantiere');
+  v.addEventListener('click', async e => {
+    const t = e.target, b = t.closest && t.closest('button'); if (!b || !regCorr) return;
+    const r = regCorr, d = b.dataset;
+    if (b.id === 'cn-indietro' || b.id === 'cn-salva') { salvaReg(true); indietro(); }
+    else if (b.id === 'cn-invia') inviaCantiere();
+    else if (b.id === 'cn-fatto') { r.inviato = Date.now(); salvaReg(true); disegnaCantiere(); }
+    else if (b.id === 'cn-mat-agg') { r.materiali.push({descr: '', codice: '', qta: '', um: 'pz'}); $('#cn-mat').innerHTML = righeMatCn(r); const ins = $('#cn-mat').querySelectorAll('input[data-cn-mf^="descr"]'); if (ins.length) ins[ins.length - 1].focus(); }
+    else if (d.cnMtogli !== undefined) { r.materiali.splice(+d.cnMtogli, 1); $('#cn-mat').innerHTML = righeMatCn(r); salvaReg(); }
+    else if (b.id === 'cn-foto-agg') $('#cn-foto-in').click();
+    else if (d.cnFtogli !== undefined) { if (!confirm('Tolgo questa foto?')) return; r.foto = r.foto.filter(x => x.id !== d.cnFtogli); try { await cancellaFotoChiave(chiaveFoto('cant-' + r.id, d.cnFtogli)); } catch(x) {} $('#cn-foto').innerHTML = fotoCn(r); salvaReg(true); }
+    else if (d.cnApri !== undefined) { const f = ultimiCn[+d.cnApri]; if (f) { const x = mostraFile(f, f.name, f.type), m = $('#cn-msg'); if (x.html && m) m.insertAdjacentHTML('beforeend', '<br>' + x.testo); } }
+    else if (d.cnArt !== undefined) {
+      const a = leggiArticoli()[+d.cnArt]; if (!a) return;
+      r.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''}); $('#cn-mat').innerHTML = righeMatCn(r); $('#cn-cerca-ris').innerHTML = ''; $('#cn-cerca').value = ''; salvaReg();
+    }
+    else if (b.id === 'cn-elimina') {
+      if (!confirm('Elimino questa registrazione' + (r.inviato ? ' (è già stata inviata)' : '') + '?')) return;
+      for (const x of r.foto) { try { await cancellaFotoChiave(chiaveFoto('cant-' + r.id, x.id)); } catch(y) {} }
+      regCant = leggiRegCant().filter(x => x.id !== r.id); salvaRegCant(); regCorr = null; indietro();
+    }
+  });
+  v.addEventListener('input', e => {
+    const t = e.target, r = regCorr; if (!r) return;
+    if (t.id === 'cn-data') r.data = t.value || r.data;
+    else if (t.id === 'cn-dal' || t.id === 'cn-al' || t.id === 'cn-pausa') {
+      r[t.id.slice(3)] = t.value;
+      const o = oreDaOrari(r); if (o) { r.ore = o; $('#cn-ore').value = o; }
+    }
+    else if (t.id === 'cn-ore') r.ore = t.value;
+    else if (t.id === 'cn-rel') r.relazione = t.value;
+    else if (t.id === 'cn-email') { impostazioni.emailUfficio = t.value.trim(); salvaImpostazioni(); return; }
+    else if (t.id === 'cn-cerca') {
+      const tutti = leggiArticoli(), ris = risultatiArticoli(t.value), box = $('#cn-cerca-ris');
+      box.innerHTML = ris.length ? ris.map(i => `<button class="btn chiaro piccolo" type="button" data-cn-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(tutti[i][0] ? tutti[i][0] + ' · ' : '')}${esc(tutti[i][1])}</button>`).join('') : (t.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde: puoi scrivere il materiale a mano.</p>' : '');
+      return;
+    }
+    else if (t.dataset && t.dataset.cnMf) { const p = t.dataset.cnMf.split('|'); if (r.materiali[+p[1]]) r.materiali[+p[1]][p[0]] = t.value; }
+    else if (t.dataset && t.dataset.cnFc) { const f = r.foto.filter(x => x.id === t.dataset.cnFc)[0]; if (f) f.commento = t.value; }
+    else return;
+    salvaReg();
+  });
+  v.addEventListener('change', e => {
+    const t = e.target, r = regCorr; if (!r) return;
+    if (t.id === 'cn-tipo') { r.tipo = t.value; salvaReg(); }
+    else if (t.id === 'cn-foto-in') { const fl = [...t.files]; t.value = ''; if (fl.length) aggiungiFotoCn(fl); }
+  });
+}
+
+/* ==================================================================
    POSTA IN ARRIVO (ufficio) e CSV per Levante
    ================================================================== */
 function nomeDati(w){ return 'Dati_' + slugNome(w.cliente) + '_' + (w.data || isoGiorno(new Date())) + '.txt'; }
@@ -5330,6 +5637,7 @@ const aperte = {};
 const chiavePosta = r => (r.id || '') + '|' + (r.data || '') + '|' + (r.cliente || '');
 /* controlli prima di registrare in Levante: "grave" = quasi sicuramente da sistemare, altrimenti solo da sapere */
 function controlliIntervento(r){
+  if (r.cant) return controlliCantiere(r);
   const c = [], min = minutiTotali(r), nonEseg = r.esito === 'non_eseguito';
   if (!r.li) c.push({t: 'Senza numero di appuntamento: va collegato a mano in Levante.', grave: true});
   else if (posta.filter(x => x !== r && x.li && String(x.li) === String(r.li) && !x.fatto).length) c.push({t: 'C\'è un altro intervento con lo stesso N. ' + r.li + ': controlla che non sia un doppione.', grave: true});
@@ -5362,6 +5670,7 @@ function disegnaPosta(){
   if (!lista.length) { box.innerHTML = '<p class="aiuto">Nessun intervento da registrare.</p>'; return; }
   const blocco = (tit, t, i, k) => t ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${tit}</b><button class="btn sec piccolo" type="button" data-copia="${i}|${k}">Copia</button></div><div style="white-space:pre-wrap">${esc(t)}</div></div>` : '';
   box.innerHTML = lista.map(({r, i}) => {
+    if (r.cant) return schedaCantiere(r, i);
     const min = minutiTotali(r), h = min ? fmtOre(min) : '';
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
@@ -5384,6 +5693,7 @@ function disegnaPosta(){
       <p style="margin:8px 0">${pdf}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
   }).join('');
+  { const nC = posta.filter(r => r.cant && !r.fatto).length; if (nC) testa += `<button class="btn sec piccolo" type="button" data-cantcsv="1" style="margin:0 0 12px 8px">Riepilogo ore dei cantieri da registrare (CSV, ${nC})</button>`; }
   box.innerHTML = testa + box.innerHTML;
 }
 const ESITI_BREVI = {concluso: 'Concluso', da_completare: 'Da completare', non_eseguito: 'Non eseguito'};
@@ -5408,7 +5718,11 @@ async function leggiPosta(files){
     if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name.normalize('NFC')] = f; salvaAllegato(f); pdfLetti.push(f); pdf++; continue; }
     try {
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
-      if (!o || o.assist !== 'intervento') { altri++; continue; }
+      if (!o || (o.assist !== 'intervento' && o.assist !== 'cantiere')) { altri++; continue; }
+      if (o.assist === 'cantiere') {               // la registrazione di un operaio su un cantiere: sta nella posta, accanto agli interventi
+        const cn = o.cantiere || {}; o.cant = true; o.cliente = ((cn.cod ? cn.cod + ' · ' : '') + (cn.nome || 'Cantiere')).trim(); o.indirizzo = [cn.cli, cn.ind].filter(Boolean).join(' · ');
+        if (!o.tecnico && o.operaio) o.tecnico = o.operaio.n;
+      }
       o.file = (o.file || []).map(n => String(n).normalize('NFC'));
       lette.push({o, origine: f.origine || '', arrivo: f.arrivo || ''});
     } catch(e) { altri++; }
@@ -5453,6 +5767,43 @@ async function archiviaRegistrati(){
     }
   } catch(e) {} finally { archiviando = false; }
 }
+/* ---- CANTIERI in ufficio: le registrazioni degli operai arrivano nella posta in arrivo, accanto agli interventi (sola visualizzazione) ---- */
+function controlliCantiere(r){
+  const c = [];
+  if (!(numOre(r.ore) > 0)) c.push({t: 'Mancano le ore: non c\'è niente da registrare.', grave: true});
+  if (!r.operaio) c.push({t: 'Non so a quale dipendente appartengono queste ore (il tecnico non è abbinato a un dipendente in Levante): scrivilo tu.', grave: false});
+  if (!(r.relazione || '').trim()) c.push({t: 'Manca la descrizione dei lavori.', grave: false});
+  (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF delle foto non ancora arrivato: ' + n + '.', grave: true}));
+  return c;
+}
+function schedaCantiere(r, i){
+  const ctrl = controlliCantiere(r), nGravi = ctrl.filter(x => x.grave).length, op = r.operaio, man = csvImp().man, mc = op && man[op.op] && man[op.op].cod ? man[op.op] : null;
+  const ore = numOre(r.ore);
+  const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
+  const ctrlChip = r.fatto || !ctrl.length ? '' : ` <span class="chip ${nGravi ? 'urg' : 'bozza'}">${ctrl.length} ${ctrl.length === 1 ? 'controllo' : 'controlli'}</span>`;
+  const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
+  const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
+  const avanti = codaOn && !r.fatto ? `<button class="btn pieno" type="button" data-coda="avanti" data-i="${i}" style="margin-top:12px">Registrato in Levante: passa al prossimo</button>` : '';
+  const rel = r.relazione ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>Cosa è stato fatto</b><button class="btn sec piccolo" type="button" data-copia="${i}|relazione">Copia</button></div><div style="white-space:pre-wrap">${esc(r.relazione)}</div></div>` : '';
+  return `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary><b>${esc(r.cliente)}</b> · ${esc(dataIT(r.data))} · ${esc(op ? op.n : (r.tecnico || ''))} <span class="chip tec">Cantiere</span>${ore ? ` <span class="chip">${esc(fmtOreDec(ore))} h</span>` : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
+      ${ctrlHtml}
+      <p style="margin:8px 0">${esc(r.indirizzo || '')}</p>
+      <p style="margin:8px 0"><b>Ore:</b> ${ore ? '<b>' + esc(fmtOreDec(ore)) + ' h</b>' : '—'}${r.dal || r.al ? ' (' + esc(r.dal || '—') + ' – ' + esc(r.al || '—') + (r.pausa ? ', pausa ' + esc(r.pausa) + ' min' : '') + ')' : ''}${r.tipo ? ' · ' + esc(r.tipo) : ''}${mc ? ' · manodopera <b>' + esc(mc.cod) + '</b>' + (mc.desc ? ' (' + esc(mc.desc) + ')' : '') : (op ? ' · indice manodopera ' + esc(op.op) + ' (imposta i codici nel CSV per Levante)' : '')}</p>
+      ${rel}
+      ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
+      ${r.nfoto ? `<p style="margin:8px 0">${r.nfoto} ${r.nfoto === 1 ? 'foto' : 'foto'}</p>` : ''}<p style="margin:8px 0">${pdf}</p>
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:10px"><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
+}
+function blobRiepilogoCantieri(){
+  const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), num = n => c.virgola ? String(n).replace('.', ',') : String(n);
+  const righe = [['cantiere', 'descrizione', 'data', 'dipendente', 'manodopera', 'ore', 'tipo ore', 'lavori eseguiti']];
+  posta.filter(r => r.cant && !r.fatto).sort((a, b) => String(a.data).localeCompare(String(b.data)) || String(a.cliente).localeCompare(String(b.cliente))).forEach(r => {
+    const op = r.operaio, mc = op && c.man[op.op] && c.man[op.op].cod ? c.man[op.op].cod : '';
+    righe.push([cp(r.cantiere && r.cantiere.cod), cp(r.cantiere && r.cantiere.nome), cp(dataIT(r.data)), cp(op ? op.n : r.tecnico), cp(mc), num(numOre(r.ore)), cp(r.tipo), cp(r.relazione)]);
+  });
+  const t = righe.map(x => x.join(';')).join('\r\n') + '\r\n';
+  return c.win ? new Blob([bytesWin(t)], {type: 'text/csv'}) : new Blob([t], {type: 'text/csv;charset=utf-8'});
+}
 function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; try { document.title = (inUfficio && n ? '(' + n + ') ' : '') + 'Assistenza impianti'; } catch(e) {} b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); try { aggiornaNav(); } catch(e) {} }
 function avviaPosta(){
   $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
@@ -5481,6 +5832,7 @@ function avviaPosta(){
       }
       disegnaPosta(); const dx = $('#destra'); if (dx) dx.scrollTop = 0; window.scrollTo(0, 0); return;
     }
+    if (d.cantcsv !== undefined) { scaricaBlob(blobRiepilogoCantieri(), 'Riepilogo_ore_cantieri_' + isoGiorno(new Date()) + '.csv'); return; }
     if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); b.textContent = 'Copiato ✓'; }
     else if (d.csv !== undefined) { const r = posta[+d.csv]; scaricaBlob(blobCsv(r), 'Levante_' + slugNome(r.cliente) + '_' + (r.data || '') + '.csv'); }
     else if (d.pdf !== undefined) { const f = pdfPosta[d.pdf]; if (f) scaricaBlob(f, d.pdf); else window.open('posta-allegato?nome=' + encodeURIComponent(d.pdf), '_blank'); }
@@ -5847,7 +6199,7 @@ function tecniciConsentiti(){          // Set di id tecnico ammessi, oppure null
   const nomi = datiLevanteTutti.tecnici || {}, ids = Object.keys(nomi);
   if (ids.length <= n) return null;
   let sel = Array.isArray(impostazioni.tecniciAttivi) ? impostazioni.tecniciAttivi.map(String).filter(id => ids.includes(id)) : null;
-  if (!sel) sel = ids.slice().sort((a, b) => String(nomi[a]).localeCompare(String(nomi[b]), 'it')).slice(0, n);
+  if (!sel) sel = ids.slice().sort((a, b) => (soloOperaio(a) - soloOperaio(b)) || String(nomi[a]).localeCompare(String(nomi[b]), 'it')).slice(0, n);
   return new Set(sel.slice(0, n));
 }
 let sigTecnici = '';
@@ -6169,6 +6521,8 @@ function avvia(){
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
   $('#s-chiamate').onclick = () => { periodo = 'chiamate'; disegnaAgenda(); };
+  $('#s-cantieri').onclick = () => { periodo = 'cantieri'; disegnaAgenda(); };
+  avviaCantieri();
   $('#b-nuovo').onclick = apriSchedaManuale;
   document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.onclick = () => {
     const v = b.dataset.nav;
