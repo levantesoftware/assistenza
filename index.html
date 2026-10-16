@@ -4608,7 +4608,7 @@ function novitaCantieri(inv, id){
   const nuovi = att.filter(c => !vecchi.has(c.id)), tolti = Array.from(vecchi).filter(k => !ids.has(k));
   if (!nuovi.length && !tolti.length) return vuoto;
   const t = []; if (nuovi.length) t.push(nuovi.length + (nuovi.length === 1 ? ' nuovo cantiere' : ' nuovi cantieri')); if (tolti.length) t.push(tolti.length + (tolti.length === 1 ? ' cantiere tolto' : ' cantieri tolti'));
-  const righe = nuovi.slice(0, 10).map(c => `<li style="padding:6px 0;border-bottom:1px solid var(--riga)"><b style="color:var(--ok)">Nuovo cantiere</b> ${esc((c.cod ? c.cod + ' · ' : '') + (c.nome || ''))}</li>`).join('') + (nuovi.length > 10 ? `<li class="aiuto">…e altri ${nuovi.length - 10}</li>` : '');
+  const righe = nuovi.slice(0, 10).map(c => `<li style="padding:6px 0;border-bottom:1px solid var(--riga)"><b style="color:var(--ok)">Nuovo cantiere</b> ${esc((c.cod ? c.cod + ' · ' : '') + titoloCn(c))}</li>`).join('') + (nuovi.length > 10 ? `<li class="aiuto">…e altri ${nuovi.length - 10}</li>` : '');
   return {ha: true, testo: t.join(' · '), righe};
 }
 function riquadroCantieri(){
@@ -4842,6 +4842,7 @@ function disegnaUfficio(){
     const nome = nomeTec(id);
     const inv = inviati[id];
     let stato = '<span class="chip">Mai inviato da questo dispositivo</span>', dettaglio = '', primario = true, etichetta = 'Invia il file';
+    if (!inv && cantieriAttivi() && (datiLevante.cantieri || []).length) { const cc = datiLevante.cantieri; dettaglio = `<p class="aiuto" style="margin:6px 0 0"><b>Pronti da inviare: ${cc.length} ${cc.length === 1 ? 'cantiere' : 'cantieri'}</b> — ${esc(cc.slice(0, 6).map(c => (c.cod ? c.cod + ' ' : '') + titoloCn(c)).join(' · '))}${cc.length > 6 ? ' · …' : ''}</p>`; }
     if (inv) {
       const c = confrontaAgende(inv.apps, per[id], oggi, giaEseguitoInPosta), ora = hhmm(new Date(inv.quando)), cn = novitaChiamate(inv, id);
       if (nessunaNovita(c) && !cn.ha) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
@@ -5029,7 +5030,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.33.0 (16/10/2026)';
+const VERSIONE_APP = '1.33.2 (16/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5354,9 +5355,10 @@ const operaioApp = () => (!inUfficio && datiReali && datiReali.operaio) || null;
 const nomeOperaioApp = () => { const o = operaioApp(); return o ? o.n : (impostazioni.tecnico || ''); };
 const numOre = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) || n < 0 ? 0 : Math.round(n * 100) / 100; };
 const fmtOreDec = n => String(Math.round(n * 100) / 100).replace('.', ',');
+const titoloCn = c => { const t = String(c.descr || c.nome || ''); return (t.length > 90 ? t.slice(0, 88) + '…' : t) || ('Cantiere ' + (c.id || c.cid || '')); };
 function nuovaReg(c){
   const tipi = (datiReali && datiReali.tipiOre) || [];
-  return {id: 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cid: c.id, cod: c.cod || '', nome: c.nome || c.descr || ('Cantiere ' + c.id), cli: c.cli || '', ind: c.ind || '',
+  return {id: 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cid: c.id, cod: c.cod || '', nome: c.nome || c.descr || ('Cantiere ' + c.id), descr: c.descr || '', cli: c.cli || '', ind: c.ind || '',
     data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: tipi[0] || '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
 }
 function oreDaOrari(r){                      // dal/al meno la pausa -> ore (solo se gli orari ci sono)
@@ -5379,7 +5381,7 @@ function listaCantieri(){
   const box = $('#lista'), C = elencoCantieri(), R = leggiRegCant();
   const daInv = R.filter(r => !r.inviato).sort((a, b) => String(b.data).localeCompare(String(a.data)));
   const inv = R.filter(r => r.inviato).sort((a, b) => b.inviato - a.inviato).slice(0, 5);
-  const riga = r => `<button class="visita" type="button" data-cn-reg="${esc(r.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(r.data).slice(0, 5))}<small>${esc(r.ore ? fmtOreDec(numOre(r.ore)) + ' h' : 'senza ore')}</small></span><span class="corpo"><span class="nome">${esc((r.cod ? r.cod + ' · ' : '') + r.nome)}</span><span class="riga">${r.inviato ? '<span class="chip pdf">Inviata</span>' : '<span class="chip bozza">Da inviare</span>'}</span></span></button>`;
+  const riga = r => `<button class="visita" type="button" data-cn-reg="${esc(r.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(r.data).slice(0, 5))}<small>${esc(r.ore ? fmtOreDec(numOre(r.ore)) + ' h' : 'senza ore')}</small></span><span class="corpo"><span class="nome">${esc((r.cod ? r.cod + ' · ' : '') + titoloCn(r))}</span><span class="riga">${r.inviato ? '<span class="chip pdf">Inviata</span>' : '<span class="chip bozza">Da inviare</span>'}</span></span></button>`;
   let h = '<p class="aiuto" style="margin:6px 0 10px">Scegli il cantiere dove hai lavorato: scrivi le <b>ore</b>, cosa hai fatto, i materiali e le foto, poi <b>invia in ufficio</b>.</p>';
   if (daInv.length) h += `<h2 class="giorno">Da inviare in ufficio (${daInv.length})</h2>` + daInv.map(riga).join('');
   h += `<h2 class="giorno">Cantieri (${C.length})</h2><div class="campo" style="margin:0 0 10px"><input type="text" id="cn-filtro" autocomplete="off" placeholder="Cerca per numero, nome o cliente" value="${esc(listaCantieri.q || '')}" aria-label="Cerca un cantiere"></div><div id="cn-elenco"></div>`;
@@ -5389,7 +5391,7 @@ function listaCantieri(){
     const q = normNome(listaCantieri.q || '').split(' ').filter(Boolean);
     const l = C.slice().sort((a, b) => String(a.cod).localeCompare(String(b.cod), 'it', {numeric: true})).filter(c => { const t = normNome([c.cod, c.nome, c.descr, c.cli, c.ind].join(' ')); return q.every(p => t.indexOf(p) >= 0); });
     const nonInv = {}; daInv.forEach(r => { nonInv[r.cid] = (nonInv[r.cid] || 0) + 1; });
-    $('#cn-elenco').innerHTML = l.length ? l.map(c => `<button class="visita" type="button" data-cn="${esc(c.id)}"><span class="ora" style="font-size:15px">${esc(c.cod || '·')}<small>cantiere</small></span><span class="corpo"><span class="nome">${esc(c.nome || c.descr || ('Cantiere ' + c.id))}</span><span class="dove" style="display:block">${esc([c.cli, c.ind].filter(Boolean).join(' · '))}</span>${nonInv[c.id] ? `<span class="riga"><span class="chip bozza">${nonInv[c.id]} da inviare</span></span>` : ''}</span></button>`).join('') : '<p class="aiuto">Nessun cantiere corrisponde.</p>';
+    $('#cn-elenco').innerHTML = l.length ? l.map(c => `<button class="visita" type="button" data-cn="${esc(c.id)}"><span class="ora" style="font-size:15px">${esc(c.cod || '·')}<small>cantiere</small></span><span class="corpo"><span class="nome">${esc(titoloCn(c))}</span><span class="dove" style="display:block">${esc([c.descr ? c.nome : '', c.ind].filter(Boolean).join(' · '))}</span>${nonInv[c.id] ? `<span class="riga"><span class="chip bozza">${nonInv[c.id]} da inviare</span></span>` : ''}</span></button>`).join('') : '<p class="aiuto">Nessun cantiere corrisponde.</p>';
   };
   disegnaElenco();
   $('#cn-filtro').oninput = e => { listaCantieri.q = e.target.value; disegnaElenco(); };
@@ -5408,8 +5410,8 @@ function fotoCn(r){
 function disegnaCantiere(){
   const r = regCorr, box = $('#v-cantiere'); if (!r || !box) return;
   const tipi = (datiReali && datiReali.tipiOre) || [], op = operaioApp(), nA = leggiArticoli().length;
-  box.innerHTML = `<header class="barra fissa"><button class="btn chiaro piccolo" id="cn-indietro" type="button">Indietro</button><h1>${esc((r.cod ? r.cod + ' · ' : '') + r.nome)}</h1></header>
-    <p class="aiuto" style="margin:0 0 10px">${esc([r.cli, r.ind].filter(Boolean).join(' · '))}${op ? '<br>Registri come <b>' + esc(op.n) + '</b>.' : ''}</p>
+  box.innerHTML = `<header class="barra fissa"><button class="btn chiaro piccolo" id="cn-indietro" type="button">Indietro</button><h1>${esc((r.cod ? r.cod + ' · ' : '') + titoloCn(r))}</h1></header>
+    <p class="aiuto" style="margin:0 0 10px">${esc([r.descr ? r.nome : '', r.ind].filter(Boolean).join(' · '))}${op ? '<br>Registri come <b>' + esc(op.n) + '</b>.' : ''}</p>
     ${r.inviato ? `<div class="avviso info" style="margin:0 0 12px"><b>Inviata in ufficio</b>il ${esc(dataIT(isoGiorno(new Date(r.inviato))))} alle ${esc(hhmm(new Date(r.inviato)))}. Se cambi qualcosa, inviala di nuovo.</div>` : ''}
     <div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
@@ -5441,17 +5443,17 @@ async function aggiungiFotoCn(files){
 }
 function datiCantiere(r, pdf){
   const op = operaioApp();
-  return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, cli: r.cli, ind: r.ind},
+  return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, descr: r.descr || '', cli: r.cli, ind: r.ind},
     operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
     relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     nfoto: (r.foto || []).length, file: pdf ? [pdf] : [], inviato: Date.now()};
 }
 async function filesCantiere(r){
-  const sl = slugNome(r.nome || r.cod || 'cantiere'), g = r.data || isoGiorno(new Date()), chi = slugNome(nomeOperaioApp() || 'operaio'), out = [];
+  const sl = slugNome(r.descr || r.nome || r.cod || 'cantiere'), g = r.data || isoGiorno(new Date()), chi = slugNome(nomeOperaioApp() || 'operaio'), out = [];
   let pdfNome = '';
   if ((r.foto || []).length) {
     pdfNome = 'Foto_Cantiere_' + sl + '_' + g + '_' + chi + '.pdf';
-    const blob = await costruisciPdfFoto({id: 'cant-' + r.id, cliente: (r.cod ? r.cod + ' - ' : '') + r.nome, indirizzo: r.ind, data: g, tecnico: nomeOperaioApp(), foto: r.foto});
+    const blob = await costruisciPdfFoto({id: 'cant-' + r.id, cliente: (r.cod ? r.cod + ' - ' : '') + titoloCn(r) + (r.descr && r.nome ? ' (' + r.nome + ')' : ''), indirizzo: r.ind, data: g, tecnico: nomeOperaioApp(), foto: r.foto});
     out.push(new File([blob], pdfNome, {type: 'application/pdf'}));
   }
   out.unshift(new File([JSON.stringify(datiCantiere(r, pdfNome))], 'Dati_Cantiere_' + sl + '_' + g + '_' + chi + '.txt', {type: 'text/plain'}));
@@ -5472,8 +5474,8 @@ async function inviaCantiere(){
   if (ind && !emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
   salvaReg(true); m.textContent = 'Preparo i file…';
   let fl; try { fl = await filesCantiere(r); } catch(e) { m.textContent = 'Non sono riuscito a preparare i file (' + ((e && e.message) || e) + ').'; return; }
-  const d = dataIT(r.data), oggetto = 'Intervento cantiere ' + (r.cod ? r.cod + ' ' : '') + r.nome + ' del ' + d;
-  const testo = 'Cantiere: ' + (r.cod ? r.cod + ' · ' : '') + r.nome + '\nGiorno: ' + d + '\nOperaio: ' + nomeOperaioApp() + (numOre(r.ore) ? '\nOre: ' + fmtOreDec(numOre(r.ore)) : '');
+  const d = dataIT(r.data), oggetto = 'Intervento cantiere ' + (r.cod ? r.cod + ' ' : '') + titoloCn(r) + ' del ' + d;
+  const testo = 'Cantiere: ' + (r.cod ? r.cod + ' · ' : '') + titoloCn(r) + (r.descr && r.nome ? ' (' + r.nome + ')' : '') + '\nGiorno: ' + d + '\nOperaio: ' + nomeOperaioApp() + (numOre(r.ore) ? '\nOre: ' + fmtOreDec(numOre(r.ore)) : '');
   const fatto = () => { r.inviato = Date.now(); salvaReg(true); };
   if (navigator.canShare && navigator.canShare({files: fl})) {
     let copia = Promise.resolve(false); try { if (ind) copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e) {}
@@ -5720,7 +5722,7 @@ async function leggiPosta(files){
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
       if (!o || (o.assist !== 'intervento' && o.assist !== 'cantiere')) { altri++; continue; }
       if (o.assist === 'cantiere') {               // la registrazione di un operaio su un cantiere: sta nella posta, accanto agli interventi
-        const cn = o.cantiere || {}; o.cant = true; o.cliente = ((cn.cod ? cn.cod + ' · ' : '') + (cn.nome || 'Cantiere')).trim(); o.indirizzo = [cn.cli, cn.ind].filter(Boolean).join(' · ');
+        const cn = o.cantiere || {}; o.cant = true; o.cliente = ((cn.cod ? cn.cod + ' · ' : '') + (cn.descr || cn.nome || 'Cantiere') + (cn.descr && cn.nome ? ' (' + cn.nome + ')' : '')).trim(); o.indirizzo = [cn.cli, cn.ind].filter(Boolean).join(' · ');
         if (!o.tecnico && o.operaio) o.tecnico = o.operaio.n;
       }
       o.file = (o.file || []).map(n => String(n).normalize('NFC'));
@@ -5796,10 +5798,10 @@ function schedaCantiere(r, i){
 }
 function blobRiepilogoCantieri(){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), num = n => c.virgola ? String(n).replace('.', ',') : String(n);
-  const righe = [['cantiere', 'descrizione', 'data', 'dipendente', 'manodopera', 'ore', 'tipo ore', 'lavori eseguiti']];
+  const righe = [['cantiere', 'intestatario', 'data', 'dipendente', 'manodopera', 'ore', 'tipo ore', 'lavori eseguiti']];
   posta.filter(r => r.cant && !r.fatto).sort((a, b) => String(a.data).localeCompare(String(b.data)) || String(a.cliente).localeCompare(String(b.cliente))).forEach(r => {
     const op = r.operaio, mc = op && c.man[op.op] && c.man[op.op].cod ? c.man[op.op].cod : '';
-    righe.push([cp(r.cantiere && r.cantiere.cod), cp(r.cantiere && r.cantiere.nome), cp(dataIT(r.data)), cp(op ? op.n : r.tecnico), cp(mc), num(numOre(r.ore)), cp(r.tipo), cp(r.relazione)]);
+    righe.push([cp(r.cantiere && ((r.cantiere.cod || '') + (r.cantiere.descr ? ' ' + r.cantiere.descr : ''))), cp(r.cantiere && r.cantiere.nome), cp(dataIT(r.data)), cp(op ? op.n : r.tecnico), cp(mc), num(numOre(r.ore)), cp(r.tipo), cp(r.relazione)]);
   });
   const t = righe.map(x => x.join(';')).join('\r\n') + '\r\n';
   return c.win ? new Blob([bytesWin(t)], {type: 'text/csv'}) : new Blob([t], {type: 'text/csv;charset=utf-8'});
@@ -6200,7 +6202,9 @@ function tecniciConsentiti(){          // Set di id tecnico ammessi, oppure null
   if (ids.length <= n) return null;
   let sel = Array.isArray(impostazioni.tecniciAttivi) ? impostazioni.tecniciAttivi.map(String).filter(id => ids.includes(id)) : null;
   if (!sel) sel = ids.slice().sort((a, b) => (soloOperaio(a) - soloOperaio(b)) || String(nomi[a]).localeCompare(String(nomi[b]), 'it')).slice(0, n);
-  return new Set(sel.slice(0, n));
+  sel = sel.slice(0, n);
+  if (sel.length < n) ids.slice().sort((a, b) => (soloOperaio(a) - soloOperaio(b)) || String(nomi[a]).localeCompare(String(nomi[b]), 'it')).forEach(id => { if (sel.length < n && !sel.includes(id)) sel.push(id); });      // posti liberi: li prendono i nuovi (prima i tecnici, poi gli operai)
+  return new Set(sel);
 }
 let sigTecnici = '';
 function applicaLimiteTecnici(){
