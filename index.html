@@ -2047,7 +2047,9 @@ function disegnaScheda(){
       <p class="aiuto" id="pdf-msg" role="status" style="margin:6px 0 8px"></p>
       <p class="aiuto" id="invio-guida" style="margin:0 0 10px"></p>
       <div class="azioni2"><button class="btn" id="b-condividi" type="button">Invia in ufficio</button>
-      <button class="btn sec" id="b-scarica" type="button">Scarica i file</button></div></div>`;
+      <button class="btn sec" id="b-scarica" type="button">Scarica i file</button></div>
+      <p class="aiuto" style="margin:8px 0 4px">Dal menu di condivisione l'indirizzo e l'oggetto non si possono compilare da soli (lo vieta il telefono): l'indirizzo viene copiato, da incollare nel campo A. Se vuoi la mail già con destinatario e oggetto:</p>
+      <button class="btn chiaro piccolo" id="b-mailpronta" type="button">Mail con destinatario e oggetto già scritti</button></div>`;
   aggiornaOssRcee();
   if (!lavoro.foto) lavoro.foto = [];
   disegnaFoto();
@@ -2175,6 +2177,7 @@ function collegaForm(){
     else if (d.apriAll !== undefined) apriAllegato(+d.apriAll);
     else if (b.id === 'b-condividi') condividiPdf();
     else if (b.id === 'b-scarica') scaricaPdf();
+    else if (b.id === 'b-mailpronta') mailProntaAssistenza();
   });
 }
 function disegnaOrari(){
@@ -2759,6 +2762,34 @@ async function preparaAllegati(){
   }
   if (ultimiAllegati === lista) disegnaInvio();
 }
+/* copia dell'indirizzo: va chiamata subito nel tocco (prima di qualunque attesa), altrimenti il telefono la rifiuta */
+function copiaIndirizzo(ind){
+  if (!ind) return Promise.resolve(false);
+  try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(ind).then(() => true, () => { copiaVecchio(ind); return true; }); } catch(e) {}
+  try { copiaVecchio(ind); return Promise.resolve(true); } catch(e) { return Promise.resolve(false); }
+}
+/* mail con destinatario, oggetto e testo gia' scritti (i file si scaricano e si allegano a mano: da una pagina web non si puo' fare altro) */
+function apriMailPronta(ind, oggetto, testo, files, msg){
+  if (!ind) { msg.textContent = 'Scrivi prima l\'email dell\'ufficio nelle Impostazioni (o nel campo qui sopra).'; return false; }
+  if (!emailValida(ind)) { msg.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return false; }
+  if (!scaricaPossibile) { msg.innerHTML = 'Su questo dispositivo non posso scaricare i file: usa «Invia» e nel menu scegli Mail. Destinatario: <b>' + esc(ind) + '</b>'; return false; }
+  files.forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
+  setTimeout(() => {
+    const a = document.createElement('a');
+    a.href = 'mailto:' + encodeURIComponent(ind).replace('%40', '@') + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(testo + '\n\n(Allega i file scaricati.)');
+    document.body.appendChild(a); a.click(); a.remove();
+  }, 500 + files.length * 400);
+  msg.textContent = 'Ho scaricato ' + (files.length === 1 ? 'il file' : 'i file') + ' e aperto la mail per ' + ind + ' con l\'oggetto già scritto: allega ' + (files.length === 1 ? 'il file scaricato' : 'i file scaricati') + '.';
+  return true;
+}
+async function mailProntaAssistenza(){
+  const cli = destInvio === 'cli', m = $('#pdf-msg'); let fl = listaScarico();
+  if (fl.inAttesa) { m.textContent = 'Un attimo: sto preparando i file.'; return; }
+  if (protezioneAttiva() && !cli) { const v = voceCifrata(fl); fl = v.out || await v.p; }
+  if (!fl.length) { m.textContent = 'Scegli almeno un file da inviare.'; return; }
+  const {oggetto, testo} = composizioneMail(cli);
+  if (apriMailPronta(String(cli ? lavoro.email : impostazioni.emailUfficio || '').trim(), oggetto, testo, fl, m)) segnaInviato(cli);
+}
 async function condividiPdf(){
   const cli = destInvio === 'cli', fl = filesDaInviare(), m = $('#pdf-msg');
   if (!fl.length) { m.textContent = 'Scegli almeno un file da inviare.'; return; }
@@ -2771,7 +2802,7 @@ async function condividiPdf(){
   if (navigator.canShare && navigator.canShare({files: fl})) {
     // l'indirizzo si copia e il menu di condivisione si apre nello stesso tocco (serve per essere accettati dal telefono)
     let copia = Promise.resolve(false);
-    try { if (ind) copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e){}
+    copia = copiaIndirizzo(ind);
     try {
       await navigator.share({files: fl, title: oggetto, text: testo});
       segnaInviato(cli);
@@ -5100,7 +5131,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.34.1 (16/10/2026)';
+const VERSIONE_APP = '1.34.3 (16/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5495,6 +5526,8 @@ function disegnaCantiere(){
     <div class="campo"><label>Foto</label><div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p></div>
     <div class="campo"><label for="cn-email">Email dell'ufficio <span class="aiuto">(serve se il telefono non apre il menu di condivisione)</span></label><input id="cn-email" type="email" autocomplete="off" autocapitalize="none" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@esempio.it"></div>
     <div class="azioni" style="margin-top:14px"><button class="btn" type="button" id="cn-invia">Invia in ufficio</button><button class="btn sec" type="button" id="cn-salva">Salva e torna indietro</button></div>
+    <p class="aiuto" style="margin:8px 0 4px">Dal menu di condivisione l'indirizzo e l'oggetto non si possono compilare da soli (lo vieta il telefono): l'indirizzo viene copiato, da incollare nel campo A. Se vuoi la mail già con destinatario e oggetto:</p>
+    <button class="btn chiaro piccolo" type="button" id="cn-mailpronta">Mail con destinatario e oggetto già scritti</button>
     <p class="aiuto" id="cn-msg" role="status" style="margin:10px 0 0"></p>
     ${leggiRegCant().some(x => x.id === r.id) ? '<button class="btn chiaro piccolo" type="button" id="cn-elimina" style="margin-top:10px">Elimina questa registrazione</button>' : ''}`;
 }
@@ -5602,8 +5635,16 @@ async function filesCantiere(r){
     const noShare = !!(navigator.canShare && !navigator.canShare({files: [z]}) && navigator.canShare({files: fl}));      // alcuni telefoni non condividono gli zip
     if (!noShare) fl = [z];
   }
-  if (protezioneAttiva()) fl = await Promise.all(fl.map(cifraFile));
-  return fl;
+  return protezioneAttiva() ? await Promise.all(fl.map(cifraFile)) : fl;
+}
+async function mailProntaCantiere(){
+  const r = regCorr, m = $('#cn-msg'); if (!r || !m) return;
+  if (!numOre(r.ore) && !(r.relazione || '').trim() && !(r.foto || []).length) { m.textContent = 'Scrivi almeno le ore o cosa hai fatto.'; return; }
+  salvaReg(true); m.textContent = 'Preparo i file…';
+  let fl; try { fl = await filesCantiere(r); } catch(e) { m.textContent = 'Non sono riuscito a preparare i file (' + ((e && e.message) || e) + ').'; return; }
+  const d = dataIT(r.data), oggetto = 'Intervento cantiere ' + (r.cod ? r.cod + ' ' : '') + titoloCn(r) + ' del ' + d;
+  const testo = 'Cantiere: ' + (r.cod ? r.cod + ' · ' : '') + titoloCn(r) + (r.descr && r.nome ? ' (' + r.nome + ')' : '') + '\nGiorno: ' + d + '\nOperaio: ' + nomeOperaioApp() + (numOre(r.ore) ? '\nOre: ' + fmtOreDec(numOre(r.ore)) : '');
+  if (apriMailPronta(String(impostazioni.emailUfficio || '').trim(), oggetto, testo, fl, m)) { r.inviato = Date.now(); salvaReg(true); }
 }
 async function inviaCantiere(){
   const r = regCorr, m = $('#cn-msg'); if (!r || !m) return;
@@ -5612,12 +5653,13 @@ async function inviaCantiere(){
   const ind = String(impostazioni.emailUfficio || '').trim();
   if (ind && !emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
   salvaReg(true); m.textContent = 'Preparo i file…';
+  const copiaP = copiaIndirizzo(ind);                    // subito, nel tocco: dopo le attese il telefono rifiuterebbe
   let fl; try { fl = await filesCantiere(r); } catch(e) { m.textContent = 'Non sono riuscito a preparare i file (' + ((e && e.message) || e) + ').'; return; }
   const d = dataIT(r.data), oggetto = 'Intervento cantiere ' + (r.cod ? r.cod + ' ' : '') + titoloCn(r) + ' del ' + d;
   const testo = 'Cantiere: ' + (r.cod ? r.cod + ' · ' : '') + titoloCn(r) + (r.descr && r.nome ? ' (' + r.nome + ')' : '') + '\nGiorno: ' + d + '\nOperaio: ' + nomeOperaioApp() + (numOre(r.ore) ? '\nOre: ' + fmtOreDec(numOre(r.ore)) : '');
   const fatto = () => { r.inviato = Date.now(); salvaReg(true); };
   if (navigator.canShare && navigator.canShare({files: fl})) {
-    let copia = Promise.resolve(false); try { if (ind) copia = navigator.clipboard.writeText(ind).then(() => true, () => false); } catch(e) {}
+    const copia = copiaP;
     try {
       await navigator.share({files: fl, title: oggetto, text: testo}); fatto(); disegnaCantiere();
       const mm = $('#cn-msg'); if (mm) mm.textContent = ind ? ((await copia) ? 'Indirizzo copiato (' + ind + '): nella mail, nel campo A, tieni premuto e scegli Incolla.' : 'Indirizzo del destinatario: ' + ind) : 'Inviata.';
@@ -5650,6 +5692,7 @@ function avviaCantieri(){
     const r = regCorr, d = b.dataset;
     if (b.id === 'cn-indietro' || b.id === 'cn-salva') { salvaReg(true); indietro(); }
     else if (b.id === 'cn-invia') inviaCantiere();
+    else if (b.id === 'cn-mailpronta') mailProntaCantiere();
     else if (d.mic !== undefined) avviaDettatura(d.mic);
     else if (b.id === 'cn-mat-voce') apriMaterialiVoce(true);
     else if (b.id === 'cn-fatto') { r.inviato = Date.now(); salvaReg(true); disegnaCantiere(); }
@@ -5753,9 +5796,12 @@ function righeCsv(r){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), rows = [];
   if (c.intest) rows.push(['codice', 'descrizione', 'unità di misura', 'quantità', 'prezzo unitario']);
   const nomeMan = k => { const m = c.man.find(x => x.cod === k); return m && m.desc ? m.desc : 'Manodopera'; };
-  ripartizione(r).forEach(x => { const o = parseFloat(String(x.o || '').replace(',', '.')); if (x.c && o > 0) rows.push([cp(x.c), cp(nomeMan(x.c)), cp(c.um), csvNum(o, c.virgola), '']); });
-  if (c.kmCod && parseFloat(String(r.km || '').replace(',', '.')) > 0) rows.push([cp(c.kmCod), cp(c.kmDesc), 'km', csvNum(r.km, c.virgola), '']);
-  if (c.dcCod && r.dc) rows.push([cp(c.dcCod), cp(c.dcDesc), 'nr', '1', '']);
+  if (r.cant) {                                           // cantiere: le ore vanno sul codice di manodopera del dipendente (indice di Levante), altrimenti sul primo codice impostato
+    const op = r.operaio, mc = (op && c.man[op.op] && c.man[op.op].cod) ? c.man[op.op] : (codiciMan(c)[0] || {cod: 'M0', desc: 'Manodopera'}), o = numOre(r.ore);
+    if (o > 0 && mc.cod) rows.push([cp(mc.cod), cp(mc.desc || nomeMan(mc.cod)), cp(c.um), csvNum(o, c.virgola), '']);
+  } else ripartizione(r).forEach(x => { const o = parseFloat(String(x.o || '').replace(',', '.')); if (x.c && o > 0) rows.push([cp(x.c), cp(nomeMan(x.c)), cp(c.um), csvNum(o, c.virgola), '']); });
+  if (!r.cant && c.kmCod && parseFloat(String(r.km || '').replace(',', '.')) > 0) rows.push([cp(c.kmCod), cp(c.kmDesc), 'km', csvNum(r.km, c.virgola), '']);
+  if (!r.cant && c.dcCod && r.dc) rows.push([cp(c.dcCod), cp(c.dcDesc), 'nr', '1', '']);
   (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), c.prezzo ? csvPrezzo(m.prezzo, c.virgola) : '']));   // senza prezzo il campo resta vuoto: Levante lo evidenzia in rosso
   return rows;
 }
@@ -5938,7 +5984,7 @@ function schedaCantiere(r, i){
       ${rel}
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${r.nfoto ? `<p style="margin:8px 0">${r.nfoto} ${r.nfoto === 1 ? 'foto' : 'foto'}</p>` : ''}<p style="margin:8px 0">${pdf}</p>
-      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:10px"><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
+      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
 }
 function blobRiepilogoCantieri(){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), num = n => c.virgola ? String(n).replace('.', ',') : String(n);
