@@ -100,7 +100,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .seg{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 6px}
 .seg button{flex:1;min-width:84px;min-height:44px;border-radius:10px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
-[data-nav="impostazioni"].agg-nuovo::after, #b-impostazioni.agg-nuovo::after{content:" ●";color:var(--fiamma)}
+[data-nav="impostazioni"].agg-nuovo::after, #b-impostazioni.agg-nuovo::after, [data-nav="impostazioni"].prot-manca::after, #b-impostazioni.prot-manca::after{content:" ●";color:var(--fiamma)}
+#avviso-prot[hidden]{display:none}
 .seg button.nuovo:not([aria-pressed="true"]){border-color:var(--fiamma);color:#9a4a00;background:#FFF4E5}
 .giorno{font-size:15px;font-weight:700;margin:20px 0 8px}
 .giorno small{font-weight:400;color:var(--tenue);margin-left:6px}
@@ -556,6 +557,8 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-impostazioni" type="button">Impostazioni</button>
     </header>
     <div id="banner"></div>
+    <div id="avviso-prot" class="avviso" hidden role="status"><b id="av-prot-t"></b><div id="av-prot-d" style="margin:2px 0 0"></div>
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn piccolo" type="button" id="av-prot-vai">Attiva ora</button><button class="btn chiaro piccolo" type="button" id="av-prot-dopo">Più tardi</button></div></div>
     <div id="da-inviare"></div>
     <div class="uff-azioni" hidden style="margin:0 0 12px">
       <div class="azioni" style="display:flex;flex-wrap:wrap;gap:8px;margin:0"><button class="btn piccolo js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec piccolo js-cartella" type="button">Apri la cartella delle esportazioni</button><button class="btn sec piccolo" id="b-foglio" type="button">Foglio del giorno (PDF)</button></div>
@@ -1308,6 +1311,29 @@ function disegnaBanner(){
       <div style="margin-top:8px"><button class="btn sec piccolo" id="b-carica" type="button">Carica i dati</button></div>`;
   }
   $('#b-carica').onclick = () => $('#in-pacchetto').click();
+  disegnaAvvisoProt();
+}
+/* avviso "dati non protetti": compare finche' manca il Codice di sicurezza; «Più tardi» lo nasconde per 7 giorni su questo dispositivo */
+const PROT_RIMANDA = 7 * 86400000;
+function protRimandata(){ try { const t = +localStorage.getItem('prot_rimanda') || 0; return t && Date.now() - t < PROT_RIMANDA; } catch(e) { return false; } }
+function disegnaAvvisoProt(){
+  const box = $('#avviso-prot'); if (!box) return;
+  const manca = !protezioneAttiva();
+  document.querySelectorAll('[data-nav="impostazioni"], #b-impostazioni').forEach(b => b.classList.toggle('prot-manca', manca));
+  if (!manca || protRimandata()) { box.hidden = true; return; }
+  const tec = !inUfficio;
+  $('#av-prot-t').textContent = '⚠ I tuoi dati non sono protetti';
+  $('#av-prot-d').textContent = tec
+    ? 'Senza il Codice di sicurezza i file che mandi in ufficio viaggiano in chiaro (nomi, indirizzi e telefoni dei clienti). Chiedi il codice all\'ufficio e scrivilo in Impostazioni.'
+    : 'Senza il Codice di sicurezza le agende e gli interventi che viaggiano per mail o WhatsApp, e le copie di sicurezza, si possono leggere (nomi, indirizzi e telefoni dei clienti). Crealo in Impostazioni e scrivilo uguale su ogni tecnico.';
+  $('#av-prot-vai').textContent = tec ? 'Vai alle Impostazioni' : 'Attiva ora';
+  $('#av-prot-vai').onclick = () => {
+    const v = document.querySelector('[data-nav="impostazioni"]'), b = $('#b-impostazioni');
+    ((inUfficio && v && v.offsetParent !== null) ? v : b || v).click();
+    setTimeout(() => { const c = $('#i-codice'); if (c) { try { c.scrollIntoView({block: 'center'}); c.focus(); } catch(e) {} } }, 400);
+  };
+  $('#av-prot-dopo').onclick = () => { try { localStorage.setItem('prot_rimanda', String(Date.now())); } catch(e) {} box.hidden = true; };
+  box.hidden = false;
 }
 function chipEsito(b){ return b && b.esito === 'concluso' ? '<span class="chip pdf">Concluso</span>' : b && b.esito === 'da_completare' ? '<span class="chip bozza">Da completare</span>' : b && b.esito === 'non_eseguito' ? '<span class="chip urg">Non eseguito</span>' : ''; }
 function chipInvio(b){
@@ -5214,7 +5240,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.41.1 (17/10/2026)';
+const VERSIONE_APP = '1.41.2 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6869,7 +6895,7 @@ function avvia(){
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-posizione').onchange = e => { impostazioni.posizione = e.target.checked; salvaImpostazioni(); if (e.target.checked) leggiPosizione(function(){}, function(m){ alert(m); }); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
-  const aggiornaCodiceStato = () => { const c = codiceSic(), el = $('#codice-stato'); if (el) el.textContent = c ? (c.length < 12 ? '⚠ Codice troppo corto: usa «Crea un nuovo codice».' : '🔒 Protezione attiva. Non perdere questo codice: senza non si aprono i file protetti.') : 'Protezione non attiva: i file viaggiano in chiaro.'; };
+  const aggiornaCodiceStato = () => { const c = codiceSic(), el = $('#codice-stato'); if (el) el.textContent = c ? (c.length < 12 ? '⚠ Codice troppo corto: usa «Crea un nuovo codice».' : '🔒 Protezione attiva. Non perdere questo codice: senza non si aprono i file protetti.') : '⚠ Protezione NON attiva: agende, interventi e copie di sicurezza viaggiano in chiaro. Scrivi un codice (o usa «Crea un nuovo codice»).'; try { disegnaAvvisoProt(); } catch(e) {} };
   $('#i-codice').oninput = e => { impostazioni.codiceSic = e.target.value.trim().toUpperCase() || undefined; salvaImpostazioni(); aggiornaCodiceStato(); };
   $('#b-codice-nuovo').onclick = () => { if (codiceSic() && !confirm('Esiste già un codice. Se ne crei uno nuovo, devi riscriverlo su tutti i dispositivi dei tecnici e in ufficio, e i file già inviati col vecchio codice non si apriranno più. Continuo?')) return; impostazioni.codiceSic = CIFRA.genera(); salvaImpostazioni(); $('#i-codice').value = impostazioni.codiceSic; aggiornaCodiceStato(); };
   $('#b-codice-copia').onclick = async () => { const c = impostazioni.codiceSic || ''; if (!c) return; try { await navigator.clipboard.writeText(c); $('#codice-stato').textContent = 'Codice copiato.'; } catch(e) { const i = $('#i-codice'); i.focus(); i.select(); $('#codice-stato').textContent = 'Seleziona e copia il codice dal campo qui sopra.'; } };
