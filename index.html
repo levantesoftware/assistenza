@@ -4679,9 +4679,9 @@ function costruisciSottocantieri(T, cantieri){
     const righe = T['sottocantieri' + liv] || []; if (!righe.length) continue;
     const cols = Object.keys(righe[0] || {});
     const colId = cols.filter(c => /^ID$/i.test(c))[0] || cols.filter(c => /^CODICE$/i.test(c))[0] || '';
-    const colDes = ['DESCRIZIONE', 'DESCRIZ', 'DESCR', 'NOME', 'TITOLO'].map(n => cols.filter(c => c.toUpperCase() === n)[0]).filter(Boolean)[0] || '';
+    const colDes = ['DESCRIZIONE', 'DESCRIZ', 'DESCR', 'NOME', 'TITOLO', 'TIPOCANTIERE', 'TIPO', 'TIPOLOGIA'].map(n => cols.filter(c => c.toUpperCase() === n)[0]).filter(Boolean)[0] || '';
     const colCod = cols.filter(c => /^CODICE$/i.test(c))[0] || '';
-    const esc0 = [colId];
+    const esc0 = [colId, colDes];
     const colC = trova(righe, cols, x => !!perId[x] || !!perCod[x], esc0);
     const colP = liv > 1 ? trova(righe, cols, x => !!prec[x], esc0.concat(colC ? [colC] : [])) : null;
     righe.forEach((r, k) => {
@@ -4689,7 +4689,7 @@ function costruisciSottocantieri(T, cantieri){
       if (colP && prec[v(r[colP])]) { padre = prec[v(r[colP])]; c = padre.c; }
       else if (colC) { const x = v(r[colC]); c = perId[x] || perCod[x] || null; }
       if (!c) return;
-      let nome = v(r[colDes]) || v(r[colCod]); if (!nome) return;
+      let nome = v(r[colDes]) || v(r[colCod]) || ('Sottocantiere ' + (v(r[colId]) || (k + 1)));
       if (colCod && colDes && v(r[colCod]) && v(r[colDes]) && v(r[colCod]) !== v(r[colDes])) nome = v(r[colCod]) + ' ' + nome;
       if (padre) nome = padre.n + ' › ' + nome;
       const id = liv + ':' + (v(r[colId]) || k);
@@ -5202,7 +5202,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.38.0 (17/10/2026)';
+const VERSIONE_APP = '1.38.1 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
