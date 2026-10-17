@@ -5214,7 +5214,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.41.0 (17/10/2026)';
+const VERSIONE_APP = '1.41.1 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6585,7 +6585,8 @@ async function aggiornaAgg(){
   if (!st || !st.ok) return null;
   const agg = st.disponibile, ora = st.versione;
   if (agInstall && agInstall !== ora && !st.in_corso) { agInstall = false; $('#ag-stato').textContent = 'Fatto: ora è installata la versione ' + ora + '. Ricarico la pagina…'; setTimeout(() => location.reload(), 1500); return st; }
-  $('#ag-versione').innerHTML = 'Versione installata: <b>' + esc(ora) + '</b>';
+  const ua = st.ultimo_agg, uaD = ua && /^\d{4}-\d\d-\d\d/.test(ua.quando || '') ? dataIT(ua.quando.slice(0, 10)) + ' alle ' + ua.quando.slice(11, 16) : '';
+  $('#ag-versione').innerHTML = 'Versione installata: <b>' + esc(ora) + '</b>' + (uaD ? '<br><span style="font-size:13px;opacity:.75">Ultimo aggiornamento installato il ' + esc(uaD) + (ua.da ? ' (da versione ' + esc(ua.da) + ')' : '') + '.</span>' : '');
   $('#ag-stato').textContent = st.in_corso ? (st.fase || 'Aggiornamento in corso…') : agg ? 'È disponibile la versione ' + agg.versione + (agg.data ? ' (' + dataIT(agg.data) + ')' : '') + '.' : st.errore ? st.errore : !st.url ? 'Indirizzo degli aggiornamenti non impostato (vedi «Impostazioni degli aggiornamenti»).' : 'Il programma è aggiornato' + (st.ultimo_controllo ? ' (controllato il ' + st.ultimo_controllo.slice(8, 10) + '/' + st.ultimo_controllo.slice(5, 7) + ' alle ' + st.ultimo_controllo.slice(11) + ')' : '') + '.';
   const nv = $('#ag-novita'); nv.hidden = !(agg && agg.novita && agg.novita.length && !st.in_corso); nv.innerHTML = agg && agg.novita ? agg.novita.map(x => '<li>' + esc(x) + '</li>').join('') : '';
   $('#ag-installa').hidden = !agg || st.in_corso; $('#ag-indietro').hidden = !st.precedente || st.in_corso || !!agg && false;
