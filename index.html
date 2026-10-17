@@ -100,6 +100,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .seg{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 6px}
 .seg button{flex:1;min-width:84px;min-height:44px;border-radius:10px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--inchiostro);border-color:var(--inchiostro);color:#fff}
+[data-nav="impostazioni"].agg-nuovo::after, #b-impostazioni.agg-nuovo::after{content:" ●";color:var(--fiamma)}
 .seg button.nuovo:not([aria-pressed="true"]){border-color:var(--fiamma);color:#9a4a00;background:#FFF4E5}
 .giorno{font-size:15px;font-weight:700;margin:20px 0 8px}
 .giorno small{font-weight:400;color:var(--tenue);margin-left:6px}
@@ -278,6 +279,7 @@ body:not(.uff):not(.tec-visibile) .blocco-uff-tec{display:none}
 body.uff .solo-uff{display:block}
 #lic-blocco{position:fixed;top:0;left:0;right:0;bottom:0;z-index:80;background:rgba(18,32,41,.94);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
 #lic-blocco[hidden]{display:none}
+#ag-installa[hidden],#ag-indietro[hidden],#ag-novita[hidden]{display:none}
 .velo-foglio{position:fixed;top:0;left:0;right:0;bottom:0;z-index:70;background:rgba(18,32,41,.6);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
 .velo-foglio[hidden]{display:none}
 #scan{position:fixed;top:0;left:0;right:0;bottom:0;z-index:80;background:#10181d;color:#fff;display:flex;flex-direction:column;overflow:auto;-webkit-overflow-scrolling:touch}
@@ -748,6 +750,21 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:8px"><button class="btn piccolo" id="lic-attiva" type="button">Attiva la chiave</button></div>
     <p class="aiuto" id="lic-esito" role="status" style="margin:8px 0 0"></p>
     <div id="lic-tecnici" hidden style="margin-top:14px"><p id="lt-testo" style="margin:0 0 6px"></p><div id="lt-elenco"></div></div>
+    <h2 class="giorno" style="margin-top:26px">Aggiornamenti del programma</h2>
+    <p id="ag-versione" style="margin:0 0 6px">…</p>
+    <p id="ag-stato" role="status" style="margin:0 0 6px"></p>
+    <ul id="ag-novita" class="aiuto" style="margin:0 0 8px;padding-left:20px" hidden></ul>
+    <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin:0">
+      <button class="btn piccolo" id="ag-installa" type="button" hidden>Installa l'aggiornamento</button>
+      <button class="btn sec piccolo" id="ag-controlla" type="button">Controlla ora</button>
+      <button class="btn sec piccolo" id="ag-indietro" type="button" hidden>Torna alla versione precedente</button></div>
+    <p class="aiuto" id="ag-esito" role="status" style="margin:8px 0 0"></p>
+    <label class="spunta" style="margin-top:8px"><input type="checkbox" id="ag-auto"> Installa da solo di notte (tra le 2 e le 5, se non c'è un'esportazione in corso)</label>
+    <details style="margin-top:8px"><summary class="aiuto" style="cursor:pointer">Impostazioni degli aggiornamenti</summary>
+      <div class="campo" style="margin-top:8px"><label for="ag-canale">Canale</label><select id="ag-canale"><option value="stabile">Stabile (per i clienti)</option><option value="prova">Prova (solo per chi collauda)</option></select></div>
+      <div class="campo"><label for="ag-url">Indirizzo da cui scaricare gli aggiornamenti</label><input id="ag-url" type="text" autocomplete="off" autocapitalize="none" placeholder="https://…"></div>
+      <div class="azioni" style="grid-template-columns:auto;justify-content:start;margin:0"><button class="btn sec piccolo" id="ag-salva" type="button">Salva</button></div></details>
+    <p class="aiuto" style="margin:8px 0 0">I dati, le impostazioni, la posta e la licenza non vengono mai toccati. Prima di installare il programma controlla la firma del venditore e salva la versione attuale; se la nuova non parte, torna da sola a quella di prima.</p>
     <h2 class="giorno" style="margin-top:26px">Copia di sicurezza</h2>
     <p class="aiuto" style="margin:0 0 8px">Interventi ricevuti, indirizzi email dei tecnici, impostazioni e registro degli invii. Ogni giorno l'app salva da sola una copia nella cartella <b>backup</b> accanto al programma (ultime 14). Se hai impostato il <b>codice di sicurezza</b>, le copie sono cifrate: per ripristinarle serve lo stesso codice, quindi <b>conservalo anche fuori dal programma</b>.</p>
     <p class="aiuto" id="bk-stato" role="status" style="margin:0 0 8px"></p>
@@ -5197,7 +5214,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.40.0 (17/10/2026)';
+const VERSIONE_APP = '1.41.0 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6562,7 +6579,42 @@ async function aggiornaElencoBackup(){
     $('#bk-stato').textContent = f.length ? 'Ultima copia automatica: ' + dataIT(f[0].nome.slice(7, 17)) + ' alle ' + hhmm(new Date(f[0].quando)) + '.' : 'Nessuna copia automatica ancora.';
   } catch(e) {}
 }
+let agInstall = false;
+async function aggiornaAgg(){
+  let st; try { const r = await fetch('aggiorna-stato', {cache: 'no-store'}); if (!r.ok) throw 0; st = await r.json(); } catch(e) { if (agInstall) $('#ag-stato').textContent = 'Il programma si sta riavviando…'; return null; }
+  if (!st || !st.ok) return null;
+  const agg = st.disponibile, ora = st.versione;
+  if (agInstall && agInstall !== ora && !st.in_corso) { agInstall = false; $('#ag-stato').textContent = 'Fatto: ora è installata la versione ' + ora + '. Ricarico la pagina…'; setTimeout(() => location.reload(), 1500); return st; }
+  $('#ag-versione').innerHTML = 'Versione installata: <b>' + esc(ora) + '</b>';
+  $('#ag-stato').textContent = st.in_corso ? (st.fase || 'Aggiornamento in corso…') : agg ? 'È disponibile la versione ' + agg.versione + (agg.data ? ' (' + dataIT(agg.data) + ')' : '') + '.' : st.errore ? st.errore : !st.url ? 'Indirizzo degli aggiornamenti non impostato (vedi «Impostazioni degli aggiornamenti»).' : 'Il programma è aggiornato' + (st.ultimo_controllo ? ' (controllato il ' + st.ultimo_controllo.slice(8, 10) + '/' + st.ultimo_controllo.slice(5, 7) + ' alle ' + st.ultimo_controllo.slice(11) + ')' : '') + '.';
+  const nv = $('#ag-novita'); nv.hidden = !(agg && agg.novita && agg.novita.length && !st.in_corso); nv.innerHTML = agg && agg.novita ? agg.novita.map(x => '<li>' + esc(x) + '</li>').join('') : '';
+  $('#ag-installa').hidden = !agg || st.in_corso; $('#ag-indietro').hidden = !st.precedente || st.in_corso || !!agg && false;
+  $('#ag-indietro').textContent = 'Torna alla versione ' + (st.precedente || 'precedente');
+  $('#ag-controlla').disabled = st.in_corso;
+  const er = $('#ag-esito'); if (!st.in_corso) er.textContent = (st.risultato && st.risultato.messaggio) || st.esito_ultimo || '';
+  if (!aggiornaAgg.fatto) { aggiornaAgg.fatto = true; $('#ag-canale').value = st.canale; $('#ag-url').value = st.url || ''; $('#ag-auto').checked = !!st.auto; }
+  document.querySelectorAll('[data-nav="impostazioni"], #b-impostazioni').forEach(b => b.classList.toggle('agg-nuovo', !!agg));
+  return st;
+}
+function avviaAggiornamenti(){
+  aggiornaAgg(); setInterval(() => { if (!agInstall) aggiornaAgg(); }, 3600000);
+  const seguiti = () => { const t = setInterval(async () => { const st = await aggiornaAgg(); if (!agInstall) clearInterval(t); }, 3000); };
+  $('#ag-controlla').onclick = async () => { $('#ag-stato').textContent = 'Controllo…'; try { await chiamaJson('aggiorna-controlla'); } catch(e) {} aggiornaAgg(); };
+  $('#ag-installa').onclick = async () => {
+    if (!confirm('Installo l\'aggiornamento? Il programma si riavvia (un minuto circa). Se qualcuno sta lavorando sulle altre postazioni, ricaricheranno la pagina.')) return;
+    const prima = ($('#ag-versione').textContent.match(/\d+(\.\d+)+/) || [''])[0];
+    try { const r = await chiamaJson('aggiorna-installa'); if (!r.ok) { $('#ag-esito').textContent = 'Un aggiornamento è già in corso.'; return; } agInstall = prima || '0'; $('#ag-stato').textContent = 'Avvio l\'aggiornamento…'; $('#ag-esito').textContent = ''; seguiti(); } catch(e) { $('#ag-esito').textContent = 'Il servizio non risponde.'; }
+  };
+  $('#ag-indietro').onclick = async () => {
+    if (!confirm('Rimetto la versione di prima? Il programma si riavvia.')) return;
+    const prima = ($('#ag-versione').textContent.match(/\d+(\.\d+)+/) || [''])[0];
+    try { const r = await chiamaJson('aggiorna-indietro'); if (r.ok) { agInstall = prima || '0'; $('#ag-stato').textContent = 'Torno alla versione precedente…'; seguiti(); } } catch(e) { $('#ag-esito').textContent = 'Il servizio non risponde.'; }
+  };
+  $('#ag-salva').onclick = async () => { try { await chiamaJson('aggiorna-config', {url: $('#ag-url').value, canale: $('#ag-canale').value, auto: $('#ag-auto').checked}); $('#ag-esito').textContent = 'Salvato.'; aggiornaAgg(); } catch(e) { $('#ag-esito').textContent = 'Il servizio non risponde.'; } };
+  $('#ag-auto').onchange = e => chiamaJson('aggiorna-config', {auto: e.target.checked}).catch(() => {});
+}
 function avviaLicenzaBackup(){
+  avviaAggiornamenti();
   controllaLicenza(); setInterval(controllaLicenza, 3600000);
   $('#lic-attiva').onclick = () => attivaLicenza('#lic-chiave', '#lic-esito');
   $('#lb-attiva').onclick = () => attivaLicenza('#lb-chiave', '#lb-esito');
