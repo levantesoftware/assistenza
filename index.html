@@ -5197,7 +5197,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.39.0 (17/10/2026)';
+const VERSIONE_APP = '1.40.0 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5526,7 +5526,7 @@ const titoloCn = c => { const t = String(c.descr || c.nome || ''); return (t.len
 function nuovaReg(c){
   const tipi = (datiReali && datiReali.tipiOre) || [];
   return {id: 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cid: c.id, cod: c.cod || '', nome: c.nome || c.descr || ('Cantiere ' + c.id), descr: c.descr || '', cli: c.cli || '', ind: c.ind || '',
-    data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: tipi[0] || '', sub: '', subn: '', s1: '', s2: '', s3: '', st: '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
+    data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: '', sub: '', subn: '', s1: '', s2: '', s3: '', st: '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
 }
 function oreDaOrari(r){                      // dal/al meno la pausa -> ore (solo se gli orari ci sono)
   const m = s => { const x = /^(\d{1,2}):(\d{2})/.exec(s || ''); return x ? (+x[1]) * 60 + (+x[2]) : null; };
@@ -5552,7 +5552,7 @@ function listaCantieri(){
   let h = '<p class="aiuto" style="margin:6px 0 10px">Scegli il cantiere dove hai lavorato: scrivi le <b>ore</b>, cosa hai fatto, i materiali e le foto, poi <b>invia in ufficio</b>.</p>';
   if (daInv.length) h += `<h2 class="giorno">Da inviare in ufficio (${daInv.length})</h2>` + daInv.map(riga).join('');
   h += `<h2 class="giorno">Cantieri (${C.length})</h2><div class="campo" style="margin:0 0 10px"><input type="text" id="cn-filtro" autocomplete="off" placeholder="Cerca per numero, nome o cliente" value="${esc(listaCantieri.q || '')}" aria-label="Cerca un cantiere"></div><div id="cn-elenco"></div>`;
-  if (inv.length) h += '<h2 class="giorno">Inviate di recente</h2>' + inv.map(riga).join('');
+  if (inv.length) h += '<details class="cn-recenti" style="margin-top:6px"><summary class="giorno" style="cursor:pointer;margin:14px 0 8px">Inviate di recente (' + inv.length + ')</summary>' + inv.map(riga).join('') + '</details>';
   box.innerHTML = h;
   const disegnaElenco = () => {
     const q = normNome(listaCantieri.q || '').split(' ').filter(Boolean);
@@ -5588,7 +5588,7 @@ function disegnaCantiere(){
     <div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
     <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"></div>
-    ${tipi.length > 1 ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo">${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
+    ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
     <div class="campo"><label for="cn-rel">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div></div>
     <div class="campo"><label>Materiali usati</label>${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
     <div class="campo"><label>Foto</label><div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p></div>
