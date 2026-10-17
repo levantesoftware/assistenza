@@ -1,0 +1,12 @@
+{
+ "versione": "1.41.1",
+ "canale": "prova",
+ "data": "2026-10-17",
+ "novita": [
+  "Mostra la data dell'ultimo aggiornamento installato"
+ ],
+ "pacchetto": "aggiornamento_1.41.1.zip",
+ "sha256": "f09774bdc5b034e6d3450062f331b1c6686a20c275e88d1ba2a68efc15d6b8c3",
+ "firma": "P9UNieqXtuJPddR331edPO3AIOtqrFgNBNpj4iJRIrcGLhEy7kQa1MTHrF1fCESpxRgsgaItif1ukR4xEA2HCA",
+ "dimensione": 1304219
+}
