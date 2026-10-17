@@ -4646,7 +4646,7 @@ function costruisciDaLevante(T){
     const via = [c.INDIRIZZOIMM, c.NUMCIVICOIMM].filter(Boolean).join(' '); let citta = [c.CAPIMM, c.COMUNEIMM].filter(Boolean).join(' '); if (c.PROVINCIAIMM) citta += ' (' + c.PROVINCIAIMM + ')';
     return senzaVuoti({id: String(c.ID), cod: c.CODICE, nome: c.NOME, descr: c.DESCRIZIONE, cli: c.RAGSOCCLI, ind: [via, citta.trim()].filter(Boolean).join(', ')});
   });
-  try { const sub = costruisciSottocantieri(T, cantieri); cantieri.forEach(c => { if (sub[c.id] && sub[c.id].length) c.sub = sub[c.id]; }); } catch(e) {}
+  try { const sub = costruisciSottocantieri(T, cantieri); cantieri.forEach(c => { if (sub[c.id]) c.sub3 = sub[c.id]; }); } catch(e) {}
   const dipendenti = (T.dipendenti || []).filter(d => d.CODICE).map(d => senzaVuoti({k: String(d.CODICE), n: maiuscIniz(((d.NOME || '') + ' ' + (d.COGNOME || '')).trim()) || ('Dipendente ' + d.CODICE),
     a: normNome((d.NOME || '') + ' ' + (d.COGNOME || '')), b: normNome((d.COGNOME || '') + ' ' + (d.NOME || '')), f: normNome(d.NOME), op: parseInt(d.OPERAINDEX, 10) || 0, e: d.EMAIL}));
   dipendenti.forEach(x => { if (x.op == null) x.op = 0; });
@@ -4658,52 +4658,47 @@ function costruisciDaLevante(T){
 }
 
 
-/* sottocantieri (tabelle SOTTOCANTIERI1..3 di Levante): le colonne non si conoscono in anticipo, quindi la colonna che li lega al cantiere
-   si riconosce dai dati (quella i cui valori coincidono con id o codici dei cantieri; nomi con PRATICA/CANTIERE hanno la precedenza) */
+/* sottocantieri (tabelle SOTTOCANTIERI1..3 di Levante): sono tre elenchi indipendenti, ciascuno legato al cantiere dal suo CODICE
+   (colonna CODICECANTIERE) e con il nome nella colonna ID. Per sicurezza le colonne si riconoscono dai dati: quella che lega al cantiere
+   e' la colonna i cui valori coincidono con i codici (o, in mancanza, gli id) dei cantieri. Risultato per cantiere: [livello1[], livello2[], livello3[]] */
 function costruisciSottocantieri(T, cantieri){
-  const perId = {}, perCod = {}, out = {}, prec = {};
-  cantieri.forEach(c => { perId[String(c.id)] = c; if (c.cod) perCod[String(c.cod).trim()] = c; });
+  const perId = {}, perCod = {}, out = {};
+  cantieri.forEach(c => { perId[String(c.id)] = c; if (c.cod != null && String(c.cod).trim() !== '') perCod[String(c.cod).trim()] = c; });
   const v = x => String(x == null ? '' : x).trim();
-  const trova = (righe, cols, insieme, escludi) => {
-    let mig = null, migP = -1;
-    cols.forEach(col => {
-      if (escludi.indexOf(col) >= 0) return;
-      let n = 0; righe.forEach(r => { if (v(r[col]) && insieme(v(r[col]))) n++; });
-      if (!n) return;
-      const p = n + (/PRAT|CANT/i.test(col) ? 100000 : 0);
-      if (p > migP) { migP = p; mig = col; }
-    });
-    return mig;
-  };
+  const conta = (righe, col, mappa) => { let n = 0; righe.forEach(r => { if (v(r[col]) && mappa[v(r[col])]) n++; }); return n; };
   for (let liv = 1; liv <= 3; liv++) {
     const righe = T['sottocantieri' + liv] || []; if (!righe.length) continue;
     const cols = Object.keys(righe[0] || {});
-    const colId = cols.filter(c => /^ID$/i.test(c))[0] || cols.filter(c => /^CODICE$/i.test(c))[0] || '';
-    const colDes = ['DESCRIZIONE', 'DESCRIZ', 'DESCR', 'NOME', 'TITOLO', 'TIPOCANTIERE', 'TIPO', 'TIPOLOGIA'].map(n => cols.filter(c => c.toUpperCase() === n)[0]).filter(Boolean)[0] || '';
-    const colCod = cols.filter(c => /^CODICE$/i.test(c))[0] || '';
-    const esc0 = [colId, colDes];
-    const colC = trova(righe, cols, x => !!perId[x] || !!perCod[x], esc0);
-    const colP = liv > 1 ? trova(righe, cols, x => !!prec[x], esc0.concat(colC ? [colC] : [])) : null;
+    const colId = cols.filter(c => /^ID$/i.test(c))[0] || '';
+    const colDes = ['DESCRIZIONE', 'DESCRIZ', 'DESCR', 'NOME', 'TITOLO'].map(n => cols.filter(c => c.toUpperCase() === n)[0]).filter(Boolean)[0] || '';
+    const nome = colDes || (colId && righe.some(r => /\D/.test(v(r[colId]))) ? colId : '');
+    // colonna di collegamento: prima per codice cantiere (nome con CANT o PRAT ha la precedenza), poi per id
+    let colC = null, mappa = null, mig = 0;
+    [[perCod, 0], [perId, -1]].forEach(([m, pen]) => cols.forEach(col => {
+      if (col === nome || col === colId && nome === colId) return;
+      const n = conta(righe, col, m); if (!n) return;
+      const p = n + (/PRAT|CANT/i.test(col) ? 100000 : 0) + (m === perCod ? 1000000 : 0);
+      if (p > mig) { mig = p; colC = col; mappa = m; }
+    }));
+    if (!colC) continue;
     righe.forEach((r, k) => {
-      let c = null, padre = null;
-      if (colP && prec[v(r[colP])]) { padre = prec[v(r[colP])]; c = padre.c; }
-      else if (colC) { const x = v(r[colC]); c = perId[x] || perCod[x] || null; }
-      if (!c) return;
-      let nome = v(r[colDes]) || v(r[colCod]) || ('Sottocantiere ' + (v(r[colId]) || (k + 1)));
-      if (colCod && colDes && v(r[colCod]) && v(r[colDes]) && v(r[colCod]) !== v(r[colDes])) nome = v(r[colCod]) + ' ' + nome;
-      if (padre) nome = padre.n + ' › ' + nome;
-      const id = liv + ':' + (v(r[colId]) || k);
-      if (colId && v(r[colId])) prec[v(r[colId])] = {c, n: nome};
-      (out[c.id] = out[c.id] || []).push({id, n: nome.length > 120 ? nome.slice(0, 118) + '…' : nome});
+      const c = mappa[v(r[colC])]; if (!c) return;
+      const n = v(r[nome]); if (!n) return;
+      const o = out[c.id] = out[c.id] || [[], [], []], l = o[liv - 1];
+      if (l.indexOf(n) < 0 && l.length < 100) l.push(n);
     });
   }
-  Object.keys(out).forEach(k => { out[k].sort((a, b) => a.n.localeCompare(b.n, 'it', {numeric: true})); if (out[k].length > 300) out[k].length = 300; });
+  Object.keys(out).forEach(k => { if (!out[k].some(a => a.length)) delete out[k]; });
   return out;
 }
 
 /* ---- CANTIERI: i cantieri di Levante (pratiche di tipo P con «visibile su Express Mag» acceso), gli operai e le ore ----
    I cantieri non si mandano a un tecnico: li ricevono tutti. Gli operai (dipendenti senza agenda) ricevono solo i cantieri:
    compaiono come destinatari con id «d-<codice>». Un tecnico che e' anche dipendente si abbina per nome (o a mano). */
+function aggiornaSubn(r){           // il nome completo del sottocantiere: i tre livelli scelti e l'eventuale testo libero
+  if (r.subn && r.st === undefined && !r.s1 && !r.s2 && !r.s3) r.st = r.subn;          // rapportini vecchi: il testo scritto a mano
+  r.subn = [r.s1, r.s2, r.s3, r.st].map(x => String(x || '').trim()).filter(Boolean).join(' › ');
+}
 const cantieriAttivi = () => !!impostazioni.cantieri;
 const normNome = t => String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const maiuscIniz = t => String(t || '').toLowerCase().replace(/(^|[\s'’-])([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
@@ -4751,7 +4746,7 @@ function riquadroCantieri(){
   let h = `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-cantieri"${att ? ' checked' : ''}><span>Gestisci i cantieri<small>I cantieri che in Levante hanno «visibile su Express Mag» acceso vanno a tutti, in una sezione «Cantieri»: ognuno scrive ore, cosa ha fatto, materiali e foto, e tutto torna nella posta in arrivo. Gli operai che non sono in agenda ricevono solo i cantieri (e contano nella licenza). Attiva solo se vuoi lavorare così.</small></span></label>`;
   if (!att) return h;
   const base = d.tecniciBase || d.tecnici || {}, solo = operaiSolo(d);
-  h += `<p class="aiuto" style="margin:8px 0 0"><b>${nC}</b> ${nC === 1 ? 'cantiere visibile' : 'cantieri visibili'} · <b>${dip.length}</b> ${dip.length === 1 ? 'dipendente' : 'dipendenti'}, di cui <b>${solo.length}</b> ${solo.length === 1 ? 'solo operaio (senza agenda)' : 'solo operai (senza agenda)'}.${(() => { const k = (d.cantieri || []).filter(c => c.sub && c.sub.length).length; return k ? ' <b>' + k + '</b> ' + (k === 1 ? 'cantiere ha' : 'cantieri hanno') + ' dei sottocantieri.' : ''; })()}</p>`;
+  h += `<p class="aiuto" style="margin:8px 0 0"><b>${nC}</b> ${nC === 1 ? 'cantiere visibile' : 'cantieri visibili'} · <b>${dip.length}</b> ${dip.length === 1 ? 'dipendente' : 'dipendenti'}, di cui <b>${solo.length}</b> ${solo.length === 1 ? 'solo operaio (senza agenda)' : 'solo operai (senza agenda)'}.${(() => { const k = (d.cantieri || []).filter(c => c.sub3).length; return k ? ' <b>' + k + '</b> ' + (k === 1 ? 'cantiere ha' : 'cantieri hanno') + ' dei sottocantieri.' : ''; })()}</p>`;
   if (!nC) h += '<div class="avviso" style="margin-top:8px"><b>Nessun cantiere nell\'esportazione</b>Rilancia l\'esportazione con la versione nuova e controlla che i cantieri abbiano acceso «visibile su Express Mag» in Levante. Finché non ce ne sono, nessuno riceve la sezione Cantieri.</div>';
   if (!dip.length) h += '<div class="avviso" style="margin-top:8px"><b>Mancano i dipendenti</b>Nell\'esportazione non c\'è dipendenti.csv: gli operai che non sono in agenda non possono ricevere i cantieri. Rilancia l\'esportazione con la versione nuova.</div>';
   if (nC) {                                                    // elenco dei cantieri: a chi sono stati mandati e quante registrazioni sono tornate
@@ -5202,7 +5197,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.38.1 (17/10/2026)';
+const VERSIONE_APP = '1.39.0 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5531,7 +5526,7 @@ const titoloCn = c => { const t = String(c.descr || c.nome || ''); return (t.len
 function nuovaReg(c){
   const tipi = (datiReali && datiReali.tipiOre) || [];
   return {id: 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cid: c.id, cod: c.cod || '', nome: c.nome || c.descr || ('Cantiere ' + c.id), descr: c.descr || '', cli: c.cli || '', ind: c.ind || '',
-    data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: tipi[0] || '', sub: '', subn: '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
+    data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: tipi[0] || '', sub: '', subn: '', s1: '', s2: '', s3: '', st: '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
 }
 function oreDaOrari(r){                      // dal/al meno la pausa -> ore (solo se gli orari ci sono)
   const m = s => { const x = /^(\d{1,2}):(\d{2})/.exec(s || ''); return x ? (+x[1]) * 60 + (+x[2]) : null; };
@@ -5585,9 +5580,11 @@ function disegnaCantiere(){
   box.innerHTML = `<header class="barra fissa"><button class="btn chiaro piccolo" id="cn-indietro" type="button">Indietro</button><h1>${esc((r.cod ? r.cod + ' · ' : '') + titoloCn(r))}</h1></header>
     <p class="aiuto" style="margin:0 0 10px">${esc([r.descr ? r.nome : '', r.ind].filter(Boolean).join(' · '))}${op ? '<br>Registri come <b>' + esc(op.n) + '</b>.' : ''}</p>
     ${r.inviato ? `<div class="avviso info" style="margin:0 0 12px"><b>Inviata in ufficio</b>il ${esc(dataIT(isoGiorno(new Date(r.inviato))))} alle ${esc(hhmm(new Date(r.inviato)))}. Se cambi qualcosa, inviala di nuovo.</div>` : ''}
-    ${(() => { const c = elencoCantieri().filter(x => x.id === r.cid)[0], sub = (c && c.sub) || [];
-      const sel = sub.length ? `<select id="cn-sub"><option value="">— scegli dall'elenco —</option>${sub.map(x => `<option value="${esc(x.id)}"${x.id === r.sub ? ' selected' : ''}>${esc(x.n)}</option>`).join('')}</select>` : '';
-      return `<div class="campo"><label for="${sub.length ? 'cn-sub' : 'cn-subt'}">Sottocantiere <span class="aiuto">(facoltativo${sub.length ? ': scegli o scrivilo tu' : ': scrivilo se serve'})</span></label>${sel}<input id="cn-subt" type="text" autocomplete="off" maxlength="120" value="${esc(r.subn || '')}" placeholder="${sub.length ? 'Oppure scrivilo qui' : 'Per esempio: Piano terra, Bagno, Copertura'}"${sub.length ? ' style="margin-top:6px"' : ''}></div>`; })()}
+    ${(() => { const c = elencoCantieri().filter(x => x.id === r.cid)[0], liste = (c && c.sub3) || [[], [], []];
+      const sel = (n, nome) => liste[n].length ? `<div class="campo"><label for="cn-s${n + 1}">${nome}</label><select id="cn-s${n + 1}" data-liv="${n + 1}"><option value="">— scegli —</option>${liste[n].map(x => `<option value="${esc(x)}"${x === r['s' + (n + 1)] ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></div>` : '';
+      const ha = liste.some(l => l.length);
+      return sel(0, 'Sottocantiere 1') + sel(1, 'Sottocantiere 2') + sel(2, 'Sottocantiere 3')
+        + `<div class="campo"><label for="cn-subt">${ha ? 'Altro sottocantiere' : 'Sottocantiere'} <span class="aiuto">(facoltativo${ha ? ': se non è nell\'elenco, scrivilo' : ': scrivilo se serve'})</span></label><input id="cn-subt" type="text" autocomplete="off" maxlength="120" value="${esc(r.st !== undefined ? r.st : (r.subn && !r.s1 && !r.s2 && !r.s3 ? r.subn : ''))}" placeholder="Per esempio: Piano terra, Bagno, Copertura"></div>`; })()}
     <div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
     <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"></div>
@@ -5683,7 +5680,7 @@ function costruisciPdfCantiere(r){
 }
 function datiCantiere(r, pdf){
   const op = operaioApp();
-  return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, descr: r.descr || '', cli: r.cli, ind: r.ind, sub: r.subn ? {id: r.sub || '', n: r.subn} : undefined},
+  return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, descr: r.descr || '', cli: r.cli, ind: r.ind, sub: r.subn ? {id: '', n: r.subn} : undefined},
     operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
     relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
@@ -5790,7 +5787,7 @@ function avviaCantieri(){
       const o = oreDaOrari(r); if (o) { r.ore = o; $('#cn-ore').value = o; }
     }
     else if (t.id === 'cn-ore') r.ore = t.value;
-    else if (t.id === 'cn-subt') { r.subn = t.value.trim(); const sel = r.sub && $('#cn-sub'); if (sel && sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text !== r.subn) { r.sub = ''; sel.value = ''; } }
+    else if (t.id === 'cn-subt') { r.st = t.value.trim(); aggiornaSubn(r); }
     else if (t.id === 'cn-rel') r.relazione = t.value;
     else if (t.id === 'cn-email') { impostazioni.emailUfficio = t.value.trim(); salvaImpostazioni(); return; }
     else if (t.id === 'cn-cerca') {
@@ -5806,7 +5803,7 @@ function avviaCantieri(){
   v.addEventListener('change', e => {
     const t = e.target, r = regCorr; if (!r) return;
     if (t.id === 'cn-tipo') { r.tipo = t.value; salvaReg(); }
-    else if (t.id === 'cn-sub') { r.sub = t.value; r.subn = t.value && t.selectedIndex >= 0 ? t.options[t.selectedIndex].text : ''; const x = $('#cn-subt'); if (x) x.value = r.subn; salvaReg(); }
+    else if (/^cn-s[123]$/.test(t.id)) { r['s' + t.dataset.liv] = t.value; aggiornaSubn(r); salvaReg(); }
     else if (t.id === 'cn-foto-in') { const fl = [...t.files]; t.value = ''; if (fl.length) aggiungiFotoCn(fl); }
   });
 }
