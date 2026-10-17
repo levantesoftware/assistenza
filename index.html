@@ -839,9 +839,29 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-indietro-posta" type="button">Indietro</button>
       <h1>Posta in arrivo</h1>
     </header>
+    <div class="seg" id="posta-tab" role="tablist" style="margin:0 0 14px">
+      <button type="button" role="tab" data-posta-tab="int" aria-pressed="true">Interventi</button>
+      <button type="button" role="tab" data-posta-tab="imp" aria-pressed="false">Impostazioni</button>
+    </div>
+    <div id="posta-t-int" role="tabpanel">
     <p id="notif-riga" class="avviso info" hidden style="margin:0 0 12px"><span></span> <button class="btn piccolo" type="button" id="notif-attiva">Attiva gli avvisi</button></p>
     <div id="pa-riga" class="avviso info" hidden style="margin:0 0 12px"><b id="pa-riga-t"></b><div class="aiuto" id="pa-riga-d" style="margin:4px 0 0"></div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn piccolo" id="pa-riga-ora" type="button">Controlla ora</button><button class="btn sec piccolo" id="pa-riga-imp" type="button">Cambia cartella o metodo</button></div></div>
+    <details style="margin:0 0 14px"><summary><b>Come si usa</b> <span class="aiuto">(3 passi)</span></summary>
+    <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
+      <li>Dalla mail salva gli allegati dei tecnici (se non hai attivato la ricezione automatica) (PDF e file <b>Dati_…txt</b>).</li>
+      <li>Tocca il pulsante qui sotto e scegli <b>tutti i file insieme</b>: gli interventi si raggruppano da soli.</li>
+      <li>Per ogni intervento trovi cosa registrare in Levante (ore, testi da copiare, km, materiali) e il file <b>CSV</b> da caricare con «carica file di testo».</li>
+    </ol>
+    </details>
+    <button class="btn pieno" id="b-posta-carica" type="button">Scegli i file ricevuti (anche uno zip)</button>
+    <input type="file" id="in-posta" accept=".txt,.json,.pdf,.zip,text/plain,application/json,application/pdf,application/zip,application/x-zip-compressed" multiple hidden>
+    <p class="aiuto" id="posta-msg" role="status" style="margin:8px 0"></p>
+    <label class="spunta"><input type="checkbox" id="posta-fatti"> Mostra anche gli interventi già registrati</label>
+    <div id="posta-elenco" style="margin-top:12px"></div>
+    </div>
+    <div id="posta-t-imp" role="tabpanel" hidden>
+      <h2 class="giorno" style="margin-top:4px">Ricezione dei file dai tecnici</h2>
     <details id="posta-auto" class="avviso info solo-server" hidden style="margin:0 0 14px">
       <summary><b>Ricezione automatica della posta</b> <span class="chip" id="pa-stato">non attiva</span></summary>
       <p class="aiuto" style="margin:8px 0">Scegli come arrivano in ufficio le mail dei tecnici: l'app le prende da sola e le mette qui sotto, senza salvare gli allegati a mano. Le mail non vengono toccate né cancellate.</p>
@@ -882,17 +902,9 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <p class="aiuto" id="pa-msg" role="status" style="margin:8px 0 0"></p>
       <p class="aiuto" style="margin:8px 0 0"><b>Quale scegliere?</b> Con Gmail o un hosting va bene «Leggi la casella». Se usate <b>Outlook classico</b> sul PC, scegli «Leggi Outlook». Con Microsoft 365 / outlook.com (che non accettano più le password semplici) o con qualsiasi altro programma, imposta nel tuo programma di posta una regola che salva gli allegati delle mail «Intervento…» in una cartella, e scegli «Controlla una cartella».</p>
     </details>
-    <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
-      <li>Dalla mail salva gli allegati dei tecnici (se non hai attivato la ricezione automatica) (PDF e file <b>Dati_…txt</b>).</li>
-      <li>Tocca il pulsante qui sotto e scegli <b>tutti i file insieme</b>: gli interventi si raggruppano da soli.</li>
-      <li>Per ogni intervento trovi cosa registrare in Levante (ore, testi da copiare, km, materiali) e il file <b>CSV</b> da caricare con «carica file di testo».</li>
-    </ol>
-    <button class="btn pieno" id="b-posta-carica" type="button">Scegli i file ricevuti (anche uno zip)</button>
-    <input type="file" id="in-posta" accept=".txt,.json,.pdf,.zip,text/plain,application/json,application/pdf,application/zip,application/x-zip-compressed" multiple hidden>
-    <p class="aiuto" id="posta-msg" role="status" style="margin:8px 0"></p>
-    <label class="spunta"><input type="checkbox" id="posta-fatti"> Mostra anche gli interventi già registrati</label>
-    <div id="posta-elenco" style="margin-top:12px"></div>
-    <details style="margin-top:18px"><summary><b>Impostazioni del file CSV per Levante</b></summary>
+      <p class="aiuto" id="posta-imp-vuoto" hidden>La ricezione automatica compare quando l'app è aperta dal programma dell'ufficio sul PC (il collegamento creato dal Setup).</p>
+      <h2 class="giorno" style="margin-top:18px">File CSV per Levante</h2>
+    <details style="margin-top:6px"><summary><b>Impostazioni del file CSV per Levante</b></summary>
       <p class="aiuto">Manodopera: scrivi i codici che usate in Levante e come li chiamate (es. M0 «Ordinaria», M1 «Specializzato», M2 «Festiva»). Lascia vuoti quelli che non usate. Il primo è quello proposto di norma.</p>
       <div id="csv-man"></div>
       <div class="campo"><label for="csv-um">Unità di misura della manodopera</label><input type="text" id="csv-um"></div>
@@ -906,6 +918,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-intest"> Prima riga con i nomi dei campi</label></div>
       <div class="campo"><label class="spunta"><input type="checkbox" id="csv-win"> Codifica Windows (accenti corretti in Levante); se tolto, UTF-8</label></div>
     </details>
+    </div>
   </section>
   </div>
 </div>
@@ -4921,6 +4934,14 @@ async function leggiFileLevante(files){
   infoUff.messaggio = '';
   disegnaUfficio();
 }
+function impostaTabPosta(t){
+  t = t === 'imp' ? 'imp' : 'int';
+  const a = $('#posta-t-int'), b = $('#posta-t-imp'); if (!a || !b) return;
+  a.hidden = t !== 'int'; b.hidden = t !== 'imp';
+  document.querySelectorAll('#posta-tab [data-posta-tab]').forEach(x => x.setAttribute('aria-pressed', x.dataset.postaTab === t ? 'true' : 'false'));
+  const v = $('#posta-imp-vuoto'); if (v) v.hidden = !$('#posta-auto').hidden;
+  window.scrollTo(0, 0);
+}
 function impostaTabUff(t){
   t = t === 'imp' ? 'imp' : 'invio';
   const a = $('#uff-t-invio'), b = $('#uff-t-imp'); if (!a || !b) return;
@@ -5123,6 +5144,13 @@ async function caricaPacchetto(file){
     if (!d || d.formato !== 'assistenza-v1' || !Array.isArray(d.appuntamenti)) throw new Error('formato');
     const prima = store.get('ass_dati', null);
     const leggero = d.tipo === 'aggiornamento';
+    if (!inUfficio && prima && prima.generato && d.generato && String((prima.tecnico && prima.tecnico.id) || '') === String((d.tecnico && d.tecnico.id) || '')) {      // stesso file gia' caricato, o piu' vecchio di quello che c'e' gia'
+      const gp = new Date(prima.generato), gn = new Date(d.generato), quando = x => dataIT(isoGiorno(x)) + ' alle ' + hhmm(x);
+      if (!isNaN(gp) && !isNaN(gn)) {
+        if (gn.getTime() === gp.getTime() && !confirm('Questo file è già stato caricato (mandato dall\'ufficio il ' + quando(gn) + ').\n\nLo carico di nuovo?')) { esitoImport = 'File già caricato (' + quando(gn) + '): non l\'ho caricato di nuovo.'; disegnaAgenda(); return; }
+        else if (gn < gp && !confirm('Attenzione: questo file è più vecchio di quello che hai già.\nQuesto: ' + quando(gn) + '\nQuello in uso: ' + quando(gp) + '\n\nCaricandolo l\'agenda torna indietro. Lo carico lo stesso?')) { esitoImport = 'File più vecchio di quello in uso: non l\'ho caricato.'; disegnaAgenda(); return; }
+      }
+    }
     salvaArticoli(d.articoli); salvaBarre(d.barre);
     await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
@@ -5153,7 +5181,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.35.0 (17/10/2026)';
+const VERSIONE_APP = '1.36.0 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6780,7 +6808,7 @@ function avvia(){
   $('#in-pacchetto').onchange = e => { const f = e.target.files[0]; if (f) caricaPacchetto(f); e.target.value = ''; };
   $('#b-ufficio').onclick = () => { if (inUfficio && datiLevante && letturaOk) disegnaUfficio(); else $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
   $('#b-indietro-uff').onclick = indietro;
-  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-uff-tab]'); if (b) impostaTabUff(b.dataset.uffTab); });
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-uff-tab]'); if (b) impostaTabUff(b.dataset.uffTab); const c = e.target.closest && e.target.closest('[data-posta-tab]'); if (c) impostaTabPosta(c.dataset.postaTab); });
   $('#b-scegli').onclick = () => $('#in-levante').click();
   $('#in-levante').onchange = async e => { const fl = [...e.target.files]; if (fl.length) await leggiFileLevante(fl); e.target.value = ''; };
   $('#b-prova').onclick = () => { store.set('ass_dati', null); esitoImport = ''; appuntamenti = caricaAppuntamenti(); mostra('agenda', false); disegnaAgenda(); };
