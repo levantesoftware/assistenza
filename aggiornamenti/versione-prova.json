@@ -1,12 +1,12 @@
 {
- "versione": "1.41.1",
+ "versione": "1.41.2",
  "canale": "prova",
  "data": "2026-10-17",
  "novita": [
-  "Mostra la data dell'ultimo aggiornamento installato"
+  "Avviso dati non protetti"
  ],
- "pacchetto": "aggiornamento_1.41.1.zip",
- "sha256": "f09774bdc5b034e6d3450062f331b1c6686a20c275e88d1ba2a68efc15d6b8c3",
- "firma": "P9UNieqXtuJPddR331edPO3AIOtqrFgNBNpj4iJRIrcGLhEy7kQa1MTHrF1fCESpxRgsgaItif1ukR4xEA2HCA",
- "dimensione": 1304219
+ "pacchetto": "aggiornamento_1.41.2.zip",
+ "sha256": "a340739ab9f0d44147cbdb007245d54948bd0ea8ffdb172c9278109e67c3d869",
+ "firma": "BlRz08xxFSmNkTA3zrKDq-zdkHZgQjUdFg9PDGdEYDHZBUCLNxvel25uK27XVT4SRFEj4MzPox1RNBeQ8mHhDw",
+ "dimensione": 1304925
 }
