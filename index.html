@@ -672,6 +672,9 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <h1>Impostazioni</h1>
     </header>
     <div class="campo solo-tec"><label for="i-azienda">Nome azienda (in alto nel PDF)</label><input type="text" id="i-azienda"></div>
+    <div class="campo solo-tec"><label class="spunta"><input type="checkbox" id="i-privacy-on"> Stampa l'informativa privacy sulla copia del cliente</label>
+      <textarea id="i-privacy" rows="6" style="margin-top:6px"></textarea>
+      <button class="btn chiaro piccolo" id="b-privacy-std" type="button" style="margin-top:6px">Ripristina il testo standard</button></div>
     <div class="campo solo-tec"><label for="i-tecnico">Nome del tecnico (precompila la scheda)</label><input type="text" id="i-tecnico"></div>
     <div class="campo solo-tec"><label class="spunta"><input type="checkbox" id="i-posizione"> Registra la posizione quando tocco «Adesso» su arrivo e fine</label>
       <p class="aiuto" style="margin:4px 0 0">Il telefono chiede il permesso la prima volta. La posizione si legge solo in quel momento, non in continuo, e resta nel rapportino per l'ufficio.</p></div>
@@ -2271,6 +2274,9 @@ function collegaFirmaTec(){
    PDF
    ================================================================== */
 // <pdf>
+const privacyStd = () => 'Informativa privacy (sintesi). I dati personali del cliente sono trattati da ' + (impostazioni.azienda || 'questa azienda') + ', titolare del trattamento, per eseguire l\'intervento richiesto, emettere la documentazione relativa e adempiere agli obblighi di legge e fiscali. I dati sono conservati per il tempo necessario a tali scopi e comunque secondo i termini di legge, e possono essere comunicati solo a soggetti che ci assistono nella gestione del servizio e a chi per legge ne ha diritto. Il cliente può esercitare i diritti di accesso, rettifica, cancellazione, limitazione, opposizione e portabilità rivolgendosi ai nostri uffici. Ha inoltre diritto di proporre reclamo al Garante per la protezione dei dati personali. L\'informativa completa è disponibile presso i nostri uffici.';
+const testoPrivacy = () => impostazioni.privacyTesto || privacyStd();
+
 function costruisciPdf(w, ctx){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4', compress:true});
@@ -2375,9 +2381,16 @@ function costruisciPdf(w, ctx){
   if (!ctx.perCliente) blocco('Note per l\'ufficio', w.note);
 
   titolo('Firma del cliente'); serve(40);
+  if (!w.levante) { doc.setFont('helvetica','normal'); doc.setFontSize(9); colore(INK); doc.text('Il cliente dichiara di aver ricevuto l\'informativa privacy.', M, y + 2); y += 8; }
   if (w.firma) { const p = doc.getImageProperties(w.firma), s = Math.min(70 / p.width, 28 / p.height); doc.addImage(w.firma, 'PNG', M, y, p.width * s, p.height * s); }
   doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.3); doc.line(M, y + 29, M + 70, y + 29);
   doc.setFontSize(9); colore(GRIGIO); doc.text(w.firmaNome || 'Firma', M, y + 34);
+  if (ctx.perCliente && impostazioni.privacyOn !== false) {
+    y += 42; doc.setFont('helvetica','normal'); doc.setFontSize(7.5); colore(GRIGIO);
+    const righe = doc.splitTextToSize(testoPrivacy(), W - 2 * M);
+    if (y + righe.length * 3.3 > 284) { doc.addPage(); y = 20; }
+    doc.text(righe, M, y);
+  }
 
   const n = doc.getNumberOfPages(), ora = new Date();
   for (let k = 1; k <= n; k++) {
@@ -4265,7 +4278,7 @@ function aggiungiMaterialiVoce(){
    e all'invio parte un PDF "Documentazione fotografica" (e, se vuoi, le foto singole).
    Le immagini stanno in IndexedDB; nella scheda restano solo anteprima e commento.
    ================================================================== */
-const FOTO_MAX_LATO = 1600, FOTO_QUALITA = 0.8, FOTO_MAX_NUMERO = 30;
+const FOTO_MAX_LATO = 1280, FOTO_QUALITA = 0.7, FOTO_MAX_NUMERO = 30;
 async function operaSuFoto(modo, fn){
   const db = await apriDb();
   const r = await new Promise((ok, ko) => { const tx = db.transaction('foto', modo); const out = fn(tx.objectStore('foto')); tx.oncomplete = () => ok(out && out.result !== undefined ? out.result : undefined); tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error); });
@@ -5181,7 +5194,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.36.0 (17/10/2026)';
+const VERSIONE_APP = '1.37.0 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6780,7 +6793,7 @@ function avvia(){
   $('#b-impostazioni').onclick = () => {
     try { aggiornaImpPin(); } catch(e) {}
     $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || ''; $('#i-posizione').checked = !!impostazioni.posizione;
-    $('#i-codice').value = impostazioni.codiceSic || ''; aggiornaCodiceStato();
+    $('#i-privacy-on').checked = impostazioni.privacyOn !== false; $('#i-privacy').value = testoPrivacy(); $('#i-codice').value = impostazioni.codiceSic || ''; aggiornaCodiceStato();
     $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
@@ -6792,6 +6805,9 @@ function avvia(){
   $('#b-indietro-imp').onclick = indietro;
   { let tT = 0, tN = 0; const h = document.querySelector('#v-impostazioni h1'); if (store.get('ass_tec_visibile', false)) document.body.classList.add('tec-visibile');
     if (h) h.onclick = () => { const t = Date.now(); tN = (t - tT < 1500) ? tN + 1 : 1; tT = t; if (tN >= 5) { tN = 0; const on = !document.body.classList.contains('tec-visibile'); document.body.classList.toggle('tec-visibile', on); store.set('ass_tec_visibile', on); mostraAvviso(on ? 'Impostazioni da tecnico visibili.' : 'Impostazioni da tecnico nascoste.', '', null, 4000); } }; }
+  $('#i-privacy-on').onchange = e => { impostazioni.privacyOn = e.target.checked; salvaImpostazioni(); };
+  $('#i-privacy').oninput = e => { const t = e.target.value.trim(); impostazioni.privacyTesto = (t && t !== privacyStd()) ? t : undefined; salvaImpostazioni(); };
+  $('#b-privacy-std').onclick = () => { impostazioni.privacyTesto = undefined; salvaImpostazioni(); $('#i-privacy').value = privacyStd(); };
   $('#i-azienda').oninput = e => { impostazioni.azienda = e.target.value.trim(); salvaImpostazioni(); };
   $('#i-posizione').onchange = e => { impostazioni.posizione = e.target.checked; salvaImpostazioni(); if (e.target.checked) leggiPosizione(function(){}, function(m){ alert(m); }); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
