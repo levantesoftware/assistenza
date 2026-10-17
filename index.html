@@ -765,18 +765,49 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-indietro-uff" type="button">Indietro</button>
       <h1>Dati da Levante</h1>
     </header>
+    <div class="seg" id="uff-tab" role="tablist" style="margin:0 0 14px">
+      <button type="button" role="tab" data-uff-tab="invio" aria-pressed="true">Invio ai tecnici</button>
+      <button type="button" role="tab" id="uff-tab-imp" data-uff-tab="imp" aria-pressed="false">Impostazioni</button>
+    </div>
+    <div id="uff-t-invio" role="tabpanel">
+    <details style="margin:0 0 14px"><summary><b>Come si usa</b> <span class="aiuto">(3 passi)</span></summary>
     <ol class="aiuto" style="padding-left:20px;margin:0 0 14px;line-height:1.6">
       <li>Sul PC di Levante lancia <b>Esporta_Levante.bat</b>.</li>
       <li>Il .bat crea anche un unico file <b>Esportazione_….zip</b>: tocca <b>Scegli i file di Levante</b> e scegli solo quello. Oppure tocca <b>Leggi l'ultima esportazione</b> (Chrome o Edge sul computer), oppure apri la cartella che si crea (con data e ora) e scegli qui <b>tutti i file</b> (.csv e .json).</li>
       <li>Per ogni tecnico vedi cosa è cambiato dall'ultimo invio: manda il file solo a chi ha novità (è un file di testo <b>.txt</b>: il tecnico lo apre dall'app con "Carica i dati" e vede subito cosa è nuovo, spostato o annullato).</li>
     </ol>
+    </details>
     <div id="blocco-ultima" hidden>
       <button class="btn pieno" id="b-ultima" type="button">Leggi l'ultima esportazione</button>
       <p class="aiuto" id="msg-cartella" role="status" style="margin:6px 0 10px"></p>
       <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
     </div>
-    <p class="avviso info" id="uff-servizio" role="status" hidden style="margin:0 0 12px"></p>
-    <details id="smtp-box" class="avviso info solo-server" hidden style="margin:0 0 12px">
+
+    <div class="uff-azioni" hidden style="margin:0 0 12px">
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
+      <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
+    </div>
+
+    <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
+    <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
+    <div id="esito-uff"></div>
+    <p class="aiuto" style="margin-top:18px">I file contengono dati dei clienti: mandali solo ai tecnici.</p>
+    </div>
+    <div id="uff-t-imp" role="tabpanel" hidden>
+      <h2 class="giorno" style="margin-top:4px">Esportazione da Levante</h2>
+      <p class="avviso info" id="uff-servizio" role="status" hidden style="margin:0 0 12px"></p>
+      <div id="auto-esp" class="avviso info solo-server" hidden style="margin:0 0 12px">
+      <div class="campo" style="margin:0"><label for="auto-min"><b>Esporta da Levante in automatico</b></label>
+        <select id="auto-min"><option value="0">Mai (premo io «Esporta ora»)</option><option value="5">Ogni 5 minuti</option><option value="10">Ogni 10 minuti</option><option value="15">Ogni 15 minuti</option><option value="30">Ogni 30 minuti</option><option value="60">Ogni ora</option></select></div>
+      <p class="aiuto" id="auto-stato" role="status" style="margin:6px 0 0"></p>
+      <div id="auto-fascia" style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:10px 0 0">
+        <div class="campo" style="margin:0"><label for="auto-dalle">Dalle</label><input id="auto-dalle" type="time" value="06:30"></div>
+        <div class="campo" style="margin:0"><label for="auto-alle">Alle</label><input id="auto-alle" type="time" value="20:30"></div>
+        <label class="spunta" style="margin:0 0 8px"><input type="checkbox" id="auto-dom"> Anche la domenica</label>
+      </div>
+
+      <h2 class="giorno" style="margin-top:18px">Invio ai tecnici</h2>
+      <details id="smtp-box" class="avviso info solo-server" hidden style="margin:0 0 12px">
       <summary><b>Invio dei file per mail ai tecnici</b> <span class="chip" id="smtp-stato">non impostato</span></summary>
       <p class="aiuto" style="margin:8px 0">Imposta una volta la posta in uscita: poi i file dei tecnici partono con un clic, già allegati, senza aprire il programma di posta. La password resta salvata in modo protetto su questo PC.</p>
       <div class="campo"><label for="sm-preset">Servizio di posta</label>
@@ -790,34 +821,16 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start"><button class="btn" id="sm-salva" type="button">Salva</button><button class="btn sec" id="sm-prova" type="button">Prova il collegamento</button></div>
       <p class="aiuto" id="sm-msg" role="status" style="margin:8px 0 0"></p>
     </details>
-    <div id="auto-inv" class="avviso info" hidden style="margin:0 0 12px">
+      <div id="auto-inv" class="avviso info" hidden style="margin:0 0 12px">
       <label class="spunta"><input type="checkbox" id="ai-attivo"> <b>Invia in automatico ai tecnici ogni sera</b></label>
       <div class="campo" style="margin:8px 0 0"><label for="ai-ora">Alle ore</label><input id="ai-ora" type="time" value="18:00"></div>
       <label class="spunta" style="margin-top:6px"><input type="checkbox" id="ai-weekend"> Invia anche sabato e domenica</label>
       <p class="aiuto" id="ai-stato" role="status" style="margin:8px 0 0"></p>
       <p class="aiuto" style="margin:4px 0 0">Parte da sola solo per i tecnici con novità e con l'email scritta, usando l'ultima esportazione letta. Serve che l'app resti aperta su questo PC. Togli la spunta per tornare all'invio a mano.</p>
     </div>
-    <div class="uff-azioni" hidden style="margin:0 0 12px">
-      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
-      <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
+
+      <p class="aiuto" id="uff-imp-vuoto" hidden>Queste impostazioni compaiono quando l'app è aperta dal programma dell'ufficio sul PC (il collegamento creato dal Setup).</p>
     </div>
-    <div id="auto-esp" class="avviso info solo-server" hidden style="margin:0 0 12px">
-      <div class="campo" style="margin:0"><label for="auto-min"><b>Esporta da Levante in automatico</b></label>
-        <select id="auto-min"><option value="0">Mai (premo io «Esporta ora»)</option><option value="5">Ogni 5 minuti</option><option value="10">Ogni 10 minuti</option><option value="15">Ogni 15 minuti</option><option value="30">Ogni 30 minuti</option><option value="60">Ogni ora</option></select></div>
-      <p class="aiuto" id="auto-stato" role="status" style="margin:6px 0 0"></p>
-      <div id="auto-fascia" style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:10px 0 0">
-        <div class="campo" style="margin:0"><label for="auto-dalle">Dalle</label><input id="auto-dalle" type="time" value="06:30"></div>
-        <div class="campo" style="margin:0"><label for="auto-alle">Alle</label><input id="auto-alle" type="time" value="20:30"></div>
-        <label class="spunta" style="margin:0 0 8px"><input type="checkbox" id="auto-dom"> Anche la domenica</label>
-      </div>
-      <label class="spunta" style="margin:12px 0 0"><input type="checkbox" id="wk-attivo"> <span>Lavori automatici anche con l'app chiusa<small style="display:block;font-weight:400;color:var(--tenue)">Lettura della posta dei tecnici, invio serale delle agende e copie di sicurezza girano da soli in una copia invisibile dell'app (usa Edge o Chrome già presenti sul PC). Se non parte, restano a carico dell'app aperta su questo PC.</small></span></label>
-      <p class="aiuto" id="wk-stato" role="status" style="margin:4px 0 0"></p>
-      <p class="aiuto" style="margin:4px 0 0">Esporta solo nella fascia oraria scelta qui sopra. L'app legge da sola ogni nuova esportazione: gli appuntamenti dei tecnici sono sempre pronti qui sotto. Levante resta aperto e non viene toccato (lettura soltanto).</p>
-    </div>
-    <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
-    <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
-    <div id="esito-uff"></div>
-    <p class="aiuto" style="margin-top:18px">I file contengono dati dei clienti: mandali solo ai tecnici.</p>
   </section>
 
   <!-- UFFICIO: POSTA IN ARRIVO -->
@@ -4908,6 +4921,14 @@ async function leggiFileLevante(files){
   infoUff.messaggio = '';
   disegnaUfficio();
 }
+function impostaTabUff(t){
+  t = t === 'imp' ? 'imp' : 'invio';
+  const a = $('#uff-t-invio'), b = $('#uff-t-imp'); if (!a || !b) return;
+  a.hidden = t !== 'invio'; b.hidden = t !== 'imp';
+  document.querySelectorAll('[data-uff-tab]').forEach(x => { if (x.closest('#uff-tab')) x.setAttribute('aria-pressed', x.dataset.uffTab === t ? 'true' : 'false'); });
+  const v = $('#uff-imp-vuoto'); if (v) v.hidden = ['#uff-servizio', '#smtp-box', '#auto-inv', '#auto-esp'].some(k => { const x = $(k); return x && !x.hidden; });
+  window.scrollTo(0, 0);
+}
 function disegnaUfficio(){
   const esito = $('#esito-uff'); if (!datiLevante) return;
   try { aggiornaNav(); } catch(e) {}
@@ -4934,7 +4955,7 @@ function disegnaUfficio(){
     if (smtpPronto) h += daMandare.length
       ? `<button class="btn pieno" id="b-mail-tutti" type="button" style="margin-top:14px">Invia per mail a chi ha novità (${daMandare.length})</button>`
       : '<p class="aiuto" style="margin-top:14px">Nessun tecnico con novità e con l\'indirizzo email scritto qui sotto: non c\'è niente da inviare per mail.</p>';
-    else h += '<p class="aiuto" style="margin-top:14px">Per mandare i file ai tecnici con un clic, imposta la posta in uscita qui sopra («Invio dei file per mail ai tecnici») e scrivi l\'email di ogni tecnico.</p>';
+    else h += '<p class="aiuto" style="margin-top:14px">Per mandare i file ai tecnici con un clic, imposta la posta in uscita nella scheda <button class="btn chiaro piccolo" type="button" data-uff-tab="imp">Impostazioni</button> («Invio dei file per mail ai tecnici») e scrivi l\'email di ogni tecnico.</p>';
   }
   const compatto = moltiTecnici(), nomeTec = id => id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
   let ordineTec = Object.keys(per);
@@ -5047,6 +5068,7 @@ async function caricaSmtp(rifai){
   if (!st || !st.config) return; const c = st.config;
   $('#smtp-box').hidden = false;
   const era = smtpPronto; smtpPronto = !!c.smtp_pronto;
+  { const tb = $('#uff-tab-imp'); if (tb) tb.classList.toggle('nuovo', !smtpPronto); }       // la scheda Impostazioni si evidenzia finche' la posta in uscita non e' pronta
   if (!caricaSmtp.fatto) { caricaSmtp.fatto = true;
     $('#sm-server').value = c.smtp_server || ''; $('#sm-porta').value = c.smtp_porta || 465; $('#sm-sic').value = c.smtp_sicurezza || 'ssl'; $('#sm-utente').value = c.smtp_utente || ''; $('#sm-da').value = c.smtp_da || '';
     $('#sm-preset').value = presetDi(c.smtp_server);
@@ -5131,7 +5153,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.34.3 (16/10/2026)';
+const VERSIONE_APP = '1.35.0 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6758,6 +6780,7 @@ function avvia(){
   $('#in-pacchetto').onchange = e => { const f = e.target.files[0]; if (f) caricaPacchetto(f); e.target.value = ''; };
   $('#b-ufficio').onclick = () => { if (inUfficio && datiLevante && letturaOk) disegnaUfficio(); else $('#esito-uff').innerHTML = ''; mostra('ufficio'); };
   $('#b-indietro-uff').onclick = indietro;
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-uff-tab]'); if (b) impostaTabUff(b.dataset.uffTab); });
   $('#b-scegli').onclick = () => $('#in-levante').click();
   $('#in-levante').onchange = async e => { const fl = [...e.target.files]; if (fl.length) await leggiFileLevante(fl); e.target.value = ''; };
   $('#b-prova').onclick = () => { store.set('ass_dati', null); esitoImport = ''; appuntamenti = caricaAppuntamenti(); mostra('agenda', false); disegnaAgenda(); };
