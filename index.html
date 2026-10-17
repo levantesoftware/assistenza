@@ -812,7 +812,11 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <h2 class="giorno" style="margin-top:18px">Invio ai tecnici</h2>
       <details id="smtp-box" class="avviso info solo-server" hidden style="margin:0 0 12px">
       <summary><b>Invio dei file per mail ai tecnici</b> <span class="chip" id="smtp-stato">non impostato</span></summary>
-      <p class="aiuto" style="margin:8px 0">Imposta una volta la posta in uscita: poi i file dei tecnici partono con un clic, già allegati, senza aprire il programma di posta. La password resta salvata in modo protetto su questo PC.</p>
+      <p class="aiuto" style="margin:8px 0">Imposta una volta la posta in uscita: poi i file dei tecnici partono con un clic, già allegati, senza aprire il programma di posta. Con il server di posta la password resta salvata in modo protetto su questo PC; con Outlook non serve nessuna password.</p>
+      <div class="campo"><label for="sm-metodo">Come spedire</label>
+        <select id="sm-metodo"><option value="smtp">Con il server di posta (utente e password)</option><option value="outlook">Con Outlook classico di questo PC (niente password)</option></select>
+        <p class="aiuto" id="sm-ol-nota" hidden style="margin:6px 0 0">Le mail partono dall'account già configurato in Outlook, che deve essere la versione classica per Windows (non il «nuovo Outlook»). Consigliato con Microsoft 365, che sta chiudendo l'invio con password. Se Outlook chiede una conferma sullo schermo, va data.</p></div>
+      <div id="sm-blocco-smtp">
       <div class="campo"><label for="sm-preset">Servizio di posta</label>
         <select id="sm-preset"><option value="">— scegli —</option><option value="gmail">Gmail / Google Workspace (serve una «password per le app»)</option><option value="aruba">Aruba (posta normale)</option><option value="arubapec">Aruba PEC</option><option value="outlook">Outlook / Microsoft 365</option><option value="libero">Libero</option><option value="altro">Altro</option></select></div>
       <div class="tre"><div class="campo largo"><label for="sm-server">Server in uscita (SMTP)</label><input id="sm-server" type="text" autocomplete="off" autocapitalize="none" placeholder="smtp.esempio.it"></div>
@@ -821,6 +825,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <div class="campo"><label for="sm-utente">Utente (di solito l'indirizzo email)</label><input id="sm-utente" type="text" autocomplete="off" autocapitalize="none"></div>
       <div class="campo"><label for="sm-pwd">Password <span id="sm-pwd-nota" class="aiuto"></span></label><input id="sm-pwd" type="password" autocomplete="new-password"></div>
       <div class="campo"><label for="sm-da">Mittente (se diverso dall'utente)</label><input id="sm-da" type="text" autocomplete="off" autocapitalize="none" placeholder="ufficio@azienda.it"></div>
+      </div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start"><button class="btn" id="sm-salva" type="button">Salva</button><button class="btn sec" id="sm-prova" type="button">Prova il collegamento</button></div>
       <p class="aiuto" id="sm-msg" role="status" style="margin:8px 0 0"></p>
     </details>
@@ -5105,20 +5110,23 @@ async function caricaSmtp(rifai){
   { const tb = $('#uff-tab-imp'); if (tb) tb.classList.toggle('nuovo', !smtpPronto); }       // la scheda Impostazioni si evidenzia finche' la posta in uscita non e' pronta
   if (!caricaSmtp.fatto) { caricaSmtp.fatto = true;
     $('#sm-server').value = c.smtp_server || ''; $('#sm-porta').value = c.smtp_porta || 465; $('#sm-sic').value = c.smtp_sicurezza || 'ssl'; $('#sm-utente').value = c.smtp_utente || ''; $('#sm-da').value = c.smtp_da || '';
+    $('#sm-metodo').value = c.invio_metodo === 'outlook' ? 'outlook' : 'smtp'; mostraMetodoSmtp();
     $('#sm-preset').value = presetDi(c.smtp_server);
     $('#sm-pwd-nota').textContent = c.smtp_password_impostata ? '(già salvata: lascia vuoto per non cambiarla)' : '';
     if (!smtpPronto) $('#smtp-box').open = true; }
   const el = $('#smtp-stato'); el.textContent = smtpPronto ? 'pronto' : 'non impostato'; el.className = 'chip' + (smtpPronto ? ' pdf' : '');
   if (rifai || era !== smtpPronto) { try { if (datiLevante) disegnaUfficio(); } catch(e) {} }
 }
+const mostraMetodoSmtp = () => { const ol = $('#sm-metodo').value === 'outlook'; $('#sm-blocco-smtp').hidden = ol; $('#sm-ol-nota').hidden = !ol; };
 const presetDi = srv => { srv = String(srv || '').trim().toLowerCase(); for (const k in PRESET_SMTP) if (PRESET_SMTP[k][0] === srv) return k; return ''; };
 const PRESET_SMTP = {gmail: ['smtp.gmail.com', 465, 'ssl'], aruba: ['smtps.aruba.it', 465, 'ssl'], arubapec: ['smtps.pec.aruba.it', 465, 'ssl'], outlook: ['smtp.office365.com', 587, 'starttls'], libero: ['smtp.libero.it', 465, 'ssl']};
 function avviaSmtp(){
   caricaSmtp();
+  $('#sm-metodo').onchange = mostraMetodoSmtp;
   $('#sm-preset').onchange = e => { const p = PRESET_SMTP[e.target.value]; if (p) { $('#sm-server').value = p[0]; $('#sm-porta').value = p[1]; $('#sm-sic').value = p[2]; } };
   $('#sm-server').oninput = e => { $('#sm-preset').value = presetDi(e.target.value); };
   $('#sm-sic').onchange = e => { $('#sm-porta').value = e.target.value === 'starttls' ? 587 : 465; };
-  const dati = () => { const d = {smtp_server: $('#sm-server').value, smtp_porta: $('#sm-porta').value, smtp_sicurezza: $('#sm-sic').value, smtp_utente: $('#sm-utente').value, smtp_da: $('#sm-da').value}; if ($('#sm-pwd').value) d.smtp_password = $('#sm-pwd').value; return d; };
+  const dati = () => { const d = {smtp_server: $('#sm-server').value, smtp_porta: $('#sm-porta').value, smtp_sicurezza: $('#sm-sic').value, smtp_utente: $('#sm-utente').value, smtp_da: $('#sm-da').value, invio_metodo: $('#sm-metodo').value}; if ($('#sm-pwd').value) d.smtp_password = $('#sm-pwd').value; return d; };
   const msg = t => { $('#sm-msg').textContent = t; };
   $('#sm-salva').onclick = async () => { try { const r = await chiamaJson('posta-config', dati()); $('#sm-pwd').value = ''; caricaSmtp.fatto = false; await caricaSmtp(true); msg(r.ok ? 'Salvato.' : 'Non sono riuscito a salvare.'); } catch(e) { msg('Il servizio non risponde.'); } };
   $('#sm-prova').onclick = async () => { msg('Provo il collegamento…'); try { await chiamaJson('posta-config', dati()); $('#sm-pwd').value = ''; const r = await chiamaJson('posta-smtp-prova'); await caricaSmtp(true); msg((r.ok ? '✔ ' : '✘ ') + r.messaggio); } catch(e) { msg('Il servizio non risponde.'); } };
@@ -5194,7 +5202,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.37.0 (17/10/2026)';
+const VERSIONE_APP = '1.38.0 (17/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
