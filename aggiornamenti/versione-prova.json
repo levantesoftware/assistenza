@@ -1,12 +1,13 @@
 {
- "versione": "1.41.4",
+ "versione": "1.42.0",
  "canale": "prova",
  "data": "2026-10-18",
  "novita": [
-  "Aggiornamenti a centro pagina"
+  "spostato interrutori Cantieri e Chiamate in impostazioni",
+  "gestione automatica cancellazione zip interventi vecchi"
  ],
- "pacchetto": "aggiornamento_1.41.4.zip",
- "sha256": "32af5e525ee2cd494b6fbe80e032c1846ad559c926e5952003fc4308503bb2c4",
- "firma": "FcXx3ZYNQl__cc7uZYFTJgOaHso8aIo8J8mXVaZFe35tKupqc-nwDbUK92uPtl8Rx-SmwVAC3IfPZpOUmBCxBQ",
- "dimensione": 1306112
+ "pacchetto": "aggiornamento_1.42.0.zip",
+ "sha256": "a4d75c5ae246782b71705d76575d17288ad14c30231bd0adb2f07cb49b4590d4",
+ "firma": "ku2Xn3eiUvSMI7GZFH1jTgX6LWY_N4sGS_l6JaFJFXbeIE4vm_inzkTnCpSmzN_W2A46t8RGB-sliHLb86kyCg",
+ "dimensione": 1308527
 }
