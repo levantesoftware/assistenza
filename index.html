@@ -458,6 +458,8 @@ button.pos{margin-top:4px;font-size:13px}
 /* novita' */
 #nov-prog,#novita-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
 #nov-prog[hidden],#novita-modale[hidden]{display:none}
+#nov-prog{align-items:center;padding:16px;box-sizing:border-box}
+#nov-prog .ed-fogli{border-radius:14px;max-width:520px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 #nov-prog .ed-fogli,#novita-modale .ed-fogli{max-height:88vh;overflow:auto}
 .chip.nov{background:#FFE3BD;color:#7A3E00;font-weight:700}
 
@@ -5248,7 +5250,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.41.3 (18/10/2026)';
+const VERSIONE_APP = '1.41.4 (18/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
