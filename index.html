@@ -456,9 +456,9 @@ button.pos{margin-top:4px;font-size:13px}
 #vm-modale .ed-fogli{max-height:88vh;overflow:auto}
 
 /* novita' */
-#novita-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
-#novita-modale[hidden]{display:none}
-#novita-modale .ed-fogli{max-height:88vh;overflow:auto}
+#nov-prog,#novita-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#nov-prog[hidden],#novita-modale[hidden]{display:none}
+#nov-prog .ed-fogli,#novita-modale .ed-fogli{max-height:88vh;overflow:auto}
 .chip.nov{background:#FFE3BD;color:#7A3E00;font-weight:700}
 
 /* invio: a chi */
@@ -594,6 +594,13 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <h2 id="novita-titolo" style="margin:0 0 4px">Novità dall'ufficio</h2>
       <div id="novita-corpo"></div>
       <div class="azioni" style="margin-top:14px"><button class="btn pieno" id="b-novita-ok" type="button" style="grid-column:1 / -1">Ho letto</button></div>
+    </div>
+  </div>
+  <div id="nov-prog" hidden role="dialog" aria-modal="true" aria-labelledby="nov-prog-titolo">
+    <div class="ed-fogli">
+      <h2 id="nov-prog-titolo" style="margin:0 0 6px">Novità del programma</h2>
+      <div id="nov-prog-corpo"></div>
+      <div class="azioni" style="margin-top:14px"><button class="btn pieno" id="nov-prog-ok" type="button" style="grid-column:1 / -1">Ho capito</button></div>
     </div>
   </div>
   <input type="file" id="in-foto" accept="image/*" capture="environment" hidden>
@@ -757,9 +764,10 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <p id="ag-versione" style="margin:0 0 6px">…</p>
     <p id="ag-stato" role="status" style="margin:0 0 6px"></p>
     <ul id="ag-novita" class="aiuto" style="margin:0 0 8px;padding-left:20px" hidden></ul>
-    <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin:0">
+    <div class="azioni" style="grid-template-columns:auto auto auto auto;justify-content:start;margin:0">
       <button class="btn piccolo" id="ag-installa" type="button" hidden>Installa l'aggiornamento</button>
       <button class="btn sec piccolo" id="ag-controlla" type="button">Controlla ora</button>
+      <button class="btn chiaro piccolo" id="ag-novita-vedi" type="button">Novità installate</button>
       <button class="btn sec piccolo" id="ag-indietro" type="button" hidden>Torna alla versione precedente</button></div>
     <p class="aiuto" id="ag-esito" role="status" style="margin:8px 0 0"></p>
     <label class="spunta" style="margin-top:8px"><input type="checkbox" id="ag-auto"> Installa da solo di notte (tra le 2 e le 5, se non c'è un'esportazione in corso)</label>
@@ -5240,7 +5248,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.41.2 (17/10/2026)';
+const VERSIONE_APP = '1.41.3 (18/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6621,9 +6629,47 @@ async function aggiornaAgg(){
   const er = $('#ag-esito'); if (!st.in_corso) er.textContent = (st.risultato && st.risultato.messaggio) || st.esito_ultimo || '';
   if (!aggiornaAgg.fatto) { aggiornaAgg.fatto = true; $('#ag-canale').value = st.canale; $('#ag-url').value = st.url || ''; $('#ag-auto').checked = !!st.auto; }
   document.querySelectorAll('[data-nav="impostazioni"], #b-impostazioni').forEach(b => b.classList.toggle('agg-nuovo', !!agg));
+  try { novitaProgramma(st); } catch(e) {}
   return st;
 }
+/* Novita' del programma: dopo un aggiornamento compare una finestra con le novita' (una volta sola). Il testo viaggia dentro il pacchetto
+   (app\novita.json, scritto da Pubblica_aggiornamento). Una nuova installazione non mostra niente. */
+let novProgFatto = false;
+const verTupla = v => String(v || '').split('.').map(x => parseInt(x, 10) || 0);
+function verCmp(a, b){ const x = verTupla(a), y = verTupla(b); for (let i = 0; i < 3; i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d < 0 ? -1 : 1; } return 0; }
+async function leggiNovitaProg(){
+  try { const r = await fetch('novita.json?' + Date.now(), {cache: 'no-store'}); if (!r.ok) return []; const j = await r.json();
+    return (j.storico || []).filter(v => v && v.versione && v.novita && v.novita.length).sort((a, b) => verCmp(b.versione, a.versione)); } catch(e) { return []; }
+}
+function mostraNovitaProg(voci){
+  $('#nov-prog-titolo').textContent = voci.length === 1 ? 'Novità della versione ' + voci[0].versione : 'Novità del programma';
+  $('#nov-prog-corpo').innerHTML = voci.map(v => (voci.length > 1 ? '<h3 style="margin:10px 0 4px;font-size:16px">Versione ' + esc(v.versione) + (v.data ? ' · ' + esc(dataIT(v.data)) : '') + '</h3>' : (v.data ? '<p class="aiuto" style="margin:0 0 6px">' + esc(dataIT(v.data)) + '</p>' : ''))
+    + '<ul style="margin:0 0 10px;padding-left:20px">' + v.novita.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>').join('');
+  $('#nov-prog').hidden = false;
+}
+async function novitaProgramma(st){
+  if (novProgFatto || !inUfficio || !st || !st.versione) return;
+  novProgFatto = true;
+  const cur = st.versione; let vista = '';
+  try { vista = localStorage.getItem('nov_vista') || ''; } catch(e) {}
+  const salva = () => { try { localStorage.setItem('nov_vista', cur); } catch(e) {} };
+  if (vista && verCmp(vista, cur) > 0) { vista = cur; salva(); }          // si e' tornati a una versione precedente
+  if (vista && verCmp(vista, cur) === 0) return;
+  const voci = (await leggiNovitaProg()).filter(v => verCmp(v.versione, cur) <= 0);
+  let da;
+  if (vista) da = voci.filter(v => verCmp(v.versione, vista) > 0).slice(0, 5);
+  else if (st.ultimo_agg && st.ultimo_agg.a === cur && voci.length) da = voci.slice(0, 1);   // primo avvio dopo un aggiornamento
+  else { salva(); return; }                                                                  // installazione nuova: niente finestra
+  if (!da.length) { salva(); return; }
+  mostraNovitaProg(da);
+  $('#nov-prog-ok').onclick = () => { salva(); $('#nov-prog').hidden = true; };
+}
 function avviaAggiornamenti(){
+  $('#ag-novita-vedi').onclick = async () => {
+    const v = (await leggiNovitaProg()).slice(0, 5);
+    if (!v.length) { $('#ag-esito').textContent = 'Nessuna novità registrata.'; return; }
+    mostraNovitaProg(v); $('#nov-prog-ok').onclick = () => { $('#nov-prog').hidden = true; };
+  };
   aggiornaAgg(); setInterval(() => { if (!agInstall) aggiornaAgg(); }, 3600000);
   const seguiti = () => { const t = setInterval(async () => { const st = await aggiornaAgg(); if (!agInstall) clearInterval(t); }, 3000); };
   $('#ag-controlla').onclick = async () => { $('#ag-stato').textContent = 'Controllo…'; try { await chiamaJson('aggiorna-controlla'); } catch(e) {} aggiornaAgg(); };
