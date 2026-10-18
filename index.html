@@ -741,6 +741,22 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <button class="btn pieno" id="b-posta" type="button" style="margin-top:10px">Posta in arrivo (interventi dei tecnici)</button>
     </div>
     <div class="solo-uff">
+    <h2 class="giorno" style="margin-top:26px">Funzioni per i tecnici</h2>
+    <p class="aiuto" style="margin:0 0 8px">Sezioni in più nell'app dei tecnici. Quando le attivi, i dettagli (a chi sono stati inviati i cantieri, le chiamate in attesa) compaiono in «Invio ai tecnici».</p>
+    <label class="tile" style="margin-top:8px"><input type="checkbox" id="chk-cantieri"><span>Gestisci i cantieri<small>I cantieri che in Levante hanno «visibile su Express Mag» acceso vanno a tutti, in una sezione «Cantieri»: ognuno scrive ore, cosa ha fatto, materiali e foto, e tutto torna nella posta in arrivo. Gli operai che non sono in agenda ricevono solo i cantieri (e contano nella licenza). Attiva solo se vuoi lavorare così.</small></span></label>
+    <label class="tile" style="margin-top:8px"><input type="checkbox" id="chk-chiamate"><span>Gestisci le chiamate di assistenza<small>Le chiamate aperte in Levante (senza appuntamento) vanno ai tecnici in una sezione «Chiamate»: decide il tecnico quando andare. Attiva solo se vuoi lavorare così: una chiamata può diventare appuntamento nel frattempo, quindi controlla sempre l'ultima esportazione.</small></span></label>
+    </div>
+    <div class="solo-uff">
+    <div class="solo-server">
+    <h2 class="giorno" style="margin-top:26px">Pulizia dei file vecchi</h2>
+    <p class="aiuto" style="margin:0 0 8px">Cancella da sola, una volta al giorno, i <b>PDF dei rapporti</b> (cartella «allegati») e i <b>file già importati</b> dalla posta (cartella «posta\importati») più vecchi del periodo che scegli. Non tocca mai i file ancora da importare, le esportazioni da Levante, le copie di sicurezza e i dati dell'app. Prima di attivarla controlla di aver già caricato in Levante i PDF che ti servono.</p>
+    <div class="campo" style="margin:0 0 8px"><label for="pul-giorni">Cancella i file più vecchi di</label><select id="pul-giorni">
+      <option value="0">Mai: non cancellare niente</option><option value="30">30 giorni</option><option value="60">60 giorni</option><option value="90">90 giorni</option><option value="180">6 mesi</option><option value="365">1 anno</option></select></div>
+    <p class="aiuto" id="pul-stato" role="status" style="margin:0 0 8px"></p>
+    <div class="azioni" style="grid-template-columns:auto;justify-content:start;margin:0"><button class="btn chiaro piccolo" id="pul-ora" type="button">Pulisci ora</button></div>
+    </div>
+    </div>
+    <div class="solo-uff">
     <div class="solo-server">
     <h2 class="giorno" style="margin-top:26px">Postazioni in rete</h2>
     <p class="aiuto" style="margin:0 0 8px">Se in ufficio ci sono più computer, questo (il «server», dove c'è Levante) può far usare l'app anche agli altri: sugli altri PC non si installa nulla, basta il collegamento «Assistenza (postazione)» che trovi nel pacchetto. Ogni postazione chiede la password dell'azienda e tutte vedono gli stessi interventi ricevuti, gli invii e le impostazioni.</p>
@@ -4796,8 +4812,8 @@ function novitaCantieri(inv, id){
 }
 function riquadroCantieri(){
   const att = cantieriAttivi(), d = datiLevanteTutti || datiLevante || {}, nC = (d.cantieri || []).length, dip = d.dipendenti || [];
-  let h = `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-cantieri"${att ? ' checked' : ''}><span>Gestisci i cantieri<small>I cantieri che in Levante hanno «visibile su Express Mag» acceso vanno a tutti, in una sezione «Cantieri»: ognuno scrive ore, cosa ha fatto, materiali e foto, e tutto torna nella posta in arrivo. Gli operai che non sono in agenda ricevono solo i cantieri (e contano nella licenza). Attiva solo se vuoi lavorare così.</small></span></label>`;
-  if (!att) return h;
+  let h = '';
+  if (!att) return '';
   const base = d.tecniciBase || d.tecnici || {}, solo = operaiSolo(d);
   h += `<p class="aiuto" style="margin:8px 0 0"><b>${nC}</b> ${nC === 1 ? 'cantiere visibile' : 'cantieri visibili'} · <b>${dip.length}</b> ${dip.length === 1 ? 'dipendente' : 'dipendenti'}, di cui <b>${solo.length}</b> ${solo.length === 1 ? 'solo operaio (senza agenda)' : 'solo operai (senza agenda)'}.${(() => { const k = (d.cantieri || []).filter(c => c.sub3).length; return k ? ' <b>' + k + '</b> ' + (k === 1 ? 'cantiere ha' : 'cantieri hanno') + ' dei sottocantieri.' : ''; })()}</p>`;
   if (!nC) h += '<div class="avviso" style="margin-top:8px"><b>Nessun cantiere nell\'esportazione</b>Rilancia l\'esportazione con la versione nuova e controlla che i cantieri abbiano acceso «visibile su Express Mag» in Levante. Finché non ce ne sono, nessuno riceve la sezione Cantieri.</div>';
@@ -4861,8 +4877,8 @@ function haNovita(id, per, inviati, oggi){
 }
 function riquadroChiamate(){
   const att = chiamateAttive(), tutte = (datiLevante && datiLevante.chiamate) || [];
-  let h = `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-chiamate"${att ? ' checked' : ''}><span>Gestisci le chiamate di assistenza<small>Le chiamate aperte in Levante (senza appuntamento) vanno ai tecnici in una sezione «Chiamate»: decide il tecnico quando andare. Attiva solo se vuoi lavorare così: una chiamata può diventare appuntamento nel frattempo, quindi controlla sempre l'ultima esportazione.</small></span></label>`;
-  if (!att) return h;
+  let h = '';
+  if (!att) return '';
   const senza = chiamateSenzaTecnico(), nomi = datiLevante.tecnici || {};
   h += `<p class="aiuto" style="margin:8px 0 0"><b>${tutte.length}</b> ${tutte.length === 1 ? 'chiamata aperta' : 'chiamate aperte'} in Levante${senza.length ? ' · <b style="color:var(--rosso)">' + senza.length + ' senza tecnico: restano in attesa</b>' : ''}.</p>`;
   if (senza.length) {
@@ -5066,7 +5082,7 @@ function disegnaUfficio(){
       h += `<details class="tec-comp" data-tid="${esc(id)}"${ap ? ' open' : ''}><summary><b>${esc(nome)}</b><span class="n">${riga}</span>${stato}</summary>${blocco}</details>`; }
     else h += blocco;
   });
-  if (inUfficio) h += riquadroChiamate() + riquadroCantieri();
+  if (inUfficio) h += riquadroChiamate() + riquadroCantieri() + (!chiamateAttive() && !cantieriAttivi() ? '<p class="aiuto" style="margin:16px 0 0">Per i tecnici puoi attivare anche i <b>cantieri</b> e le <b>chiamate di assistenza</b>: Impostazioni › Funzioni per i tecnici.</p>' : '');
   h += `<label class="tile" style="margin-top:16px"><input type="checkbox" id="chk-completo"${infoUff.completo ? ' checked' : ''}><span>Invia tutto, anche i documenti già mandati<small>per un dispositivo nuovo, o se il tecnico non vede più i documenti. Senza questa spunta l'aggiornamento è più leggero.</small></span></label>`;
   h += `<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px">${esc(infoUff.messaggio || '')}</p>`;
   h += `<div class="sez" style="margin-top:22px"><h2>Su questo dispositivo</h2><button class="btn sec pieno" id="b-usa-qui" type="button">Usa questi dati qui (tutti i tecnici)</button></div>`;
@@ -5078,8 +5094,6 @@ function disegnaUfficio(){
   const bt = $('#b-mail-tutti'); if (bt) bt.onclick = async () => { bt.disabled = true; const out = []; for (const id of daMandare) { const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico'; infoUff.messaggio = 'Invio a ' + nome + '…'; const m = $('#msg-consegna'); if (m) m.textContent = infoUff.messaggio; mostraAvviso(infoUff.messaggio, '', null, 60000); const r = await inviaMailTecnico(id); out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio)); } infoUff.messaggio = out.join(' · '); mostraAvviso(infoUff.messaggio, '', null, 12000); disegnaUfficio(); };
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
-  { const cc = $('#chk-chiamate'); if (cc) cc.onchange = e => { impostazioni.chiamate = e.target.checked; salvaImpostazioni(); disegnaUfficio(); }; }
-  { const ck = $('#chk-cantieri'); if (ck) ck.onchange = e => { impostazioni.cantieri = e.target.checked; salvaImpostazioni(); ricalcolaOperai(); disegnaUfficio(); }; }
   esito.querySelectorAll('[data-optec]').forEach(sl => sl.onchange = () => { impostazioni.operaiTec = Object.assign({}, impostazioni.operaiTec || {}); if (sl.value) impostazioni.operaiTec[sl.dataset.optec] = sl.value; else delete impostazioni.operaiTec[sl.dataset.optec]; salvaImpostazioni(); ricalcolaOperai(); disegnaUfficio(); });
   esito.querySelectorAll('[data-ch]').forEach(sel => sel.onchange = () => { if (!sel.value) return; (impostazioni.chiamateTec = impostazioni.chiamateTec || {})[sel.dataset.ch] = sel.value; salvaImpostazioni(); disegnaUfficio(); });
   $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, chiamate: chiamateAperte(), modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
@@ -5250,7 +5264,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.41.4 (18/10/2026)';
+const VERSIONE_APP = '1.42.0 (18/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6666,6 +6680,32 @@ async function novitaProgramma(st){
   mostraNovitaProg(da);
   $('#nov-prog-ok').onclick = () => { salva(); $('#nov-prog').hidden = true; };
 }
+/* pulizia automatica dei file vecchi (Impostazioni): il servizio cancella allegati e file gia' importati piu' vecchi del periodo scelto */
+async function aggiornaPulizia(giorniScelti){
+  const sel = $('#pul-giorni'); if (!sel || !inUfficio) return;
+  let st; try { const r = await fetch('posta-pulizia-stato' + (giorniScelti != null ? '?giorni=' + giorniScelti : ''), {cache: 'no-store'}); if (!r.ok) throw 0; st = await r.json(); } catch(e) { $('#pul-stato').textContent = 'Il servizio non risponde.'; return; }
+  if (!st || !st.ok) return;
+  if (giorniScelti == null) sel.value = String(st.giorni);
+  const g = +sel.value, etichetta = sel.options[sel.selectedIndex].textContent;
+  let t = !g ? 'Pulizia spenta: i file restano finché non li cancelli tu.' : st.candidati ? 'Ora ci sono ' + st.candidati + (st.candidati === 1 ? ' file' : ' file') + ' (' + dimStr(st.candidati_byte) + ') più vecchi di ' + etichetta.toLowerCase() + ': verranno cancellati alla prossima pulizia (una volta al giorno).' : 'Nessun file più vecchio di ' + etichetta.toLowerCase() + ': non c\'è niente da cancellare.';
+  if (st.ultima) t += ' Ultima pulizia: ' + dataIT(st.ultima.slice(0, 10)) + ' alle ' + st.ultima.slice(11, 16) + ' — ' + (st.eliminati ? 'eliminati ' + st.eliminati + (st.eliminati === 1 ? ' file' : ' file') + ' (' + dimStr(st.byte) + ').' : 'nessun file eliminato.');
+  $('#pul-stato').textContent = t; $('#pul-ora').disabled = !g;
+}
+function avviaPulizia(){
+  const sel = $('#pul-giorni'); if (!sel) return;
+  sel.onchange = async () => {
+    const g = +sel.value;
+    if (g && !confirm('Da ora i PDF dei rapporti e i file già importati più vecchi di ' + sel.options[sel.selectedIndex].textContent.toLowerCase() + ' verranno cancellati dal computer.\n\nHai già caricato in Levante i PDF che ti servono?')) { aggiornaPulizia(); return; }
+    try { await chiamaJson('posta-pulizia-config', {giorni: g}); } catch(e) {}
+    aggiornaPulizia();
+  };
+  $('#pul-ora').onclick = async () => {
+    const g = +sel.value; if (!g) return;
+    if (!confirm('Cancello adesso i file più vecchi di ' + sel.options[sel.selectedIndex].textContent.toLowerCase() + '?')) return;
+    try { await chiamaJson('posta-pulizia-ora'); } catch(e) { $('#pul-stato').textContent = 'Il servizio non risponde.'; return; }
+    aggiornaPulizia();
+  };
+}
 function avviaAggiornamenti(){
   $('#ag-novita-vedi').onclick = async () => {
     const v = (await leggiNovitaProg()).slice(0, 5);
@@ -6689,7 +6729,7 @@ function avviaAggiornamenti(){
   $('#ag-auto').onchange = e => chiamaJson('aggiorna-config', {auto: e.target.checked}).catch(() => {});
 }
 function avviaLicenzaBackup(){
-  avviaAggiornamenti();
+  avviaAggiornamenti(); avviaPulizia();
   controllaLicenza(); setInterval(controllaLicenza, 3600000);
   $('#lic-attiva').onclick = () => attivaLicenza('#lic-chiave', '#lic-esito');
   $('#lb-attiva').onclick = () => attivaLicenza('#lb-chiave', '#lb-esito');
@@ -6924,6 +6964,8 @@ function avvia(){
   $('#b-pdf').onclick = creaPdf;
   $('#b-impostazioni').onclick = () => {
     try { aggiornaImpPin(); } catch(e) {}
+    $('#chk-cantieri').checked = cantieriAttivi(); $('#chk-chiamate').checked = chiamateAttive();
+    try { aggiornaPulizia(); } catch(e) {}
     $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || ''; $('#i-posizione').checked = !!impostazioni.posizione;
     $('#i-privacy-on').checked = impostazioni.privacyOn !== false; $('#i-privacy').value = testoPrivacy(); $('#i-codice').value = impostazioni.codiceSic || ''; aggiornaCodiceStato();
     $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
@@ -6944,6 +6986,8 @@ function avvia(){
   $('#i-posizione').onchange = e => { impostazioni.posizione = e.target.checked; salvaImpostazioni(); if (e.target.checked) leggiPosizione(function(){}, function(m){ alert(m); }); };
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
   const aggiornaCodiceStato = () => { const c = codiceSic(), el = $('#codice-stato'); if (el) el.textContent = c ? (c.length < 12 ? '⚠ Codice troppo corto: usa «Crea un nuovo codice».' : '🔒 Protezione attiva. Non perdere questo codice: senza non si aprono i file protetti.') : '⚠ Protezione NON attiva: agende, interventi e copie di sicurezza viaggiano in chiaro. Scrivi un codice (o usa «Crea un nuovo codice»).'; try { disegnaAvvisoProt(); } catch(e) {} };
+  $('#chk-cantieri').onchange = e => { impostazioni.cantieri = e.target.checked; salvaImpostazioni(); try { ricalcolaOperai(); disegnaUfficio(); } catch(x) {} };
+  $('#chk-chiamate').onchange = e => { impostazioni.chiamate = e.target.checked; salvaImpostazioni(); try { disegnaUfficio(); } catch(x) {} };
   $('#i-codice').oninput = e => { impostazioni.codiceSic = e.target.value.trim().toUpperCase() || undefined; salvaImpostazioni(); aggiornaCodiceStato(); };
   $('#b-codice-nuovo').onclick = () => { if (codiceSic() && !confirm('Esiste già un codice. Se ne crei uno nuovo, devi riscriverlo su tutti i dispositivi dei tecnici e in ufficio, e i file già inviati col vecchio codice non si apriranno più. Continuo?')) return; impostazioni.codiceSic = CIFRA.genera(); salvaImpostazioni(); $('#i-codice').value = impostazioni.codiceSic; aggiornaCodiceStato(); };
   $('#b-codice-copia').onclick = async () => { const c = impostazioni.codiceSic || ''; if (!c) return; try { await navigator.clipboard.writeText(c); $('#codice-stato').textContent = 'Codice copiato.'; } catch(e) { const i = $('#i-codice'); i.focus(); i.select(); $('#codice-stato').textContent = 'Seleziona e copia il codice dal campo qui sopra.'; } };
