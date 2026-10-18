@@ -1,12 +1,12 @@
 {
- "versione": "1.41.3",
+ "versione": "1.41.4",
  "canale": "prova",
  "data": "2026-10-18",
  "novita": [
-  "Nuovo pop up dove visualizzare tutti gli aggiornamenti"
+  "Aggiornamenti a centro pagina"
  ],
- "pacchetto": "aggiornamento_1.41.3.zip",
- "sha256": "eede7e8a1717c4c64a33dc48743e4b0b19f205a9742d86ad819e07ba955ec9b5",
- "firma": "4xFD68nyZPWxML6LDdT5ahWSKPhTBkT5Y42AsK5EIsuxLbHl2dNr4wDZvWfCdznmqD5ewT80JTlHzjg6m3CQDQ",
- "dimensione": 1306055
+ "pacchetto": "aggiornamento_1.41.4.zip",
+ "sha256": "32af5e525ee2cd494b6fbe80e032c1846ad559c926e5952003fc4308503bb2c4",
+ "firma": "FcXx3ZYNQl__cc7uZYFTJgOaHso8aIo8J8mXVaZFe35tKupqc-nwDbUK92uPtl8Rx-SmwVAC3IfPZpOUmBCxBQ",
+ "dimensione": 1306112
 }
