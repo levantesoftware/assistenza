@@ -1506,7 +1506,7 @@ function fissaChiamata(a){
 function disegnaAgenda(){
   aggiornaNav();
   disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaDaCompletare();
-  $('#sotto-agenda').textContent = (impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
+  $('#sotto-agenda').textContent = (inUfficio ? 'App Ufficio · ' : impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
   { const Lk = elencoCantieri(), sk = $('#s-cantieri');
     sk.hidden = !Lk.length; if (periodo === 'cantieri' && !Lk.length) periodo = 'oggi';
     sk.setAttribute('aria-pressed', periodo === 'cantieri');
@@ -5264,7 +5264,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.42.0 (18/10/2026)';
+const VERSIONE_APP = '1.42.1 (19/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
