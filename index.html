@@ -1410,6 +1410,7 @@ function tabTecnici(elenco){
   if (!inUfficio) { box.innerHTML = ''; return; }
   const conta = {}; elenco.forEach(a => { const n = a.tecnico_nome || ''; if (n) conta[n] = (conta[n] || 0) + 1; });
   const tutti = {}; appuntamenti.forEach(a => { if (a.tecnico_nome) tutti[a.tecnico_nome] = 1; });
+  { const tl = (typeof datiLevante !== 'undefined' && datiLevante && datiLevante.tecnici) || {}; Object.keys(tl).forEach(id => { if (!/^d-/.test(id) && tl[id]) tutti[tl[id]] = 1; }); }      // anche chi in questo periodo non ha appuntamenti (agenda di Levante)
   const nomi = Object.keys(tutti).sort((x, y) => x.localeCompare(y));
   if (filtroTec && !tutti[filtroTec]) { filtroTec = ''; store.set('ass_tec_filtro', ''); }
   if (nomi.length < 2) { box.innerHTML = ''; return; }
@@ -5264,7 +5265,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.42.1 (19/10/2026)';
+const VERSIONE_APP = '1.42.2 (19/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
