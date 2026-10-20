@@ -5265,7 +5265,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.43.0 (20/10/2026)';
+const VERSIONE_APP = '1.43.1 (20/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5894,7 +5894,7 @@ function zipPdf(r){          // un solo file zip con tutti i PDF dell'intervento
   const ok = (r.file || []).filter(n => pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')));
   if (ok.length < 2) return '';
   const nz = 'Rapporto_' + slugNome(r.cliente) + '_' + String(r.data || '').slice(0, 10) + '.zip';
-  return `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-zip="${esc(nz)}" data-zipn="${esc(ok.join('|'))}" title="Trascina in Levante un solo file zip con tutti i PDF di questo intervento">⠿ Tutti i PDF in uno zip (${ok.length})</button></span>`;
+  return `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-zip="${esc(nz)}" data-zipn="${esc(ok.join('|'))}" title="Trascina in Levante un solo file zip con tutti i PDF di questo intervento">⠿ Tutti i PDF in uno zip (${ok.length})</button><button class="btn chiaro piccolo solo-server" type="button" data-mostrazip="${esc(nz)}" data-zipn="${esc(ok.join('|'))}" title="Mostra lo zip nella cartella">Cartella</button></span>`;
 }
 let allegatiSalvati = new Set();
 function caricaAllegati(){
@@ -6170,6 +6170,7 @@ function avviaPosta(){
     if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); b.textContent = 'Copiato ✓'; }
     else if (d.csv !== undefined) { const r = posta[+d.csv]; scaricaBlob(blobCsv(r), 'Levante_' + slugNome(r.cliente) + '_' + (r.data || '') + '.csv'); }
     else if (d.pdf !== undefined) { const f = pdfPosta[d.pdf]; if (f) scaricaBlob(f, d.pdf); else window.open('posta-allegato?nome=' + encodeURIComponent(d.pdf), '_blank'); }
+    else if (d.mostrazip !== undefined) { chiamaJson('posta-zip-mostra', {zip: d.mostrazip, nomi: d.zipn.split('|')}).then(r => { if (!r || !r.ok) mostraAvviso('Non riesco ad aprire la cartella: lo zip è in C:\\Assistenza\\allegati.'); }).catch(() => {}); }
     else if (d.mostra !== undefined) { chiamaJson('posta-allegato-mostra', {nome: d.mostra}).then(r => { if (!r || !r.ok) mostraAvviso('Non riesco ad aprire la cartella: il file è in C:\\Assistenza\\allegati.'); }).catch(() => {}); }
     else if (d.raggiungi !== undefined) { const r = posta[+d.raggiungi], man = codiciMan(csvImp()); r.rip = ripartizione(r).map(x => Object.assign({}, x)); const usati = r.rip.map(x => x.c), nuovo = (man.find(m => usati.indexOf(m.cod) < 0) || man[0] || {cod: 'M0'}).cod; r.rip.push({c: nuovo, o: ''}); salvaPosta(); disegnaPosta(); }
     else if (d.rtogli !== undefined) { const p = d.rtogli.split('|'), r = posta[+p[0]]; r.rip = ripartizione(r).map(x => Object.assign({}, x)); r.rip.splice(+p[1], 1); salvaPosta(); disegnaPosta(); }
