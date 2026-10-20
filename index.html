@@ -5265,7 +5265,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.42.3 (19/10/2026)';
+const VERSIONE_APP = '1.43.0 (20/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5890,6 +5890,12 @@ function datiIntervento(w, pdf){
     file: pdf || [], inviato: Date.now()};
 }
 let posta = store.get('ass_posta', []);
+function zipPdf(r){          // un solo file zip con tutti i PDF dell'intervento, da trascinare in Levante al posto dei singoli PDF
+  const ok = (r.file || []).filter(n => pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')));
+  if (ok.length < 2) return '';
+  const nz = 'Rapporto_' + slugNome(r.cliente) + '_' + String(r.data || '').slice(0, 10) + '.zip';
+  return `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-zip="${esc(nz)}" data-zipn="${esc(ok.join('|'))}" title="Trascina in Levante un solo file zip con tutti i PDF di questo intervento">⠿ Tutti i PDF in uno zip (${ok.length})</button></span>`;
+}
 let allegatiSalvati = new Set();
 function caricaAllegati(){
   if (!inUfficio) return;
@@ -6017,7 +6023,7 @@ function disegnaPosta(){
       ${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
-      <p style="margin:8px 0">${pdf}</p>
+      <p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
   }).join('');
   { const nC = posta.filter(r => r.cant && !r.fatto).length; if (nC) testa += `<button class="btn sec piccolo" type="button" data-cantcsv="1" style="margin:0 0 12px 8px">Riepilogo ore dei cantieri da registrare (CSV, ${nC})</button>`; }
@@ -6119,7 +6125,7 @@ function schedaCantiere(r, i){
       <p style="margin:8px 0"><b>Ore:</b> ${ore ? '<b>' + esc(fmtOreDec(ore)) + ' h</b>' : '—'}${r.dal || r.al ? ' (' + esc(r.dal || '—') + ' – ' + esc(r.al || '—') + (r.pausa ? ', pausa ' + esc(r.pausa) + ' min' : '') + ')' : ''}${r.tipo ? ' · ' + esc(r.tipo) : ''}${mc ? ' · manodopera <b>' + esc(mc.cod) + '</b>' + (mc.desc ? ' (' + esc(mc.desc) + ')' : '') : (op ? ' · indice manodopera ' + esc(op.op) + ' (imposta i codici nel CSV per Levante)' : '')}</p>
       ${rel}
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
-      ${r.nfoto ? `<p style="margin:8px 0">${r.nfoto} ${r.nfoto === 1 ? 'foto' : 'foto'}</p>` : ''}<p style="margin:8px 0">${pdf}</p>
+      ${r.nfoto ? `<p style="margin:8px 0">${r.nfoto} ${r.nfoto === 1 ? 'foto' : 'foto'}</p>` : ''}<p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
 }
 function blobRiepilogoCantieri(){
@@ -6170,6 +6176,12 @@ function avviaPosta(){
     else if (d.togliPosta !== undefined) { if (confirm('Elimino questo intervento dalla posta in arrivo?')) { posta.splice(+d.togliPosta, 1); salvaPosta(); disegnaPosta(); } }
   });
   $('#posta-elenco').addEventListener('dragstart', e => {
+    const z = e.target.closest && e.target.closest('[data-zip]');
+    if (z && e.dataTransfer) {
+      const urlz = new URL('posta-zip?zip=' + encodeURIComponent(z.dataset.zip) + z.dataset.zipn.split('|').map(x => '&nome=' + encodeURIComponent(x)).join(''), location.href).href;
+      try { e.dataTransfer.setData('DownloadURL', 'application/zip:' + z.dataset.zip + ':' + urlz); e.dataTransfer.setData('text/uri-list', urlz); e.dataTransfer.effectAllowed = 'copy'; } catch(x) {}
+      return;
+    }
     const b = e.target.closest && e.target.closest('[data-pdf]'); if (!b || !e.dataTransfer) return;
     const n = b.dataset.pdf, url = new URL('posta-allegato?nome=' + encodeURIComponent(n), location.href).href;
     try { e.dataTransfer.setData('DownloadURL', 'application/pdf:' + n + ':' + url); e.dataTransfer.setData('text/uri-list', url); e.dataTransfer.effectAllowed = 'copy'; } catch(x) {}
