@@ -724,6 +724,13 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <label class="tile"><input type="radio" name="stampa-dpi" value="300"><span>Alta, 300 dpi<small>per le stampanti a 300 dpi: le note piccole dell'RCEE si leggono meglio</small></span></label>
     </div>
     <div class="solo-tec">
+    <h2 class="giorno" style="margin-top:26px">Qualità delle foto</h2>
+    <p class="aiuto" style="margin:0 0 8px">Più la foto è leggera, meno pesano il rapporto, la mail e l'allegato in Levante. Vale per le foto scattate da ora in poi.</p>
+    <label class="tile"><input type="radio" name="foto-q" value="leggera"><span>Leggera<small>1024 punti, circa 80-150 KB a foto: va bene per documentare un lavoro</small></span></label>
+    <label class="tile"><input type="radio" name="foto-q" value="normale"><span>Normale<small>1280 punti, circa 150-300 KB a foto</small></span></label>
+    <label class="tile"><input type="radio" name="foto-q" value="alta"><span>Alta<small>1600 punti, circa 300-600 KB a foto: per leggere targhette piccole</small></span></label>
+    </div>
+    <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Blocco con PIN</h2>
     <p class="aiuto" style="margin:0 0 8px">Chiede un PIN per aprire l'app: se perdi il telefono o lo lasci in giro, nessuno vede appuntamenti e dati dei clienti. È un blocco dello schermo dell'app, non una cifratura dei dati.</p>
     <p id="pin-stato" style="margin:0 0 8px"></p>
@@ -4353,7 +4360,9 @@ function aggiungiMaterialiVoce(){
    e all'invio parte un PDF "Documentazione fotografica" (e, se vuoi, le foto singole).
    Le immagini stanno in IndexedDB; nella scheda restano solo anteprima e commento.
    ================================================================== */
-const FOTO_MAX_LATO = 1280, FOTO_QUALITA = 0.7, FOTO_MAX_NUMERO = 30;
+const FOTO_MAX_NUMERO = 30;
+const FOTO_LIVELLI = {leggera: {lato: 1024, q: 0.6}, normale: {lato: 1280, q: 0.7}, alta: {lato: 1600, q: 0.8}};
+function fotoLivello(){ return FOTO_LIVELLI[impostazioni.fotoQualita] || FOTO_LIVELLI.leggera; }
 async function operaSuFoto(modo, fn){
   const db = await apriDb();
   const r = await new Promise((ok, ko) => { const tx = db.transaction('foto', modo); const out = fn(tx.objectStore('foto')); tx.oncomplete = () => ok(out && out.result !== undefined ? out.result : undefined); tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error); });
@@ -4373,10 +4382,10 @@ async function elaboraImmagine(file){
     bmp = await new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ko(new Error('immagine non leggibile')); im.src = URL.createObjectURL(file); });
   }
   const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
-  const k = Math.min(1, FOTO_MAX_LATO / Math.max(w0, h0)), w = Math.round(w0 * k), h = Math.round(h0 * k);
+  const k = Math.min(1, fotoLivello().lato / Math.max(w0, h0)), w = Math.round(w0 * k), h = Math.round(h0 * k);
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(bmp, 0, 0, w, h);
-  const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', FOTO_QUALITA));
+  const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', fotoLivello().q));
   const dati = await blob.arrayBuffer();
   const kt = 240 / Math.max(w, h), tw = Math.round(w * kt), th = Math.round(h * kt);
   const tc = document.createElement('canvas'); tc.width = tw; tc.height = th; tc.getContext('2d').drawImage(cv, 0, 0, tw, th);
@@ -5265,7 +5274,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.43.1 (20/10/2026)';
+const VERSIONE_APP = '1.44.0 (20/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -6986,10 +6995,12 @@ function avvia(){
     const st = Object.assign({formato: 'pdf', bn: true, dpi: 200}, impostazioni.stampa || {});
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
     document.querySelectorAll('input[name="stampa-dpi"]').forEach(r => r.checked = (+r.value === +st.dpi));
+    document.querySelectorAll('input[name="foto-q"]').forEach(r => r.checked = (r.value === (FOTO_LIVELLI[impostazioni.fotoQualita] ? impostazioni.fotoQualita : 'leggera')));
     mostra('impostazioni'); aggiornaTile(); preparaFirmaTec(); tentativiStato = 0; aggiornaStatoApp();
   };
   const salvaStampa = () => { const r = document.querySelector('input[name="stampa-formato"]:checked'), d = document.querySelector('input[name="stampa-dpi"]:checked'); impostazioni.stampa = {formato: r ? r.value : 'pdf', bn: $('#stampa-bn').checked, dpi: d ? +d.value : 200}; salvaImpostazioni(); aggiornaTile(); };
   document.querySelectorAll('input[name="stampa-formato"],input[name="stampa-dpi"]').forEach(r => r.onchange = salvaStampa); $('#stampa-bn').onchange = salvaStampa;
+  document.querySelectorAll('input[name="foto-q"]').forEach(r => r.onchange = () => { impostazioni.fotoQualita = r.value; salvaImpostazioni(); aggiornaTile(); });
   $('#b-indietro-imp').onclick = indietro;
   { let tT = 0, tN = 0; const h = document.querySelector('#v-impostazioni h1'); if (store.get('ass_tec_visibile', false)) document.body.classList.add('tec-visibile');
     if (h) h.onclick = () => { const t = Date.now(); tN = (t - tT < 1500) ? tN + 1 : 1; tT = t; if (tN >= 5) { tN = 0; const on = !document.body.classList.contains('tec-visibile'); document.body.classList.toggle('tec-visibile', on); store.set('ass_tec_visibile', on); mostraAvviso(on ? 'Impostazioni da tecnico visibili.' : 'Impostazioni da tecnico nascoste.', '', null, 4000); } }; }
