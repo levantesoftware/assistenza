@@ -413,6 +413,17 @@ button.pos{margin-top:4px;font-size:13px}
 .ed-sul-testo .ed-ov{touch-action:none;cursor:text}
 .ed-sul-disegno .ed-ov{touch-action:none;cursor:crosshair}
 .ed-scorri .ed-ov{pointer-events:none}
+.ed-campo{position:absolute;box-sizing:border-box;display:flex;align-items:center;overflow:hidden;border:1px dashed rgba(26,115,232,.75);background:rgba(255,226,102,.28);border-radius:2px;cursor:pointer;padding:0 2px;line-height:1;color:#0B4DB8;font:600 11px Helvetica,Arial,sans-serif;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ed-campo.cb,.ed-campo.rg{justify-content:center;padding:0;background:rgba(255,226,102,.18)}
+.ed-campo.mod{background:#fff;border-style:solid}
+.ed-campo.mod.multi{align-items:flex-start;white-space:pre-wrap}
+.ed-campo.tx{white-space:nowrap}
+.ed-campo.attivo{outline:2px solid #C62828}
+#ed-pagine:not(.ed-scorri) .ed-campo{pointer-events:none}
+#ed-campo-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:31;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding-top:8vh}
+#ed-campo-modale[hidden]{display:none}
+#ed-campo-modale .ed-fogli{width:min(92vw,520px)}
+#ed-campo-in{width:100%;font-size:16px;box-sizing:border-box}
 .ed-sul-mat .ed-ov{touch-action:pan-y;cursor:crosshair}
 #ed-mat{border:1.5px solid var(--riga);border-radius:10px;background:#fff;padding:6px 10px;margin:4px 0 6px;max-height:30vh;overflow:auto}
 #ed-mat[hidden]{display:none}
@@ -670,6 +681,13 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       </div>
     </div>
     <div id="ed-pagine"></div>
+    <div id="ed-campo-modale" hidden>
+      <div class="ed-fogli">
+        <label for="ed-campo-in"><b id="ed-campo-et">Campo</b></label>
+        <textarea id="ed-campo-in" rows="1"></textarea>
+        <div class="azioni" style="grid-template-columns:1fr 1fr 1fr"><button class="btn sec" id="b-ed-campo-no" type="button">Annulla</button><button class="btn sec" id="b-ed-campo-ok" type="button">Fatto</button><button class="btn" id="b-ed-campo-avanti" type="button">Avanti ›</button></div>
+      </div>
+    </div>
     <div id="ed-modale" hidden>
       <div class="ed-fogli">
         <label for="ed-testo-in"><b>Testo da scrivere</b></label>
@@ -3790,18 +3808,101 @@ async function disegnaPagineEditor(){
     div.appendChild(cv); div.appendChild(ov); box.appendChild(div);
     await pag.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
     ed.pagine.push({cv, ov, div, cssW: larg, cssH: larg * v1.height / v1.width, dpr});
+    try { await campiDiPagina(pag, n - 1, div, v1, larg / v1.width); } catch(e) {}
     collegaOverlay(ov, n - 1);
   }
   aggiornaBarraEditor();
   ed.pagine.forEach((_, i) => ridisegnaPagina(i));
 }
+
+/* ---- moduli PDF compilabili: i campi veri del PDF si compilano toccandoli, senza uscire dall'app ---- */
+async function campiDiPagina(pag, ip, div, v1, k){
+  if (!ed.campi) { ed.campi = {}; ed.lista = []; }
+  const ann = await pag.getAnnotations({intent: 'display'});
+  ann.forEach(a => {
+    if (a.subtype !== 'Widget' || a.readOnly || !a.fieldName || !a.rect) return;
+    const tipo = a.fieldType === 'Tx' ? 'tx' : (a.fieldType === 'Btn' && a.checkBox) ? 'cb' : (a.fieldType === 'Btn' && a.radioButton) ? 'rg' : null;
+    if (!tipo) return;
+    const r = v1.convertToViewportRectangle(a.rect), x1 = Math.min(r[0], r[2]), x2 = Math.max(r[0], r[2]), y1 = Math.min(r[1], r[3]), y2 = Math.max(r[1], r[3]);
+    if (x2 - x1 < 3 || y2 - y1 < 3) return;
+    const nome = a.fieldName;
+    const c = ed.campi[nome] || (ed.campi[nome] = {tipo, orig: tipo === 'tx' ? String(Array.isArray(a.fieldValue) ? a.fieldValue[0] || '' : a.fieldValue || '') : tipo === 'cb' ? !!(a.fieldValue && a.fieldValue !== 'Off') : String(a.fieldValue || 'Off'), mod: false, multi: !!a.multiLine, max: a.maxLen || 0, et: a.alternativeText || ''});
+    if (c.val === undefined) c.val = c.orig;
+    if (!c.et && a.alternativeText) c.et = a.alternativeText;
+    const el = document.createElement('div');
+    el.className = 'ed-campo ' + tipo + (a.multiLine ? ' multi' : '');
+    el.style.left = (x1 / v1.width * 100) + '%'; el.style.top = (y1 / v1.height * 100) + '%';
+    el.style.width = ((x2 - x1) / v1.width * 100) + '%'; el.style.height = ((y2 - y1) / v1.height * 100) + '%';
+    const alt = (y2 - y1) * k; el.style.fontSize = Math.max(8, Math.min(14, alt * 0.62)) + 'px';
+    const w = {el, nome, p: ip, x: x1, y: y1, bv: tipo === 'rg' ? String(a.buttonValue || a.exportValue || '') : ''};
+    el.addEventListener('click', e => { e.preventDefault(); if (ed && ed.str === 'scorri') tocCampo(w); });
+    div.appendChild(el); ed.lista.push(w);
+    mostraCampo(w);
+  });
+}
+function mostraCampo(w){
+  const c = ed.campi[w.nome]; if (!c) return;
+  const el = w.el;
+  if (c.tipo === 'tx') { el.textContent = c.mod ? c.val : ''; el.classList.toggle('mod', c.mod && c.val !== ''); }
+  else if (c.tipo === 'cb') { el.textContent = c.mod ? (c.val ? '✓' : '') : ''; el.classList.toggle('mod', c.mod); }
+  else { const on = c.mod && c.val === w.bv; el.textContent = c.mod ? (on ? '●' : '') : ''; el.classList.toggle('mod', c.mod); }
+}
+function mostraCampiNome(nome){ ed.lista.filter(x => x.nome === nome).forEach(mostraCampo); }
+let campoAperto = null;
+function tocCampo(w){
+  const c = ed.campi[w.nome]; if (!c) return;
+  if (c.tipo === 'cb') { c.val = !c.val; c.mod = true; ed.sporco = true; mostraCampiNome(w.nome); return; }
+  if (c.tipo === 'rg') { c.val = c.mod && c.val === w.bv ? 'Off' : w.bv; c.mod = true; ed.sporco = true; mostraCampiNome(w.nome); return; }
+  apriCampoTesto(w);
+}
+function apriCampoTesto(w){
+  const c = ed.campi[w.nome]; if (!c) return;
+  document.querySelectorAll('.ed-campo.attivo').forEach(x => x.classList.remove('attivo'));
+  w.el.classList.add('attivo');
+  campoAperto = w;
+  $('#ed-campo-et').textContent = c.et || w.nome;
+  const inp = $('#ed-campo-in'); inp.value = c.val; inp.rows = c.multi ? 4 : 1; if (c.max) inp.maxLength = c.max; else inp.removeAttribute('maxlength');
+  $('#ed-campo-modale').hidden = false;
+  setTimeout(() => { inp.focus(); inp.select(); }, 50);
+}
+function chiudiCampoTesto(salva){
+  const w = campoAperto, inp = $('#ed-campo-in'); campoAperto = null;
+  $('#ed-campo-modale').hidden = true;
+  if (!w || !ed) return;
+  w.el.classList.remove('attivo');
+  if (!salva) return;
+  const c = ed.campi[w.nome], v = c.multi ? inp.value : inp.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  if (v !== c.val) { c.val = v; c.mod = true; ed.sporco = true; mostraCampiNome(w.nome); }
+}
+function campoAvanti(){
+  const w = campoAperto; if (!w || !ed) return;
+  chiudiCampoTesto(true);
+  const L = ed.lista.filter(x => ed.campi[x.nome].tipo === 'tx').sort((a, b) => a.p - b.p || a.y - b.y || a.x - b.x);
+  const i = L.indexOf(w), n = L[i + 1];
+  if (n) { try { n.el.scrollIntoView({block: 'center'}); } catch(e) {} apriCampoTesto(n); }
+}
+const campiModificati = () => ed && ed.campi ? Object.keys(ed.campi).filter(k => ed.campi[k].mod) : [];
+function applicaCampiAlPdf(pdf, font){
+  const nomi = campiModificati(); if (!nomi.length) return;
+  const L = window.PDFLib, form = pdf.getForm();
+  nomi.forEach(nome => {
+    const c = ed.campi[nome];
+    try {
+      const f = form.getFieldMaybe(nome); if (!f) return;
+      if (c.tipo === 'tx' && f instanceof L.PDFTextField) { let v = sanificaTesto(c.val, font, 10); const mx = f.getMaxLength(); if (mx && v.length > mx) v = v.slice(0, mx); if (v) f.setText(v); else f.setText(undefined); }
+      else if (c.tipo === 'cb' && f instanceof L.PDFCheckBox) { if (c.val) f.check(); else f.uncheck(); }
+      else if (c.tipo === 'rg' && f instanceof L.PDFRadioGroup) { if (c.val && c.val !== 'Off') f.select(c.val); else f.clear(); }
+    } catch(e) {}
+  });
+}
+
 function aggiornaBarraEditor(){
   if (!ed) return;
   document.querySelectorAll('.ed-str[data-str]').forEach(b => b.setAttribute('aria-pressed', b.dataset.str === ed.str));
   document.querySelectorAll('.ed-col').forEach(b => b.setAttribute('aria-pressed', b.dataset.col === ed.col));
   document.querySelectorAll('.ed-dim').forEach(b => b.setAttribute('aria-pressed', +b.dataset.dim === ed.dim));
   $('#b-ed-annulla').disabled = !ed.azioni.length;
-  const aiuti = {scorri: 'Scorri le pagine. Scegli uno strumento per scrivere o disegnare.', testo: 'Tocca dove vuoi scrivere.', penna: 'Disegna con il dito.', spunta: 'Tocca dove mettere la spunta.', croce: 'Tocca dove mettere la croce.', mat: 'Scegli cosa scrivere, poi tocca sul documento.'};
+  const aiuti = {scorri: (ed.lista && ed.lista.length ? 'Questo modulo ha dei campi (in giallo): toccane uno per compilarlo. ' : '') + 'Scorri le pagine. Scegli uno strumento per scrivere o disegnare.', testo: 'Tocca dove vuoi scrivere.', penna: 'Disegna con il dito.', spunta: 'Tocca dove mettere la spunta.', croce: 'Tocca dove mettere la croce.', mat: 'Scegli cosa scrivere, poi tocca sul documento.'};
   $('#ed-aiuto').textContent = aiuti[ed.str] + (ed.giaModificato ? ' (Stai modificando la tua versione già salvata.)' : '');
   const box = $('#ed-pagine');
   box.classList.toggle('ed-scorri', ed.str === 'scorri');
@@ -4048,6 +4149,7 @@ async function creaPdfModificato(bytes, azioni){
   const L = window.PDFLib;
   const pdf = await L.PDFDocument.load(bytes, {ignoreEncryption: true});
   const font = await pdf.embedFont(L.StandardFonts.Helvetica);
+  try { applicaCampiAlPdf(pdf, font); } catch(e) {}
   const pagine = pdf.getPages();
   const col = h => L.rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
   azioni.forEach(a => {
@@ -4073,7 +4175,7 @@ async function creaPdfModificato(bytes, azioni){
 }
 async function salvaEditor(){
   if (!ed) return;
-  if (!ed.azioni.length) { $('#ed-aiuto').textContent = 'Non hai aggiunto niente: non c\'è nulla da salvare.'; return; }
+  if (!ed.azioni.length && !campiModificati().length) { $('#ed-aiuto').textContent = 'Non hai aggiunto niente: non c\'è nulla da salvare.'; return; }
   const b = $('#b-ed-salva'); b.disabled = true; $('#ed-aiuto').textContent = 'Salvo…';
   try {
     const out = await creaPdfModificato(ed.bytes, ed.azioni);
@@ -5274,7 +5376,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.44.1 (20/10/2026)';
+const VERSIONE_APP = '1.45.0 (20/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -7061,6 +7163,8 @@ function avvia(){
   $('#b-mat-nessuna').onclick = () => { if (!ed) return; matAzzeraSel({}); matDisegna(); };
   $('#ed-mat-max').oninput = e => { if (ed) ed.mat.max = Math.max(0, parseInt(e.target.value, 10) || 0); };
   $('#b-ed-annulla').onclick = annullaUltimo; $('#b-ed-salva').onclick = salvaEditor; $('#b-ed-chiudi').onclick = chiudiEditor;
+  $('#b-ed-campo-ok').onclick = () => chiudiCampoTesto(true); $('#b-ed-campo-no').onclick = () => chiudiCampoTesto(false); $('#b-ed-campo-avanti').onclick = campoAvanti;
+  $('#ed-campo-in').addEventListener('keydown', e => { if (e.key === 'Enter' && !(campoAperto && ed.campi[campoAperto.nome].multi)) { e.preventDefault(); campoAvanti(); } });
   $('#b-ed-testo-ok').onclick = confermaTesto; $('#b-ed-testo-no').onclick = () => { $('#ed-modale').hidden = true; edTestoPos = null; };
   // se la pagina viene chiusa o nascosta mentre una modifica aspetta di essere salvata, la salvo subito
   const salvaSubito = () => { if (timer && lavoro) { clearTimeout(timer); salvaBozza(); } };
