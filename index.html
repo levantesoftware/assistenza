@@ -734,6 +734,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <button class="btn pieno" id="b-installa" type="button" hidden style="margin-bottom:8px">Installa l'app</button>
     <button class="btn sec pieno" id="b-ricontrolla" type="button" style="margin-bottom:8px">Ricontrolla lo stato</button>
     <button class="btn sec pieno" id="b-ricarica" type="button">Aggiorna l'app (serve la connessione)</button>
+    <button class="btn sec pieno" id="b-prova-mic" type="button" style="margin-top:8px">Prova il microfono (diagnosi)</button>
     <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Stampante</h2>
     <p class="aiuto" style="margin-bottom:10px">Premendo <b>Stampa</b> si apre il menu di condivisione del dispositivo: scegli l'app della tua stampante Bluetooth e il documento si carica lì.</p>
@@ -4322,6 +4323,37 @@ function interpretaMateriali(testo){
 
 /* ---- dettatura con il microfono (riconoscimento vocale del browser) ---- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+/* Prova del microfono: due campi e un registro di quello che il telefono risponde (serve a capire dove si ferma la dettatura) */
+function provaMicrofono(){
+  if (!SR) { alert('Questo browser non ha il riconoscimento vocale.'); return; }
+  const d = document.createElement('div'); d.id = 'prova-mic';
+  d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;color:#000;overflow:auto;padding:14px;font:15px -apple-system,sans-serif';
+  d.innerHTML = '<h2 style="margin:0 0 8px">Prova del microfono</h2><p>Tocca «Parla» sul primo campo, di\' una frase, poi sul secondo, e così via. Sotto compare quello che risponde il telefono.</p>' +
+    '<label><input type="checkbox" id="pm-cont" checked> modo continuo</label> &nbsp; <label><input type="checkbox" id="pm-riuso"> riusa lo stesso riconoscitore</label>' +
+    ['pm1','pm2','pm3'].map((id, i) => '<div style="margin:10px 0"><textarea id="' + id + '" rows="2" style="width:100%;font-size:16px" placeholder="Campo ' + (i + 1) + '"></textarea><button type="button" data-pm="' + id + '" style="font-size:16px;padding:8px 14px">Parla</button> <button type="button" data-pmstop style="font-size:16px;padding:8px 14px">Ferma</button></div>').join('') +
+    '<pre id="pm-log" style="white-space:pre-wrap;font-size:12px;background:#eee;padding:8px;min-height:120px"></pre><button type="button" id="pm-chiudi" style="font-size:16px;padding:8px 14px">Chiudi</button>';
+  document.body.appendChild(d);
+  const log = m => { const l = $('#pm-log'); l.textContent = new Date().toLocaleTimeString() + ' ' + m + '\n' + l.textContent; };
+  let rec = null, n = 0, riusato = null;
+  const crea = campo => {
+    const r = new SR(); n++; const k = n;
+    r.lang = 'it-IT'; r.interimResults = true; r.continuous = $('#pm-cont').checked;
+    ['start', 'audiostart', 'soundstart', 'speechstart', 'speechend', 'soundend', 'audioend', 'nomatch', 'end'].forEach(ev => r.addEventListener(ev, () => log('#' + k + ' ' + ev)));
+    r.onerror = e => log('#' + k + ' ERRORE ' + (e && e.error));
+    r.onresult = e => { let s = ''; for (let i = 0; i < e.results.length; i++) s += e.results[i][0].transcript; log('#' + k + ' testo: ' + s); const dest = $('#' + (r.__campo || campo)); if (dest) dest.value = s; };
+    return r;
+  };
+  d.onclick = e => {
+    const b = e.target;
+    if (b.id === 'pm-chiudi') { try { rec && rec.stop(); } catch(x) {} d.remove(); return; }
+    if (b.dataset && b.dataset.pmstop !== undefined) { try { rec && rec.stop(); } catch(x) {} return; }
+    if (b.dataset && b.dataset.pm) {
+      try { if (rec) rec.stop(); } catch(x) {}
+      if ($('#pm-riuso').checked) { rec = riusato || (riusato = crea(b.dataset.pm)); rec.__campo = b.dataset.pm; } else rec = crea(b.dataset.pm);
+      try { rec.start(); log('avvio richiesto per ' + b.dataset.pm); } catch(x) { log('start fallito: ' + x.message); }
+    }
+  };
+}
 let dett = null;                    // {rec, dest, attivo}
 const ICONA_MIC = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>';
 function bottoneMic(dest){ return `<button type="button" class="mic" data-mic="${esc(dest)}" aria-label="Detta con la voce" title="Detta con la voce">${ICONA_MIC}</button>`; }
@@ -5421,7 +5453,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.7 (23/10/2026)';
+const VERSIONE_APP = '1.46.8 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -7237,6 +7269,7 @@ function avvia(){
   $('#novita-modale').addEventListener('click', e => { if (e.target.id === 'novita-modale') $('#novita-modale').hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#novita-modale').hidden) $('#novita-modale').hidden = true; });
   $('#b-ricontrolla').onclick = () => { tentativiStato = 0; aggiornaStatoApp(); };
+  $('#b-prova-mic').onclick = provaMicrofono;
   $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } forzaAggiornamento(); };
   registraServiceWorker(); setTimeout(controllaNuovaVersione, 4000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(controllaNuovaVersione, 1500); });
