@@ -5416,7 +5416,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.2 (23/10/2026)';
+const VERSIONE_APP = '1.46.3 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -5692,7 +5692,7 @@ function scanLettore(){
   const Z = window.ZXing, h = new Map();
   h.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.CODE_93, Z.BarcodeFormat.ITF, Z.BarcodeFormat.CODABAR, Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.DATA_MATRIX]);
   h.set(Z.DecodeHintType.TRY_HARDER, true);
-  zxLettore = new Z.BrowserMultiFormatReader(h, 300);
+  zxLettore = new Z.BrowserMultiFormatReader(h, 120);
   return zxLettore;
 }
 async function scanApri(){
@@ -5705,8 +5705,9 @@ async function scanApri(){
   if (!live) { scanMsg('Questo dispositivo non permette la fotocamera dal vivo: tocca "Scatta una foto del codice" e inquadra bene il codice a barre.'); return; }
   try {
     const v = $('#scan-video'); v.hidden = false; scanAttivo = true;
-    scanMsg('Inquadra il codice a barre e tieni fermo.');
-    await scanLettore().decodeFromConstraints({video: {facingMode: {ideal: 'environment'}}, audio: false}, 'scan-video', (ris) => {
+    scanMsg('Inquadra il codice a barre, a circa 15-20 cm, con buona luce, e tieni fermo un attimo. Se non lo legge, usa "Scatta una foto del codice".');
+    setTimeout(() => { try { const tr = v.srcObject && v.srcObject.getVideoTracks()[0]; if (tr && tr.applyConstraints) tr.applyConstraints({advanced: [{focusMode: 'continuous'}]}).catch(() => {}); } catch(e) {} }, 900);
+    await scanLettore().decodeFromConstraints({video: {facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080}, frameRate: {ideal: 30}}, audio: false}, 'scan-video', (ris) => {
       if (ris && scanAttivo) { const t = ris.getText(); if (t && t !== scanUltimo) { scanUltimo = t; scanRisultato(t); } }
     });
   } catch(e) {
