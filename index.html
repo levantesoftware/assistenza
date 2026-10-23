@@ -734,6 +734,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <button class="btn pieno" id="b-installa" type="button" hidden style="margin-bottom:8px">Installa l'app</button>
     <button class="btn sec pieno" id="b-ricontrolla" type="button" style="margin-bottom:8px">Ricontrolla lo stato</button>
     <button class="btn sec pieno" id="b-ricarica" type="button">Aggiorna l'app (serve la connessione)</button>
+    <label class="spunta" style="margin-top:12px"><input type="checkbox" id="chk-dett-tast"> Dettatura con il microfono della tastiera <span class="aiuto">(se quella dell'app si blocca: il pulsante del microfono apre la tastiera e tu tocchi il suo microfono)</span></label>
     <button class="btn sec pieno" id="b-prova-mic" type="button" style="margin-top:8px">Prova il microfono (diagnosi)</button>
     <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Stampante</h2>
@@ -4417,7 +4418,15 @@ function inserisciDettato(dest, testo){
     bozzaModificata();
   }
 }
+function usaTastiera(dest){
+  const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'vm' ? $('#vm-testo') : dest === 'cn:rel' ? $('#cn-rel')
+    : dest.startsWith('cnfoto:') ? document.querySelector('[data-cn-fc="' + dest.slice(7) + '"]') : dest.startsWith('foto:') ? document.querySelector('[data-fotoc="' + dest.slice(5) + '"]')
+    : dest.startsWith('k:') ? $('#f-' + dest.slice(2)) : null;
+  if (el) { try { el.focus(); } catch(e) {} }
+  barraDett('Tocca il microfono sulla tastiera del telefono e parla.', 6000);
+}
 function avviaDettatura(dest){
+  if (impostazioni.dettTastiera) { usaTastiera(dest); return; }
   if (navigator.onLine === false) { barraDett('Senza connessione la dettatura non funziona: usa il microfono della tastiera del telefono.', 7000); return; }
   if (!SR) { barraDett('La dettatura non è disponibile su questo browser. Usa il microfono della tastiera del telefono.', 7000); return; }
   if (dett && dett.attivo) { const stessa = dett.dest === dest; fermaDettatura(); if (stessa) return; }
@@ -5453,7 +5462,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.8 (23/10/2026)';
+const VERSIONE_APP = '1.46.9 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -7270,6 +7279,7 @@ function avvia(){
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#novita-modale').hidden) $('#novita-modale').hidden = true; });
   $('#b-ricontrolla').onclick = () => { tentativiStato = 0; aggiornaStatoApp(); };
   $('#b-prova-mic').onclick = provaMicrofono;
+  { const c = $('#chk-dett-tast'); c.checked = !!impostazioni.dettTastiera; c.onchange = () => { impostazioni.dettTastiera = c.checked; salvaImpostazioni(); }; }
   $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } forzaAggiornamento(); };
   registraServiceWorker(); setTimeout(controllaNuovaVersione, 4000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(controllaNuovaVersione, 1500); });
