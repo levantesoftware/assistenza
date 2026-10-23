@@ -3616,12 +3616,13 @@ const DB_NOME = 'assistenza_file';
 function apriDb(){
   return new Promise((ok, ko) => {
     if (!window.indexedDB) { ko(new Error('IndexedDB non disponibile')); return; }
-    const r = indexedDB.open(DB_NOME, 4);
+    const r = indexedDB.open(DB_NOME, 5);
     r.onupgradeneeded = () => {
       const db = r.result;
       if (!db.objectStoreNames.contains('file')) db.createObjectStore('file');
       if (!db.objectStoreNames.contains('modificati')) db.createObjectStore('modificati');
       if (!db.objectStoreNames.contains('foto')) db.createObjectStore('foto');                       // le foto scattate dal tecnico
+      if (!db.objectStoreNames.contains('listino')) db.createObjectStore('listino');                 // il listino completo degli articoli (tecnici)
       if (!db.objectStoreNames.contains('cartelle')) db.createObjectStore('cartelle');               // la cartella delle esportazioni (ufficio)   // le versioni modificate NON si cancellano quando arrivano dati nuovi
     };
     r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
@@ -4837,6 +4838,7 @@ function costruisciDaLevante(T){
   const tipiOre = (T.tipiore || []).filter(r => String(r.TIPO || '').toUpperCase() === 'OREDIP1' && r.DESCRIZIONE).map(r => r.DESCRIZIONE);
   return {appuntamenti: out, chiamate, tecnici, cantieri, dipendenti, tecNomi, tipiOre, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
     articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '']),
+    listino: (T.listino || []).filter(r => r.CODICE).map(r => [r.CODICE, r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '']),
     barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || ''])};
 }
 
@@ -5062,7 +5064,7 @@ async function leggiUltimaEsportazione(cambia){
 }
 let datiLevante = null;                 // quello che si usa: dati di Levante limitati ai tecnici compresi nella licenza
 let datiLevanteTutti = null;            // tutto quello che c'e' in Levante
-const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','codici_barre','cantieri','dipendenti','tipiore','sottocantieri1','sottocantieri2','sottocantieri3'];
+const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','listino','codici_barre','cantieri','dipendenti','tipiore','sottocantieri1','sottocantieri2','sottocantieri3'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 /* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
 async function espandiZip(file){
@@ -5146,6 +5148,14 @@ function impostaTabUff(t){
   const v = $('#uff-imp-vuoto'); if (v) v.hidden = ['#uff-servizio', '#smtp-box', '#auto-inv', '#auto-esp'].some(k => { const x = $(k); return x && !x.hidden; });
   window.scrollTo(0, 0);
 }
+function bloccoListino(id, nome){
+  const l = lstDi(nome), on = lstAttivo(nome), nL = (datiLevante.listino || []).length, nP = (datiLevante.articoli || []).length;
+  const q = x => (impostazioni.listino && impostazioni.listino[nome] ? impostazioni.listino[nome][x] : '');
+  const ult = l.ultimo ? `Ultimo invio: <b>${esc(dataIT(isoGiorno(new Date(l.ultimo))))}</b>${l.tipoUltimo === 'tutto' ? ' (listino completo)' : l.tipoUltimo === 'pref' ? ' (solo preferiti)' : ''}` : 'Mai inviato';
+  return `<div style="margin:10px 0 0;padding:8px 10px;border:1px solid var(--riga);border-radius:10px"><label class="spunta" style="margin:0"><input type="checkbox" data-lst="${esc(nome)}"${on ? ' checked' : ''}> Manda gli articoli con il prossimo invio</label>
+    <div style="margin:6px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select data-lstt="${esc(nome)}" aria-label="Quali articoli"${on ? '' : ' disabled'}><option value="pref"${l.tipo !== 'tutto' ? ' selected' : ''}>Solo preferiti (${nP.toLocaleString('it-IT')})</option><option value="tutto"${l.tipo === 'tutto' ? ' selected' : ''}>Listino completo (${nL.toLocaleString('it-IT')})</option></select><span class="aiuto">${ult}</span></div>
+    ${on && l.tipo === 'tutto' && !nL ? '<p class="aiuto" style="margin:6px 0 0;color:var(--rosso)">Nell\'esportazione di Levante non c\'è il listino completo: rilancia l\'esportazione con la versione nuova.</p>' : ''}</div>`;
+}
 function disegnaUfficio(){
   const esito = $('#esito-uff'); if (!datiLevante) return;
   try { aggiornaNav(); } catch(e) {}
@@ -5190,6 +5200,7 @@ function disegnaUfficio(){
     const nCh = chiamateAttive() ? chiamateDi(id).length : 0, nCa = cantieriAttivi() ? (datiLevante.cantieri || []).length : 0, riga = (soloOperaio(id) ? 'Operaio' : `${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}`) + `${nCh ? ' · ' + nCh + (nCh === 1 ? ' chiamata' : ' chiamate') : ''}${nCa ? ' · ' + nCa + (nCa === 1 ? ' cantiere' : ' cantieri') : ''}`;
     const blocco = `<div class="sez" style="margin-top:${compatto ? 4 : 16}px">${compatto ? '' : `<h2>${esc(nome)}<small>${soloOperaio(id) ? 'Operaio' : per[id].length + (per[id].length === 1 ? ' appuntamento' : ' appuntamenti')}${nCa ? ' · ' + nCa + (nCa === 1 ? ' cantiere' : ' cantieri') : ''}${chiamateAttive() && chiamateDi(id).length ? ' · ' + chiamateDi(id).length + (chiamateDi(id).length === 1 ? ' chiamata' : ' chiamate') : ''}</small></h2>
       <p style="margin:0 0 4px">${stato}</p>`}${dettaglio}
+      ${inUfficio ? bloccoListino(id, nome) : ''}
       ${inUfficio ? `<div class="campo" style="margin:8px 0 0"><label for="em-${esc(id)}">Email di ${esc(nome)}</label><input id="em-${esc(id)}" type="email" data-email="${esc(nome)}" value="${esc(emailTecnico(nome))}" autocomplete="off" autocapitalize="none" placeholder="nome@esempio.it"></div>` : ''}
       <div class="azioni" style="margin-top:10px">${inUfficio && smtpPronto ? `<button class="btn${primario ? '' : ' sec'}" type="button" data-mail="${esc(id)}">${etichetta} per mail</button>` : ''}<button class="btn${primario && !(inUfficio && smtpPronto) ? '' : ' sec'}" type="button" data-invia="${esc(id)}">${inUfficio && smtpPronto ? 'Condividi' : etichetta}</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
     if (compatto) { const ap = !!apertiInv[id];
@@ -5208,6 +5219,8 @@ function disegnaUfficio(){
   const bt = $('#b-mail-tutti'); if (bt) bt.onclick = async () => { bt.disabled = true; const out = []; for (const id of daMandare) { const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico'; infoUff.messaggio = 'Invio a ' + nome + '…'; const m = $('#msg-consegna'); if (m) m.textContent = infoUff.messaggio; mostraAvviso(infoUff.messaggio, '', null, 60000); const r = await inviaMailTecnico(id); out.push((r.ok ? '✔ ' : '✘ ') + nome + (r.ok ? '' : ': ' + r.messaggio)); } infoUff.messaggio = out.join(' · '); mostraAvviso(infoUff.messaggio, '', null, 12000); disegnaUfficio(); };
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
+  esito.querySelectorAll('[data-lst]').forEach(c => c.onchange = () => { const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {}); m[c.dataset.lst] = Object.assign({}, m[c.dataset.lst] || {}, {on: c.checked}); salvaImpostazioni(); disegnaUfficio(); });
+  esito.querySelectorAll('[data-lstt]').forEach(s => s.onchange = () => { const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {}); m[s.dataset.lstt] = Object.assign({}, m[s.dataset.lstt] || {}, {tipo: s.value}); salvaImpostazioni(); disegnaUfficio(); });
   esito.querySelectorAll('[data-optec]').forEach(sl => sl.onchange = () => { impostazioni.operaiTec = Object.assign({}, impostazioni.operaiTec || {}); if (sl.value) impostazioni.operaiTec[sl.dataset.optec] = sl.value; else delete impostazioni.operaiTec[sl.dataset.optec]; salvaImpostazioni(); ricalcolaOperai(); disegnaUfficio(); });
   esito.querySelectorAll('[data-ch]').forEach(sel => sel.onchange = () => { if (!sel.value) return; (impostazioni.chiamateTec = impostazioni.chiamateTec || {})[sel.dataset.ch] = sel.value; salvaImpostazioni(); disegnaUfficio(); });
   $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, chiamate: chiamateAperte(), modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
@@ -5231,6 +5244,21 @@ function riepilogoRcee(){
   if (!datiLevante.azienda) h += '<br>Mancano i dati azienda (azienda.csv): l\'impresa manutentrice resterà vuota.';
   return h;
 }
+/* listino per tecnico: spunta "manda gli articoli" (preferiti o listino completo); dopo l'invio si toglie da sola e resta la data */
+const lstDi = nome => Object.assign({on: undefined, tipo: 'pref', ultimo: '', tipoUltimo: ''}, (impostazioni.listino || {})[nome]);
+const lstAttivo = nome => { const l = lstDi(nome); return l.on === undefined ? !l.ultimo : !!l.on; };
+let listinoTsvCache = {rif: null, tsv: ''};
+function listinoTsv(){
+  const L = datiLevante.listino || []; if (!L.length) return '';
+  if (listinoTsvCache.rif !== L) listinoTsvCache = {rif: L, tsv: L.map(r => r.map(x => String(x == null ? '' : x).replace(/[\t\r\n]+/g, ' ').trim()).join('\t')).join('\n')};
+  return listinoTsvCache.tsv;
+}
+function listinoInviato(nome, pk){
+  if (!(pk.articoli.length || pk.barre.length || pk.listino)) return;
+  const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {});
+  m[nome] = Object.assign({}, m[nome] || {}, {on: false, ultimo: new Date().toISOString(), tipoUltimo: pk.listino ? 'tutto' : 'pref'});
+  salvaImpostazioni();
+}
 function pacchettoPer(id, completo){
   const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : '';
   const apps = datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a) && (a.tecnico_id || '') === id);
@@ -5241,7 +5269,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, articoli: datiLevante.articoli || [], barre: datiLevante.barre || [],
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listino: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoTsv() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 async function salvaDati(d, leggero){
@@ -5274,7 +5302,7 @@ async function inviaMailTecnico(id, auto){
   const testo = `Ciao ${nome},\n\nin allegato ${leggero ? 'l\'aggiornamento della tua agenda' : 'la tua agenda'} (${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'}).\n\nApri l'app Assistenza, tocca «Carica i dati» e scegli il file allegato: vedrai subito cosa è nuovo.${prot ? '\n\n(Il file è protetto: l\'app lo apre col codice di sicurezza che trovi in Impostazioni.)' : ''}\n\n${nomeAziendaMail()}`;
   try {
     const r = await chiamaJson('posta-invia', {a, oggetto: (leggero ? 'Aggiornamento agenda ' : 'Agenda ') + nome + ' – ' + dataIT(isoGiorno(new Date())), testo, allegati: [{nome: fn, tipo: 'text/plain', b64: btoa(bin)}]});
-    if (r.ok) salvaInviato(id, pk.appuntamenti, pk.chiamate, pk.cantieri);
+    if (r.ok) { salvaInviato(id, pk.appuntamenti, pk.chiamate, pk.cantieri); listinoInviato(nome, pk); }
     return r;
   } catch(e) { return {ok: false, messaggio: 'Il servizio non risponde.'}; }
 }
@@ -5316,7 +5344,7 @@ async function consegna(id, condividi){
   try { file = new File([protezioneAttiva() ? await CIFRA.cifra(new TextEncoder().encode(JSON.stringify(pk)), codiceSic()) : JSON.stringify(pk)], nome, {type:'text/plain'}); }   // testo: i browser lo lasciano condividere
   catch(e) { infoUff.messaggio = 'Non sono riuscito a proteggere il file: ' + (e.message || e); disegnaUfficio(); return; }
   const msg = $('#msg-consegna');
-  const fatto = testo => { salvaInviato(id, pk.appuntamenti, pk.chiamate, pk.cantieri); infoUff.messaggio = testo; disegnaUfficio(); };
+  const fatto = testo => { salvaInviato(id, pk.appuntamenti, pk.chiamate, pk.cantieri); listinoInviato(pk.tecnico ? pk.tecnico.nome : '', pk); infoUff.messaggio = testo; disegnaUfficio(); };
   if (file.size > 12 * 1048576 && msg) msg.textContent = 'Attenzione: il file pesa ' + dimStr(file.size) + '. Se WhatsApp lo rifiuta, mandalo per mail o riduci i documenti allegati.';
   const tipoTxt = pk.tipo === 'aggiornamento' ? 'aggiornamento' : 'file completo';
   if (condividi) {
@@ -5349,6 +5377,7 @@ async function caricaPacchetto(file){
       }
     }
     salvaArticoli(d.articoli); salvaBarre(d.barre);
+    let nListino = 0; if (typeof d.listino === 'string' && d.listino.length > 10) { try { nListino = await salvaListino(d.listino); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
     await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
@@ -5356,6 +5385,7 @@ async function caricaPacchetto(file){
     const nCan = Array.isArray(d.cantieri) ? d.cantieri.length : 0;
     const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
     esitoImport = (d.appuntamenti.length === 1 ? 'Caricato 1 appuntamento' : `Caricati ${d.appuntamenti.length} appuntamenti`) + (nd ? ` e ${nd} ${nd === 1 ? 'documento' : 'documenti'}.` : '.') + (chNuove.length ? ` Chiamate da gestire: ${(d.chiamate || []).length} (${chNuove.length} ${chNuove.length === 1 ? 'nuova' : 'nuove'}).` : '') + (esitoImport ? ' ' + esitoImport : '');
+    if (nListino) esitoImport += ' Listino articoli aggiornato: ' + nListino.toLocaleString('it-IT') + ' articoli.';
     if (nCan) esitoImport += ' Cantieri: ' + nCan + (d.operaio ? ' (registri come ' + d.operaio.n + ')' : '') + '.';
     // cosa e' cambiato rispetto all'agenda che c'era prima (solo se erano dati di Levante dello stesso tecnico)
     try {
@@ -5378,7 +5408,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.45.2 (23/10/2026)';
+const VERSIONE_APP = '1.46.0 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
@@ -5517,10 +5547,42 @@ async function ricevutiDaCondivisione(){
 /* ==================================================================
    ARTICOLI PREFERITI (da Levante, campo PREFERITO): ricerca nei materiali
    ================================================================== */
-let articoli = null;                                   // [[codice, descrizione, um, prezzo]]
-function leggiArticoli(){ if (articoli === null) articoli = store.get('ass_articoli', []) || []; return articoli; }
-function salvaArticoli(l){ if (Array.isArray(l) && l.length) { articoli = l; store.set('ass_articoli', l); } }
-function riepilogoArticoli(){ const n = (datiLevante && datiLevante.articoli || []).length; return n ? `<br>Articoli preferiti: <b>${n}</b>` : '<br>Articoli preferiti: nessuno nell\'esportazione (controlla articoli_diagnosi.txt).'; }
+let articoli = null;                                   // [[codice, descrizione, um, prezzo]]  (i preferiti)
+let artTutti = null, ART = null, listinoRighe = null;  // preferiti + listino completo (se arrivato), con le ricerche gia' pronte
+function leggiPreferiti(){ if (articoli === null) articoli = store.get('ass_articoli', []) || []; return articoli; }
+function leggiArticoli(){ return artTutti || leggiPreferiti(); }
+function salvaArticoli(l){ if (Array.isArray(l) && l.length) { articoli = l; store.set('ass_articoli', l); if (listinoRighe) costruisciArt(); } }
+/* listino completo (fino a 100000 articoli): arriva dall'ufficio nello stesso file, sta nell'archivio del browser, e si unisce ai preferiti */
+async function salvaListino(tsv){
+  const db = await apriDb();
+  await new Promise((ok, ko) => { const tx = db.transaction('listino', 'readwrite'); tx.objectStore('listino').put({tsv, quando: new Date().toISOString()}, 'tsv'); tx.oncomplete = ok; tx.onerror = () => ko(tx.error); tx.onabort = () => ko(tx.error); });
+  db.close();
+  listinoRighe = null; await caricaListinoDaDb();
+  return listinoRighe ? listinoRighe.length : 0;
+}
+async function caricaListinoDaDb(){
+  if (listinoRighe) return;
+  let rec = null;
+  try { const db = await apriDb(); rec = await new Promise((ok, ko) => { const r = db.transaction('listino').objectStore('listino').get('tsv'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); }); db.close(); } catch(e) { return; }
+  if (!rec || !rec.tsv) return;
+  const righe = rec.tsv.split('\n'), out = [];
+  for (let i = 0; i < righe.length; i++) { if (!righe[i]) continue; const c = righe[i].split('\t'); if (c[0] || c[1]) out.push([c[0] || '', c[1] || '', c[2] || '', c[3] || '']); }
+  listinoRighe = out; listinoQuando = rec.quando || '';
+  await costruisciArt();
+}
+let listinoQuando = '';
+async function costruisciArt(){
+  const pref = leggiPreferiti(), righe = listinoRighe || [], lista = pref.slice(), visti = new Set(pref.map(a => String(a[0]).trim()));
+  for (let i = 0; i < righe.length; i++) { const c = String(righe[i][0]).trim(); if (!visti.has(c)) { visti.add(c); lista.push(righe[i]); } }
+  const nc = new Array(lista.length), nd = new Array(lista.length), mappa = new Map();
+  for (let i = 0; i < lista.length; i += 4000) {                       // a blocchi, per non bloccare il telefono
+    const fine = Math.min(lista.length, i + 4000);
+    for (let j = i; j < fine; j++) { nc[j] = normArt(lista[j][0]); nd[j] = ' ' + normArt(lista[j][1]); const k = chiaveBarre(lista[j][0]); if (k && !mappa.has(k)) mappa.set(k, j); }
+    if (fine < lista.length) await new Promise(r => setTimeout(r, 0));
+  }
+  ART = {lista, nc, nd, mappa}; artTutti = lista;
+}
+function riepilogoArticoli(){ const n = (datiLevante && datiLevante.articoli || []).length, nl = (datiLevante && datiLevante.listino || []).length; return n ? `<br>Articoli preferiti: <b>${n}</b>${nl ? ' · listino completo: <b>' + nl.toLocaleString('it-IT') + '</b>' : ''}` : '<br>Articoli preferiti: nessuno nell\'esportazione (controlla articoli_diagnosi.txt).'; }
 function cercaMatHtml(){
   const n = leggiArticoli().length; if (!n) return '';
   return `<div class="campo" style="margin:0 0 10px"><label for="mat-cerca">Cerca tra i tuoi articoli (${n})</label><div class="cbox"><input type="search" id="mat-cerca" autocomplete="off" placeholder="Codice o parte della descrizione" style="padding-right:56px">${bottoneMic('cerca')}</div><div id="mat-cerca-ris"></div></div>`;
@@ -5533,7 +5595,7 @@ function risultatiArticoli(q, largo){
   if (!parole.length) return [];
   const tutti = leggiArticoli(), pt = [];
   for (let i = 0; i < tutti.length; i++) {
-    const a = tutti[i], cod = normArt(a[0]), des = ' ' + normArt(a[1]), cs = cod.replace(/ /g, ''), t = cod + des;
+    const a = tutti[i], cod = (ART && ART.lista === tutti) ? ART.nc[i] : normArt(a[0]), des = (ART && ART.lista === tutti) ? ART.nd[i] : ' ' + normArt(a[1]), cs = cod.replace(/ /g, ''), t = cod + des;
     if (!parole.every(p => t.indexOf(p) >= 0 || (cs && cs.indexOf(p.replace(/ /g, '')) >= 0))) continue;
     let punti = 0;
     parole.forEach(p => { if (cod === p || cs === p) punti += 50; else if (cod.indexOf(p) === 0 || cs.indexOf(p) === 0) punti += 20; else if (des.indexOf(' ' + p) >= 0) punti += 10; else punti += 1; });
@@ -5547,7 +5609,7 @@ function avviaArticoli(){
     if (!e.target || e.target.id !== 'mat-cerca') return;
     const tutti = leggiArticoli(), box = $('#mat-cerca-ris');
     const ris = risultatiArticoli(e.target.value);
-    if (!ris.length) { box.innerHTML = e.target.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo preferito corrisponde. Puoi scrivere il materiale a mano qui sotto.</p>' : ''; return; }
+    if (!ris.length) { box.innerHTML = e.target.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde. Puoi scrivere il materiale a mano qui sotto.</p>' : ''; return; }
     box.innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(a[3]) : ''}</button>`; }).join('');
   });
   document.addEventListener('click', e => {
@@ -5590,6 +5652,7 @@ function cercaBarre(testo){
   if (!barreMappa) { barreMappa = {}; leggiBarre().forEach(r => { const c = chiaveBarre(r[0]); if (c && !barreMappa[c]) barreMappa[c] = [r[1], r[2], r[3], r[4]]; }); }
   if (barreMappa[k]) return barreMappa[k];
   const art = leggiArticoli();
+  if (ART && ART.lista === art) { const i = ART.mappa.get(k); return i === undefined ? null : art[i]; }
   for (let i = 0; i < art.length; i++) if (chiaveBarre(art[i][0]) === k) return art[i];
   return null;
 }
@@ -5709,6 +5772,12 @@ function nuovaReg(c){
   return {id: 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cid: c.id, cod: c.cod || '', nome: c.nome || c.descr || ('Cantiere ' + c.id), descr: c.descr || '', cli: c.cli || '', ind: c.ind || '',
     data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: '', sub: '', subn: '', s1: '', s2: '', s3: '', st: '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
 }
+function oreInMinuti(v){                     // "1,92" -> "1 h 55 min" (per controllare a occhio le ore decimali)
+  const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); if (isNaN(n) || n <= 0) return '';
+  const m = Math.round(n * 60), h = Math.floor(m / 60), mm = m % 60;
+  return (h ? h + ' h' : '') + (h && mm ? ' ' : '') + (mm ? mm + ' min' : '');
+}
+function aggiornaOreMin(){ const el = $('#cn-ore-min'), i = $('#cn-ore'); if (el && i) { const s = oreInMinuti(i.value); el.textContent = s ? '= ' + s : ''; } }
 function oreDaOrari(r){                      // dal/al meno la pausa -> ore (solo se gli orari ci sono)
   const m = s => { const x = /^(\d{1,2}):(\d{2})/.exec(s || ''); return x ? (+x[1]) * 60 + (+x[2]) : null; };
   const a = m(r.dal), b = m(r.al); if (a == null || b == null || b <= a) return '';
@@ -5768,7 +5837,7 @@ function disegnaCantiere(){
         + `<div class="campo"><label for="cn-subt">${ha ? 'Altro sottocantiere' : 'Sottocantiere'} <span class="aiuto">(facoltativo${ha ? ': se non è nell\'elenco, scrivilo' : ': scrivilo se serve'})</span></label><input id="cn-subt" type="text" autocomplete="off" maxlength="120" value="${esc(r.st !== undefined ? r.st : (r.subn && !r.s1 && !r.s2 && !r.s3 ? r.subn : ''))}" placeholder="Per esempio: Piano terra, Bagno, Copertura"></div>`; })()}
     <div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
-    <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"></div>
+    <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"><div class="aiuto" id="cn-ore-min" style="margin-top:4px">${esc(oreInMinuti(r.ore) ? '= ' + oreInMinuti(r.ore) : '')}</div></div>
     ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
     <div class="campo"><label for="cn-rel">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div></div>
     <div class="campo"><label>Materiali usati</label>${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
@@ -5966,8 +6035,9 @@ function avviaCantieri(){
     else if (t.id === 'cn-dal' || t.id === 'cn-al' || t.id === 'cn-pausa') {
       r[t.id.slice(3)] = t.value;
       const o = oreDaOrari(r); if (o) { r.ore = o; $('#cn-ore').value = o; }
+      aggiornaOreMin();
     }
-    else if (t.id === 'cn-ore') r.ore = t.value;
+    else if (t.id === 'cn-ore') { r.ore = t.value; aggiornaOreMin(); }
     else if (t.id === 'cn-subt') { r.st = t.value.trim(); aggiornaSubn(r); }
     else if (t.id === 'cn-rel') r.relazione = t.value;
     else if (t.id === 'cn-email') { impostazioni.emailUfficio = t.value.trim(); salvaImpostazioni(); return; }
@@ -6626,7 +6696,7 @@ function avviaExtraUfficio(){
   };
   document.addEventListener('click', e => { if (!ris.hidden && !ris.contains(e.target) && e.target !== inp) ris.hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === '/' && inUfficio && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); inp.focus(); inp.select(); } });
-  disegnaAutoInvio(); disegnaNotif(); avviaLicenzaBackup();
+  disegnaAutoInvio(); disegnaNotif(); avviaLicenzaBackup(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 1500);
   setInterval(() => { giroAutoInvio(); disegnaAutoInvio(); }, 60000);
   setTimeout(giroAutoInvio, 8000);
 }
