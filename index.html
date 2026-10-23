@@ -4337,11 +4337,10 @@ function barraDett(testo, durata){
 function aggiornaMic(){
   document.querySelectorAll('.mic').forEach(m => m.classList.toggle('attivo', !!(dett && dett.attivo && m.dataset.mic === dett.dest)));
 }
-let recU = null, recVivo = false, recDopo = false, recTimer = null, recFermando = false;   // un solo riconoscitore riusato: su iPhone crearne uno nuovo a ogni campo non trascrive
 function fermaDettatura(){
   if (!dett) return;
   const d = dett; dett = null;
-  if (recVivo && recU) { recFermando = true; try { recU.stop(); } catch(e){} }
+  try { d.rec.onend = null; d.rec.stop(); } catch(e){}
   aggiornaMic(); barraDett('');
   if (d.dest === 'vm') interpretaDaTesto();
 }
@@ -4390,29 +4389,12 @@ function avviaDettatura(dest){
   if (navigator.onLine === false) { barraDett('Senza connessione la dettatura non funziona: usa il microfono della tastiera del telefono.', 7000); return; }
   if (!SR) { barraDett('La dettatura non è disponibile su questo browser. Usa il microfono della tastiera del telefono.', 7000); return; }
   if (dett && dett.attivo) { const stessa = dett.dest === dest; fermaDettatura(); if (stessa) return; }
-  if (dest === 'cerca' || dest === 'cncerca') pulisciRicerca(dest === 'cerca' ? 'mat' : 'cn');       // nuova dettatura = nuova ricerca
-  if (!recU) recU = creaRiconoscitore();
-  dett = {rec: recU, dest, attivo: true};
-  aggiornaMic(); barraDett('Ascolto… parla pure');
-  if (recVivo) {                                      // il precedente sta finendo: si riparte appena ha chiuso (onend); se non chiude, se ne crea uno nuovo
-    recDopo = true; clearTimeout(recTimer);
-    recTimer = setTimeout(() => { if (recDopo) { recDopo = false; recVivo = false; recFermando = false; try { recU.abort(); } catch(e){} recU = creaRiconoscitore(); if (dett) { dett.rec = recU; partiRiconoscitore(); } } }, 1500);
-    if (!recFermando) { recFermando = true; try { recU.stop(); } catch(e){} }
-    return;
-  }
-  partiRiconoscitore();
-}
-function partiRiconoscitore(){
-  try { recU.start(); recVivo = true; }
-  catch(e) { recVivo = false; recU = creaRiconoscitore(); try { recU.start(); recVivo = true; } catch(e2) { dett = null; aggiornaMic(); barraDett('Non riesco ad avviare il microfono (' + e2.message + ').', 7000); } }
-}
-function creaRiconoscitore(){
   const rec = new SR();
   rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1;
   rec.continuous = !/Android/i.test(navigator.userAgent);   // su Android si ricomincia a ogni frase: evita le frasi ripetute
+  dett = {rec, dest, attivo: true};
   rec.onresult = e => {
-    if (!dett || !dett.attivo || recDopo) return;
-    const dest = dett.dest; let provvisorio = '';
+    let provvisorio = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const r = e.results[i];
       if (r.isFinal) inserisciDettato(dest, r[0].transcript); else provvisorio += r[0].transcript;
@@ -4426,17 +4408,16 @@ function creaRiconoscitore(){
       'service-not-allowed': 'Questo browser non permette la dettatura (se l\'app è sulla schermata Home, prova ad aprirla da Safari o Chrome).',
       'network': 'Serve la connessione internet per la dettatura.', 'audio-capture': 'Non trovo il microfono.',
       'language-not-supported': 'La dettatura in italiano non è disponibile su questo dispositivo.'}[err] || ('Dettatura interrotta (' + err + ').');
-    if (dett) dett.attivo = false;
+    if (dett && dett.rec === rec) dett.attivo = false;
     aggiornaMic(); barraDett(msg, 9000);
   };
   rec.onend = () => {
-    recVivo = false; recFermando = false;
-    if (recDopo) { recDopo = false; clearTimeout(recTimer); if (dett && dett.attivo) setTimeout(partiRiconoscitore, 150); return; }
-    if (dett && dett.attivo) { try { rec.start(); recVivo = true; return; } catch(e){} }
-    if (dett) { const d = dett; dett = null; if (d.dest === 'vm') interpretaDaTesto(); }
+    if (dett && dett.rec === rec && dett.attivo) { try { rec.start(); return; } catch(e){} }
+    if (dett && dett.rec === rec) { const d = dett; dett = null; if (d.dest === 'vm') interpretaDaTesto(); }
     aggiornaMic();
   };
-  return rec;
+  try { rec.start(); } catch(e) { dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
+  aggiornaMic(); barraDett('Ascolto… parla pure');
 }
 
 /* ---- materiali a voce: si detta (o si scrive) una frase, l'app la trasforma in righe e le fa controllare ---- */
@@ -5440,7 +5421,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.6 (23/10/2026)';
+const VERSIONE_APP = '1.46.7 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
