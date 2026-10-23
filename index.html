@@ -2273,7 +2273,7 @@ function collegaForm(){
     if (d.pos !== undefined) { const [n, c] = d.pos.split('|'); const o = lavoro.orari[+n]; if (o) { mostraAvviso('Cerco la posizione…', '', null, 4000); registraPos(o, c); } return; }
     if (d.adesso !== undefined) { const [n, c] = d.adesso.split('|'); const o = lavoro.orari[+n]; if (o) { o[c] = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + n + '"][data-c="' + c + '"]'); if (inp) inp.value = o[c]; aggiornaOre(); bozzaModificata();
       registraPos(o, c); if (c === 'al') lavoro.inCorso = false; } return; }
-    if (d.matFreq !== undefined) { const m = leggiMatUsati()[+d.matFreq]; if (m) { lavoro.materiali.push({descr: m.d, codice: '', qta: m.q || '1', um: m.u || 'pz'}); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); } return; }
+    if (d.matFreq !== undefined) { const m = leggiMatUsati()[+d.matFreq]; if (m) { lavoro.materiali.unshift({descr: m.d, codice: '', qta: m.q || '1', um: m.u || 'pz'}); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); } return; }
     if (d.mic !== undefined) { avviaDettatura(d.mic); return; }
     if (d.fotoScatta !== undefined) { $('#in-foto').click(); return; }
     if (d.fotoGalleria !== undefined) { $('#in-foto-gal').click(); return; }
@@ -2299,7 +2299,7 @@ function collegaForm(){
     }
     if (b.id === 'b-add-orario' && lavoro.orari.length < 5) { lavoro.orari.push({data: lavoro.data, dal:'', al:''}); disegnaOrari(); }
     else if (d.togliOrario !== undefined) { lavoro.orari.splice(+d.togliOrario, 1); disegnaOrari(); }
-    else if (b.id === 'b-add-mat') { lavoro.materiali.push({descr:'', codice:'', qta:'', um:'pz'}); $('#materiali').innerHTML = righeMateriali(); const l = document.querySelectorAll('#materiali .descr'); l[l.length-1].focus(); bozzaModificata(); }
+    else if (b.id === 'b-add-mat') { lavoro.materiali.unshift({descr:'', codice:'', qta:'', um:'pz'}); $('#materiali').innerHTML = righeMateriali(); const l = document.querySelectorAll('#materiali .descr'); l[0].focus(); bozzaModificata(); }
     else if (d.togliMat !== undefined) { lavoro.materiali.splice(+d.togliMat, 1); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); }
     else if (b.id === 'b-add-extra') { lavoro.ops_extra.push(''); $('#extra').innerHTML = sezioneExtra(); const l = document.querySelectorAll('#extra input'); l[l.length-1].focus(); bozzaModificata(); }
     else if (d.togliExtra !== undefined) { lavoro.ops_extra.splice(+d.togliExtra, 1); $('#extra').innerHTML = sezioneExtra(); bozzaModificata(); }
@@ -4337,13 +4337,20 @@ function barraDett(testo, durata){
 function aggiornaMic(){
   document.querySelectorAll('.mic').forEach(m => m.classList.toggle('attivo', !!(dett && dett.attivo && m.dataset.mic === dett.dest)));
 }
+let dettFine = 0;
 function fermaDettatura(){
   if (!dett) return;
-  const d = dett; dett = null;
-  try { d.rec.onend = null; d.rec.stop(); } catch(e){}
+  const d = dett; dett = null; dettFine = Date.now();
+  try { d.rec.onend = null; d.rec.onresult = null; d.rec.onerror = null; d.rec.stop(); } catch(e){}
+  try { d.rec.abort(); } catch(e){}                       // libera subito il microfono: su iPhone un nuovo avvio ravvicinato altrimenti non sente
   aggiornaMic(); barraDett('');
   if (d.dest === 'vm') interpretaDaTesto();
 }
+function pulisciRicerca(tipo){
+  const inp = $(tipo === 'mat' ? '#mat-cerca' : '#cn-cerca'), box = $(tipo === 'mat' ? '#mat-cerca-ris' : '#cn-cerca-ris');
+  if (inp) inp.value = ''; if (box) box.innerHTML = '';
+}
+const BTN_ANNULLA_RIC = tipo => `<button class="btn sec piccolo" type="button" data-annulla-ric="${tipo}" style="margin:4px 0">Annulla e cerca di nuovo</button>`;
 function inserisciDettato(dest, testo){
   if (dest === 'cerca') {                                // ricerca articoli: si sostituisce il testo e si ferma al primo risultato
     const el = $('#mat-cerca'); if (!el) return;
@@ -4384,6 +4391,9 @@ function avviaDettatura(dest){
   if (navigator.onLine === false) { barraDett('Senza connessione la dettatura non funziona: usa il microfono della tastiera del telefono.', 7000); return; }
   if (!SR) { barraDett('La dettatura non è disponibile su questo browser. Usa il microfono della tastiera del telefono.', 7000); return; }
   if (dett && dett.attivo) { const stessa = dett.dest === dest; fermaDettatura(); if (stessa) return; }
+  const attesa = 700 - (Date.now() - dettFine);
+  if (attesa > 0) { barraDett('Preparo il microfono…'); setTimeout(() => { if (!(dett && dett.attivo)) avviaDettatura(dest); }, attesa); return; }
+  if (dest === 'cerca' || dest === 'cncerca') pulisciRicerca(dest === 'cerca' ? 'mat' : 'cn');       // nuova dettatura = nuova ricerca
   const rec = new SR();
   rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1;
   rec.continuous = !/Android/i.test(navigator.userAgent);   // su Android si ricomincia a ogni frase: evita le frasi ripetute
@@ -5416,7 +5426,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.4 (23/10/2026)';
+const VERSIONE_APP = '1.46.5 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -5617,10 +5627,11 @@ function avviaArticoli(){
     if (!e.target || e.target.id !== 'mat-cerca') return;
     const tutti = leggiArticoli(), box = $('#mat-cerca-ris');
     const ris = risultatiArticoli(e.target.value);
-    if (!ris.length) { box.innerHTML = e.target.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde. Puoi scrivere il materiale a mano qui sotto.</p>' : ''; return; }
-    box.innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(a[3]) : ''}</button>`; }).join('');
+    if (!ris.length) { box.innerHTML = e.target.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde. Puoi scrivere il materiale a mano qui sotto.</p>' + BTN_ANNULLA_RIC('mat') : ''; return; }
+    box.innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(a[3]) : ''}</button>`; }).join('') + BTN_ANNULLA_RIC('mat');
   });
   document.addEventListener('click', e => {
+    const an = e.target.closest && e.target.closest('[data-annulla-ric]'); if (an) { fermaDettatura(); pulisciRicerca(an.dataset.annullaRic); return; }
     const b = e.target.closest && e.target.closest('[data-art]'); if (!b || !lavoro) return;
     const a = leggiArticoli()[+b.dataset.art]; if (!a) return;
     aggiungiArticolo(a);
@@ -5633,7 +5644,7 @@ function aggiungiArticoloCn(a){
   const r = regCorr; if (!r) return;
   const gia = a[0] ? r.materiali.find(m => m.codice === a[0]) : null;
   if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
-  else r.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
+  else r.materiali.unshift({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
   const m = $('#cn-mat'); if (m) m.innerHTML = righeMatCn(r);
   salvaReg();
 }
@@ -5641,9 +5652,8 @@ function aggiungiArticolo(a){
   if (scanCn) { aggiungiArticoloCn(a); return; }
   const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
   if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
-  else lavoro.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
-  $('#materiali').innerHTML = righeMateriali();
-  const l = document.querySelectorAll('#materiali input[data-c="qta"]'); if (l.length) { l[l.length - 1].focus(); l[l.length - 1].select(); }
+  else lavoro.materiali.unshift({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
+  $('#materiali').innerHTML = righeMateriali();           // niente focus sul campo quantita': tastiera aperta = il microfono dopo non parte
   bozzaModificata();
 }
 /* ==================================================================
@@ -6034,14 +6044,14 @@ function avviaCantieri(){
     else if (d.mic !== undefined) avviaDettatura(d.mic);
     else if (b.id === 'cn-mat-voce') apriMaterialiVoce(true);
     else if (b.id === 'cn-fatto') { r.inviato = Date.now(); salvaReg(true); disegnaCantiere(); }
-    else if (b.id === 'cn-mat-agg') { r.materiali.push({descr: '', codice: '', qta: '', um: 'pz'}); $('#cn-mat').innerHTML = righeMatCn(r); const ins = $('#cn-mat').querySelectorAll('input[data-cn-mf^="descr"]'); if (ins.length) ins[ins.length - 1].focus(); }
+    else if (b.id === 'cn-mat-agg') { r.materiali.unshift({descr: '', codice: '', qta: '', um: 'pz'}); $('#cn-mat').innerHTML = righeMatCn(r); const ins = $('#cn-mat').querySelectorAll('input[data-cn-mf^="descr"]'); if (ins.length) ins[0].focus(); }
     else if (d.cnMtogli !== undefined) { r.materiali.splice(+d.cnMtogli, 1); $('#cn-mat').innerHTML = righeMatCn(r); salvaReg(); }
     else if (b.id === 'cn-foto-agg') $('#cn-foto-in').click();
     else if (d.cnFtogli !== undefined) { if (!confirm('Tolgo questa foto?')) return; r.foto = r.foto.filter(x => x.id !== d.cnFtogli); try { await cancellaFotoChiave(chiaveFoto('cant-' + r.id, d.cnFtogli)); } catch(x) {} $('#cn-foto').innerHTML = fotoCn(r); salvaReg(true); }
     else if (d.cnApri !== undefined) { const f = ultimiCn[+d.cnApri]; if (f) { const x = mostraFile(f, f.name, f.type), m = $('#cn-msg'); if (x.html && m) m.insertAdjacentHTML('beforeend', '<br>' + x.testo); } }
     else if (d.cnArt !== undefined) {
       const a = leggiArticoli()[+d.cnArt]; if (!a) return;
-      r.materiali.push({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''}); $('#cn-mat').innerHTML = righeMatCn(r); $('#cn-cerca-ris').innerHTML = ''; $('#cn-cerca').value = ''; salvaReg();
+      r.materiali.unshift({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''}); $('#cn-mat').innerHTML = righeMatCn(r); $('#cn-cerca-ris').innerHTML = ''; $('#cn-cerca').value = ''; salvaReg();
     }
     else if (b.id === 'cn-elimina') {
       if (!confirm('Elimino questa registrazione' + (r.inviato ? ' (è già stata inviata)' : '') + '?')) return;
@@ -6063,7 +6073,7 @@ function avviaCantieri(){
     else if (t.id === 'cn-email') { impostazioni.emailUfficio = t.value.trim(); salvaImpostazioni(); return; }
     else if (t.id === 'cn-cerca') {
       const tutti = leggiArticoli(), ris = risultatiArticoli(t.value), box = $('#cn-cerca-ris');
-      box.innerHTML = ris.length ? ris.map(i => `<button class="btn chiaro piccolo" type="button" data-cn-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(tutti[i][0] ? tutti[i][0] + ' · ' : '')}${esc(tutti[i][1])}</button>`).join('') : (t.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde: puoi scrivere il materiale a mano.</p>' : '');
+      box.innerHTML = ris.length ? ris.map(i => `<button class="btn chiaro piccolo" type="button" data-cn-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(tutti[i][0] ? tutti[i][0] + ' · ' : '')}${esc(tutti[i][1])}</button>`).join('') + BTN_ANNULLA_RIC('cn') : (t.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde: puoi scrivere il materiale a mano.</p>' + BTN_ANNULLA_RIC('cn') : '');
       return;
     }
     else if (t.dataset && t.dataset.cnMf) { const p = t.dataset.cnMf.split('|'); if (r.materiali[+p[1]]) r.materiali[+p[1]][p[0]] = t.value; }
