@@ -53,6 +53,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Assistenza">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="pako.min.js"></script>
 <script src="jspdf.umd.min.js"></script>
 <script>window.jspdf || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>');</script>
 <style>
@@ -5253,10 +5254,16 @@ function listinoTsv(){
   if (listinoTsvCache.rif !== L) listinoTsvCache = {rif: L, tsv: L.map(r => r.map(x => String(x == null ? '' : x).replace(/[\t\r\n]+/g, ' ').trim()).join('\t')).join('\n')};
   return listinoTsvCache.tsv;
 }
+/* il listino viaggia compresso (deflate + base64): circa 1/5 del peso */
+function listinoZ(){
+  const tsv = listinoTsv(); if (!tsv) return '';
+  if (listinoTsvCache.z === undefined || listinoTsvCache.zDi !== tsv) { listinoTsvCache.z = (window.pako ? b64DaBytes(pako.deflate(tsv, {level: 9})) : ''); listinoTsvCache.zDi = tsv; }
+  return listinoTsvCache.z;
+}
 function listinoInviato(nome, pk){
-  if (!(pk.articoli.length || pk.barre.length || pk.listino)) return;
+  if (!(pk.articoli.length || pk.barre.length || pk.listinoZ)) return;
   const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {});
-  m[nome] = Object.assign({}, m[nome] || {}, {on: false, ultimo: new Date().toISOString(), tipoUltimo: pk.listino ? 'tutto' : 'pref'});
+  m[nome] = Object.assign({}, m[nome] || {}, {on: false, ultimo: new Date().toISOString(), tipoUltimo: pk.listinoZ ? 'tutto' : 'pref'});
   salvaImpostazioni();
 }
 function pacchettoPer(id, completo){
@@ -5269,7 +5276,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listino: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoTsv() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 async function salvaDati(d, leggero){
@@ -5377,7 +5384,8 @@ async function caricaPacchetto(file){
       }
     }
     salvaArticoli(d.articoli); salvaBarre(d.barre);
-    let nListino = 0; if (typeof d.listino === 'string' && d.listino.length > 10) { try { nListino = await salvaListino(d.listino); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
+    let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
+    if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
     await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
@@ -5408,10 +5416,10 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.0 (23/10/2026)';
+const VERSIONE_APP = '1.46.1 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
-const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js'];
+const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); richiestaInstalla = e; aggiornaStatoApp(); });
 window.addEventListener('appinstalled', () => { richiestaInstalla = null; aggiornaStatoApp(); });
 function inLocaleSicuro(){ return location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); }
