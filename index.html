@@ -5416,7 +5416,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.3 (23/10/2026)';
+const VERSIONE_APP = '1.46.4 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -6716,7 +6716,7 @@ function avviaExtraUfficio(){
   };
   document.addEventListener('click', e => { if (!ris.hidden && !ris.contains(e.target) && e.target !== inp) ris.hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === '/' && inUfficio && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); inp.focus(); inp.select(); } });
-  disegnaAutoInvio(); disegnaNotif(); avviaLicenzaBackup(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 1500);
+  disegnaAutoInvio(); disegnaNotif(); avviaLicenzaBackup();
   setInterval(() => { giroAutoInvio(); disegnaAutoInvio(); }, 60000);
   setTimeout(giroAutoInvio, 8000);
 }
@@ -7163,7 +7163,7 @@ function avviaPin(){
 function avvia(){
   appuntamenti = caricaAppuntamenti();
   avviaServizio();
-  avviaPosta(); avviaArticoli(); avviaFoglio(); avviaPin();
+  avviaPosta(); avviaArticoli(); avviaFoglio(); avviaPin(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 800);
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
