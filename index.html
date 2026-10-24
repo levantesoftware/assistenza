@@ -2786,7 +2786,7 @@ async function stampaRapporto(){
   if (!a) { if (m) m.textContent = 'Il rapporto non è ancora pronto.'; return; }
   const f = new File([a.blobCli || a.blob], a.nome || 'Rapporto.pdf', {type: 'application/pdf'});
   if (navigator.canShare && navigator.canShare({files: [f]})) {
-    try { await navigator.share({files: [f], title: f.name}); if (m) m.textContent = 'Nel menu scegli l\'app della stampante.'; return; }
+    try { await navigator.share({files: [f], title: f.name}); if (m) m.textContent = 'Nel menu scegli l\'app della stampante. Se non c\'è, tocca «Salva su File» e poi aprilo dall\'app della stampante.'; return; }
     catch(e) { if (e && e.name === 'AbortError') return; }
   }
   scaricaBlob(f, f.name);
@@ -3720,9 +3720,16 @@ function sappiMostrarePdf(){
   return èiOS() || !/Android/i.test(navigator.userAgent);
 }
 const scaricaPossibile = 'download' in document.createElement('a');
+/* iOS vecchi: gli indirizzi blob: danno pagina bianca. Si apre subito una scheda (nel tocco) e quando il file e' pronto vi si carica come data: */
+function apriVecchio(blob){
+  const w = window.open('', '_blank');
+  const fr = new FileReader();
+  fr.onload = () => { const u = fr.result; if (w) { try { w.location.href = u; return; } catch(e) {} } location.href = u; };
+  fr.readAsDataURL(blob);
+}
 function scaricaBlob(blob, nome){
+  if (!scaricaPossibile) { apriVecchio(blob); return; }   // iOS vecchi: si apre in una scheda e da li' si condivide
   const url = URL.createObjectURL(blob);
-  if (!scaricaPossibile) { window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 120000); return; }   // iOS vecchi: si apre in una scheda e da li' si condivide
   const a = document.createElement('a'); a.href = url; a.download = nome;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 120000);
@@ -3730,6 +3737,7 @@ function scaricaBlob(blob, nome){
 function mostraFile(blob, nome, mime){
   const inline = /^(image\/|text\/plain)/.test(mime || '') || (/^application\/pdf/.test(mime || '') && sappiMostrarePdf());
   if (!inline) { scaricaBlob(blob, nome); return {html: false, testo: 'Ho scaricato ' + nome + ': aprilo dalla notifica o dall\'elenco dei download (da lì puoi anche stamparlo).'}; }
+  if (!scaricaPossibile) { apriVecchio(blob); return {html: false, testo: ''}; }
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 120000);
@@ -5488,7 +5496,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.47.4 (24/10/2026)';
+const VERSIONE_APP = '1.47.5 (24/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
