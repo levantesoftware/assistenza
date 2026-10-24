@@ -4378,13 +4378,17 @@ function fermaDettatura(){
   if (d.dest === 'vm') interpretaDaTesto();
 }
 function pulisciRicerca(tipo){
-  const inp = $(tipo === 'mat' ? '#mat-cerca' : '#cn-cerca'), box = $(tipo === 'mat' ? '#mat-cerca-ris' : '#cn-cerca-ris');
+  const base = tipo === 'mat' ? 'mat-cerca' : tipo === 'cnp' ? 'cn-pcerca' : 'cn-cerca', inp = $('#' + base), box = $('#' + base + '-ris');
   if (inp) inp.value = ''; if (box) box.innerHTML = '';
 }
 const BTN_ANNULLA_RIC = tipo => `<button class="btn sec piccolo" type="button" data-annulla-ric="${tipo}" style="margin:4px 0">Annulla e cerca di nuovo</button>`;
 function inserisciDettato(dest, testo){
   if (dest === 'cerca') {                                // ricerca articoli: si sostituisce il testo e si ferma al primo risultato
     const el = $('#mat-cerca'); if (!el) return;
+    el.value = String(testo).replace(/[.,;!?]+$/, '').trim(); el.dispatchEvent(new Event('input', {bubbles: true})); setTimeout(fermaDettatura, 0); return;
+  }
+  if (dest === 'cnpcerca') {                             // cantiere: ricerca articoli per la lista portata
+    const el = $('#cn-pcerca'); if (!el) return;
     el.value = String(testo).replace(/[.,;!?]+$/, '').trim(); el.dispatchEvent(new Event('input', {bubbles: true})); setTimeout(fermaDettatura, 0); return;
   }
   if (dest === 'cncerca') {                              // cantiere: ricerca articoli
@@ -4419,7 +4423,7 @@ function inserisciDettato(dest, testo){
   }
 }
 function usaTastiera(dest, msg){
-  const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'vm' ? $('#vm-testo') : dest === 'cn:rel' ? $('#cn-rel')
+  const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'cnpcerca' ? $('#cn-pcerca') : dest === 'vm' ? $('#vm-testo') : dest === 'cn:rel' ? $('#cn-rel')
     : dest.startsWith('cnfoto:') ? document.querySelector('[data-cn-fc="' + dest.slice(7) + '"]') : dest.startsWith('foto:') ? document.querySelector('[data-fotoc="' + dest.slice(5) + '"]')
     : dest.startsWith('k:') ? $('#f-' + dest.slice(2)) : null;
   if (el) { try { el.focus(); } catch(e) {} }
@@ -5462,7 +5466,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.11 (23/10/2026)';
+const VERSIONE_APP = '1.47.0 (24/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -5685,6 +5689,7 @@ function aggiungiArticoloCn(a){
   salvaReg();
 }
 function aggiungiArticolo(a){
+  if (scanCn === 'portato') { aggiungiPortato(a); return; }
   if (scanCn) { aggiungiArticoloCn(a); return; }
   const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
   if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
@@ -5800,7 +5805,9 @@ function avviaScanner(){
   document.addEventListener('click', e => {
     const t = e.target; if (!t || !t.closest) return;
     if (t.closest('#b-scan-mat')) { if (lavoro) { scanCn = false; scanApri(); } return; }
-    if (t.closest('#cn-scan-mat')) { if (regCorr) { scanCn = true; scanApri(); } return; }
+    if (t.closest('#cn-scan-mat')) { if (regCorr) { scanCn = 'cn'; scanApri(); } return; }
+    if (t.closest('#cn-port-scan')) { if (regCorr) { scanCn = 'portato'; scanApri(); } return; }
+    if (t.closest('#cn-port-foto')) { const i = $('#cn-port-foto-in'); if (i) i.click(); return; }
     if (t.closest('#scan-chiudi')) { scanChiudi(); return; }
     if (t.closest('#scan-num')) { const n = prompt('Numero del codice a barre:'); if (n && n.trim()) scanRisultato(n.trim()); return; }
     const art = t.closest('[data-scan-art]');
@@ -5817,6 +5824,7 @@ function avviaScanner(){
     $('#scan-cerca-ris').innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-scan-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}</button>`; }).join('');
   });
   document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'cn-port-foto-in' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanCn = 'portato'; $('#scan').hidden = false; $('#scan-trovato').innerHTML = ''; scanUltimo = ''; scanDaFoto(f); return; }
     if (e.target && e.target.id === 'scan-foto' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanFerma(); scanDaFoto(f); }
   });
 }
@@ -5836,7 +5844,7 @@ const titoloCn = c => { const t = String(c.descr || c.nome || ''); return (t.len
 function nuovaReg(c){
   const tipi = (datiReali && datiReali.tipiOre) || [];
   return {id: 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cid: c.id, cod: c.cod || '', nome: c.nome || c.descr || ('Cantiere ' + c.id), descr: c.descr || '', cli: c.cli || '', ind: c.ind || '',
-    data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: '', sub: '', subn: '', s1: '', s2: '', s3: '', st: '', relazione: '', materiali: [], foto: [], inviato: 0, nuova: true};
+    data: isoGiorno(new Date()), dal: '', al: '', pausa: '', ore: '', tipo: '', sub: '', subn: '', s1: '', s2: '', s3: '', st: '', relazione: '', materiali: [], portato: [], foto: [], inviato: 0, nuova: true};
 }
 function oreInMinuti(v){                     // "1,92" -> "1 h 55 min" (per controllare a occhio le ore decimali)
   const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); if (isNaN(n) || n <= 0) return '';
@@ -5884,6 +5892,24 @@ function apriCantiere(cid, regId){
   if (!r) { const c = elencoCantieri().filter(x => x.id === cid)[0]; if (!c) return; r = nuovaReg(c); }
   regCorr = r; ultimiCn = []; mostra('cantiere'); disegnaCantiere();
 }
+/* ---- materiale portato (cantieri): la lista di stamattina; poi si tocca quello che si installa e passa in «Materiali usati» ---- */
+const chiavePort = p => String(p.codice || p.descr || '').trim().toLowerCase();
+const portatoUsato = (r, p) => (r.materiali || []).some(m => chiavePort(m) && chiavePort(m) === chiavePort(p));
+function righePortato(r){
+  r.portato = r.portato || [];
+  if (!r.portato.length) return '<p class="aiuto" style="margin:4px 0">Ancora nessun articolo. Fotografa l\'etichetta, scansiona o cerca qui sopra.</p>';
+  const usati = r.portato.filter(p => portatoUsato(r, p)).length;
+  return `<p class="aiuto" style="margin:4px 0">${r.portato.length} articoli · installati ${usati}. Tocca «Installato» sui pezzi che hai montato.</p>` + r.portato.map((p, i) => { const u = portatoUsato(r, p);
+    return `<div class="cn-port" style="display:grid;grid-template-columns:1fr 58px 96px 34px;gap:6px;margin:6px 0;align-items:center"><div style="min-width:0">${esc(p.descr || p.codice)}${p.codice && p.descr ? `<span class="aiuto" style="display:block">${esc(p.codice)}</span>` : ''}</div><input type="text" inputmode="decimal" data-cn-pq="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="btn ${u ? '' : 'sec'} piccolo" type="button" data-cn-pus="${i}" aria-pressed="${u}" style="margin:0">${u ? '✓ Installato' : 'Installato'}</button><button class="togli" type="button" data-cn-ptogli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
+}
+function aggiungiPortato(a){
+  const r = regCorr; if (!r) return; r.portato = r.portato || [];
+  const gia = a[0] ? r.portato.find(p => p.codice === a[0]) : null;
+  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': quantità portata a ' + gia.qta + '.'); }
+  else { r.portato.unshift({codice: a[0] || '', descr: a[1] || '', um: a[2] || 'pz', prezzo: a[3] || '', qta: '1'}); mostraAvviso('Aggiunto: ' + a[1]); }
+  const b = $('#cn-port'); if (b) b.innerHTML = righePortato(r);
+  salvaReg();
+}
 function righeMatCn(r){
   return r.materiali.map((m, i) => `<div class="cn-mat" style="display:grid;grid-template-columns:1fr 64px 52px 34px;gap:6px;margin:6px 0;align-items:start"><div><input type="text" data-cn-mf="descr|${i}" value="${esc(m.descr)}" placeholder="Materiale" aria-label="Materiale ${i + 1}">${m.codice ? `<span class="aiuto">${esc(m.codice)}</span>` : ''}</div><input type="text" inputmode="decimal" data-cn-mf="qta|${i}" value="${esc(m.qta)}" placeholder="Qtà" aria-label="Quantità"><input type="text" data-cn-mf="um|${i}" value="${esc(m.um)}" placeholder="u.m." aria-label="Unità di misura"><button class="togli" type="button" data-cn-mtogli="${i}" aria-label="Togli il materiale ${i + 1}">×</button></div>`).join('');
 }
@@ -5906,6 +5932,7 @@ function disegnaCantiere(){
     <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"><div class="aiuto" id="cn-ore-min" style="margin-top:4px">${esc(oreInMinuti(r.ore) ? '= ' + oreInMinuti(r.ore) : '')}</div></div>
     ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
     <div class="campo"><label for="cn-rel">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div></div>
+    <div class="campo"><label>Materiale portato <span class="aiuto">(la lista di stamattina: poi tocchi quello che installi)</span></label>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></div>
     <div class="campo"><label>Materiali usati</label>${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
     <div class="campo"><label>Foto</label><div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p></div>
     <div class="campo"><label for="cn-email">Email dell'ufficio <span class="aiuto">(serve se il telefono non apre il menu di condivisione)</span></label><input id="cn-email" type="email" autocomplete="off" autocapitalize="none" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@esempio.it"></div>
@@ -5999,6 +6026,7 @@ function datiCantiere(r, pdf){
   return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, descr: r.descr || '', cli: r.cli, ind: r.ind, sub: r.subn ? {id: '', n: r.subn} : undefined},
     operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
     relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
+    portato: (r.portato || []).filter(pp => !portatoUsato(r, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: pp.qta || '', um: pp.um || '', prezzo: pp.prezzo || ''})),
     nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
 }
 async function filesCantiere(r){
@@ -6085,6 +6113,15 @@ function avviaCantieri(){
     else if (b.id === 'cn-foto-agg') $('#cn-foto-in').click();
     else if (d.cnFtogli !== undefined) { if (!confirm('Tolgo questa foto?')) return; r.foto = r.foto.filter(x => x.id !== d.cnFtogli); try { await cancellaFotoChiave(chiaveFoto('cant-' + r.id, d.cnFtogli)); } catch(x) {} $('#cn-foto').innerHTML = fotoCn(r); salvaReg(true); }
     else if (d.cnApri !== undefined) { const f = ultimiCn[+d.cnApri]; if (f) { const x = mostraFile(f, f.name, f.type), m = $('#cn-msg'); if (x.html && m) m.insertAdjacentHTML('beforeend', '<br>' + x.testo); } }
+    else if (d.cnPart !== undefined) { const a = leggiArticoli()[+d.cnPart]; if (a) { aggiungiPortato(a); $('#cn-pcerca-ris').innerHTML = ''; $('#cn-pcerca').value = ''; } }
+    else if (d.cnPus !== undefined) {
+      const pp = (r.portato || [])[+d.cnPus]; if (pp) {
+        const k = chiavePort(pp), ix = r.materiali.findIndex(m => chiavePort(m) === k);
+        if (ix >= 0) r.materiali.splice(ix, 1); else r.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: pp.qta || '1', um: pp.um || 'pz', prezzo: pp.prezzo || ''});
+        $('#cn-port').innerHTML = righePortato(r); $('#cn-mat').innerHTML = righeMatCn(r); salvaReg();
+      }
+    }
+    else if (d.cnPtogli !== undefined) { r.portato.splice(+d.cnPtogli, 1); $('#cn-port').innerHTML = righePortato(r); salvaReg(); }
     else if (d.cnArt !== undefined) {
       const a = leggiArticoli()[+d.cnArt]; if (!a) return;
       r.materiali.unshift({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''}); $('#cn-mat').innerHTML = righeMatCn(r); $('#cn-cerca-ris').innerHTML = ''; $('#cn-cerca').value = ''; salvaReg();
@@ -6107,6 +6144,12 @@ function avviaCantieri(){
     else if (t.id === 'cn-subt') { r.st = t.value.trim(); aggiornaSubn(r); }
     else if (t.id === 'cn-rel') r.relazione = t.value;
     else if (t.id === 'cn-email') { impostazioni.emailUfficio = t.value.trim(); salvaImpostazioni(); return; }
+    else if (t.id === 'cn-pcerca') {
+      const tutti = leggiArticoli(), ris = risultatiArticoli(t.value), box = $('#cn-pcerca-ris');
+      box.innerHTML = ris.length ? ris.map(i => `<button class="btn chiaro piccolo" type="button" data-cn-part="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(tutti[i][0] ? tutti[i][0] + ' · ' : '')}${esc(tutti[i][1])}</button>`).join('') + BTN_ANNULLA_RIC('cnp') : (t.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde.</p>' + BTN_ANNULLA_RIC('cnp') : '');
+      return;
+    }
+    else if (t.dataset && t.dataset.cnPq !== undefined) { const pp = r.portato[+t.dataset.cnPq]; if (pp) pp.qta = t.value; }
     else if (t.id === 'cn-cerca') {
       const tutti = leggiArticoli(), ris = risultatiArticoli(t.value), box = $('#cn-cerca-ris');
       box.innerHTML = ris.length ? ris.map(i => `<button class="btn chiaro piccolo" type="button" data-cn-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(tutti[i][0] ? tutti[i][0] + ' · ' : '')}${esc(tutti[i][1])}</button>`).join('') + BTN_ANNULLA_RIC('cn') : (t.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde: puoi scrivere il materiale a mano.</p>' + BTN_ANNULLA_RIC('cn') : '');
@@ -6375,6 +6418,7 @@ function schedaCantiere(r, i){
       <p style="margin:8px 0"><b>Ore:</b> ${ore ? '<b>' + esc(fmtOreDec(ore)) + ' h</b>' : '—'}${r.dal || r.al ? ' (' + esc(r.dal || '—') + ' – ' + esc(r.al || '—') + (r.pausa ? ', pausa ' + esc(r.pausa) + ' min' : '') + ')' : ''}${r.tipo ? ' · ' + esc(r.tipo) : ''}${mc ? ' · manodopera <b>' + esc(mc.cod) + '</b>' + (mc.desc ? ' (' + esc(mc.desc) + ')' : '') : (op ? ' · indice manodopera ' + esc(op.op) + ' (imposta i codici nel CSV per Levante)' : '')}</p>
       ${rel}
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
+      ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc((pp.qta + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${r.nfoto ? `<p style="margin:8px 0">${r.nfoto} ${r.nfoto === 1 ? 'foto' : 'foto'}</p>` : ''}<p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
 }
