@@ -4418,12 +4418,12 @@ function inserisciDettato(dest, testo){
     bozzaModificata();
   }
 }
-function usaTastiera(dest){
+function usaTastiera(dest, msg){
   const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'vm' ? $('#vm-testo') : dest === 'cn:rel' ? $('#cn-rel')
     : dest.startsWith('cnfoto:') ? document.querySelector('[data-cn-fc="' + dest.slice(7) + '"]') : dest.startsWith('foto:') ? document.querySelector('[data-fotoc="' + dest.slice(5) + '"]')
     : dest.startsWith('k:') ? $('#f-' + dest.slice(2)) : null;
   if (el) { try { el.focus(); } catch(e) {} }
-  barraDett('Tocca il microfono sulla tastiera del telefono e parla.', 6000);
+  barraDett(msg || 'Tocca il microfono sulla tastiera del telefono e parla.', 8000);
 }
 function avviaDettatura(dest){
   if (impostazioni.dettTastiera) { usaTastiera(dest); return; }
@@ -5462,7 +5462,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.46.9 (23/10/2026)';
+const VERSIONE_APP = '1.46.11 (23/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
