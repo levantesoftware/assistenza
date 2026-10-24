@@ -5496,7 +5496,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.47.5 (24/10/2026)';
+const VERSIONE_APP = '1.47.6 (24/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -6081,7 +6081,7 @@ async function filesCantiere(r){
     const noShare = !!(navigator.canShare && !navigator.canShare({files: [z]}) && navigator.canShare({files: fl}));      // alcuni telefoni non condividono gli zip
     if (!noShare) fl = [z];
   }
-  return protezioneAttiva() ? await Promise.all(fl.map(cifraFile)) : fl;
+  return (protezioneAttiva() && scaricaPossibile) ? await Promise.all(fl.map(cifraFile)) : fl;      // iOS vecchi: un file cifrato non si puo' aprire ne' condividere dal visualizzatore, quindi parte in chiaro
 }
 async function mailProntaCantiere(){
   const r = regCorr, m = $('#cn-msg'); if (!r || !m) return;
@@ -6114,7 +6114,7 @@ async function inviaCantiere(){
   }
   ultimiCn = fl;
   if (!scaricaPossibile) {            // iPad e iPhone con iOS vecchio: niente invio automatico
-    m.innerHTML = 'Questo dispositivo è troppo vecchio per l\'invio automatico. Per ogni file: tocca <b>Apri</b>, poi nel visualizzatore tocca <b>Condividi</b> e scegli <b>Mail</b>. Destinatario: <b>' + esc(ind || 'l\'ufficio') + '</b>.<br>' + fl.map((f, i) => `<button class="btn chiaro piccolo" type="button" data-cn-apri="${i}" style="margin:6px 6px 0 0">Apri ${esc(f.name)}</button>`).join('') + '<br><button class="btn piccolo" type="button" id="cn-fatto" style="margin-top:8px">Fatto: l\'ho inviata</button>';
+    m.innerHTML = 'Questo dispositivo è troppo vecchio per l\'invio automatico' + (protezioneAttiva() ? ' e per la protezione con il codice (i file partono <b>non protetti</b>)' : '') + '. Per ogni file: tocca <b>Apri</b>, poi nel visualizzatore tocca <b>Condividi</b> e scegli <b>Mail</b>. Destinatario: <b>' + esc(ind || 'l\'ufficio') + '</b>.<br>' + fl.map((f, i) => `<button class="btn chiaro piccolo" type="button" data-cn-apri="${i}" style="margin:6px 6px 0 0">Apri ${esc(f.name)}</button>`).join('') + '<br><button class="btn piccolo" type="button" id="cn-fatto" style="margin-top:8px">Fatto: l\'ho inviata</button>';
     return;
   }
   if (!ind) { m.textContent = 'Scrivi l\'email dell\'ufficio qui sopra.'; const x = $('#cn-email'); if (x) x.focus(); return; }
