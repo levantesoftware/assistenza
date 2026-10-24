@@ -2182,6 +2182,7 @@ function disegnaScheda(){
       <p class="aiuto" id="invio-guida" style="margin:0 0 10px"></p>
       <div class="azioni2"><button class="btn" id="b-condividi" type="button">Invia in ufficio</button>
       <button class="btn sec" id="b-scarica" type="button">Scarica i file</button></div>
+      <button class="btn chiaro pieno" id="b-stampa" type="button" style="margin-top:8px">Stampa il rapporto (per il cliente)</button>
       <p class="aiuto" style="margin:8px 0 4px">Dal menu di condivisione l'indirizzo e l'oggetto non si possono compilare da soli (lo vieta il telefono): l'indirizzo viene copiato, da incollare nel campo A. Se vuoi la mail già con destinatario e oggetto:</p>
       <button class="btn chiaro piccolo" id="b-mailpronta" type="button">Mail con destinatario e oggetto già scritti</button></div>`;
   aggiornaOssRcee();
@@ -2311,6 +2312,7 @@ function collegaForm(){
     else if (d.apriAll !== undefined) apriAllegato(+d.apriAll);
     else if (b.id === 'b-condividi') condividiPdf();
     else if (b.id === 'b-scarica') scaricaPdf();
+    else if (b.id === 'b-stampa') stampaRapporto();
     else if (b.id === 'b-mailpronta') mailProntaAssistenza();
   });
 }
@@ -2481,10 +2483,18 @@ function costruisciPdf(w, ctx){
     y += 2;
   }
 
+  /* esito, note e firma stanno insieme: se non ci stanno in fondo alla pagina passano tutti sulla seguente, cosi' la firma non resta mai da sola */
+  {
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+    const noteH = (!ctx.perCliente && w.note) ? doc.splitTextToSize(w.note, CW).length * 5 + 11 : 0;
+    const gruppo = 22 + noteH + 14 + (w.levante ? 0 : 8) + 36;
+    if (gruppo < FONDO - M - 10) serve(gruppo); else serve(22 + 14 + (w.levante ? 0 : 8) + 36);
+  }
   titolo('Esito');
   serve(10); doc.setFont('helvetica','bold'); doc.setFontSize(11); colore(INK); doc.text(ESITI[w.esito] || '—', M, y + 3); y += 8; doc.setFont('helvetica','normal');
   if (!ctx.perCliente) blocco('Note per l\'ufficio', w.note);
 
+  serve(14 + (w.levante ? 0 : 8) + 36);                 // il titolo «Firma» non resta mai senza la firma
   titolo('Firma del cliente'); serve(40);
   if (!w.levante) { doc.setFont('helvetica','normal'); doc.setFontSize(9); colore(INK); doc.text('Il cliente dichiara di aver ricevuto l\'informativa privacy.', M, y + 2); y += 8; }
   if (w.firma) { const p = doc.getImageProperties(w.firma), s = Math.min(70 / p.width, 28 / p.height); doc.addImage(w.firma, 'PNG', M, y, p.width * s, p.height * s); }
@@ -2770,6 +2780,18 @@ function listaScarico(){
   if (fl.inAttesa) return fl;
   return (zipAttivo() && zipCache.zip && fl.length > 1) ? [zipCache.zip] : fl;      // anche dove lo zip non si puo' condividere, il download e' uno zip solo
 }
+/* stampa: il rapporto per il cliente (A4, con firma e privacy) va al menu Condividi: li' si sceglie l'app della stampante */
+async function stampaRapporto(){
+  const a = ultimiAllegati.find(x => x.id === 'rapporto'), m = $('#pdf-msg');
+  if (!a) { if (m) m.textContent = 'Il rapporto non è ancora pronto.'; return; }
+  const f = new File([a.blobCli || a.blob], a.nome || 'Rapporto.pdf', {type: 'application/pdf'});
+  if (navigator.canShare && navigator.canShare({files: [f]})) {
+    try { await navigator.share({files: [f], title: f.name}); if (m) m.textContent = 'Nel menu scegli l\'app della stampante.'; return; }
+    catch(e) { if (e && e.name === 'AbortError') return; }
+  }
+  scaricaBlob(f, f.name);
+  if (m) m.textContent = scaricaPossibile ? 'Ho scaricato il rapporto: aprilo e mandalo all\'app della stampante (Condividi).' : 'Il rapporto si apre in una nuova scheda: tocca Condividi e scegli l\'app della stampante.';
+}
 async function scaricaPdf(){
   let lista = listaScarico();
   if (lista.inAttesa) return;
@@ -2796,7 +2818,7 @@ async function creaZip(files, nomeZip){
   return new File(parti.concat(centrale, [fine.buffer]), nomeZip, {type: 'application/zip'});
 }
 let zipCache = {chiave: '', file: null, zip: null, inCorso: false, noShare: false};
-const zipAttivo = () => destInvio !== 'cli' && impostazioni.zipUff !== false;
+const zipAttivo = () => destInvio !== 'cli' && impostazioni.zipUff !== false && scaricaPossibile;      // iOS vecchi: lo zip non si apre, quindi file separati
 function chiaveZip(sel){ return sel.map(a => a.id + ':' + (a.gruppo ? a.gruppo.length : (blobDi(a) ? blobDi(a).size : 0))).join('|'); }
 function avviaZip(k, comp){
   if (zipCache.chiave === k) return;
@@ -5466,7 +5488,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.47.1 (24/10/2026)';
+const VERSIONE_APP = '1.47.4 (24/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -6046,7 +6068,7 @@ async function filesCantiere(r){
   }
   out.unshift(new File([JSON.stringify(datiCantiere(r, pdfNomi))], 'Dati_' + base + '.txt', {type: 'text/plain'}));
   let fl = out;
-  if (fl.length > 1 && impostazioni.zipUff !== false) {
+  if (fl.length > 1 && impostazioni.zipUff !== false && scaricaPossibile) {          // iOS vecchi: lo zip non si apre, quindi file separati
     const z = await creaZip(fl, base + '.zip');
     const noShare = !!(navigator.canShare && !navigator.canShare({files: [z]}) && navigator.canShare({files: fl}));      // alcuni telefoni non condividono gli zip
     if (!noShare) fl = [z];
