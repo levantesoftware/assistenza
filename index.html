@@ -177,6 +177,10 @@ details.altre summary{cursor:pointer;color:var(--petrolio);font-weight:600;paddi
 /* scheda intervento */
 .passo{margin:24px 0 0}
 .passo>h2{font-size:18px;letter-spacing:-.01em;margin-bottom:4px}
+.rcee-blocco>summary{cursor:pointer;padding:6px 0;list-style-position:inside}
+.rcee-blocco>summary h2{display:inline;font-size:18px;letter-spacing:-.01em;margin:0}
+.rcee-blocco>summary .aiuto{display:block;font-size:14px;color:var(--tenue);margin:2px 0 0}
+details.rcee-blocco[open]>summary{margin-bottom:6px}
 .passo>.aiuto{font-size:14px;color:var(--tenue);margin-bottom:10px}
 .campo{margin:0 0 14px}
 .campo>label,.etichetta{display:block;font-size:14px;font-weight:650;margin-bottom:5px}
@@ -2059,6 +2063,15 @@ function descrizioniRcee(tpl, mappa){
   const rispetta = Object.keys(mappa).filter(n => /^UNN\d$/.test(n)).length;
   return tpl._desc = {tri: triOrd, toggles, campi, rispetta};
 }
+/* gli allegati RCEE sono lunghi: si aprono e chiudono con il triangolino (quelli creati dall'ufficio partono chiusi) */
+const rcApr = {};
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.rcd !== undefined) rcApr[d.dataset.rcd] = d.open; }, true);
+function comprimiRcee(html, chiave, aperto){
+  const m = /^\s*<div class="passo rcee-blocco">\s*<h2>([\s\S]*?)<\/h2>([\s\S]*)<\/div>\s*$/.exec(html); if (!m) return html;
+  const st = rcApr[chiave], open = st !== undefined ? st : aperto;
+  const n = /<p class="aiuto">([\s\S]*?)\.\s*Creato dall/.exec(m[2]);
+  return `<details class="passo rcee-blocco" data-rcd="${esc(chiave)}"${open ? ' open' : ''}><summary><h2>${m[1]}</h2>${n ? '<span class="aiuto">' + n[1] + '</span>' : ''}</summary>${m[2]}</details>`;
+}
 function sezioneRceeGenerica(i, r, tpl, mappa){
   const d = descrizioniRcee(tpl, mappa);
   const nome = [r.GENCAL_COSTRUTTORE, r.GENCAL_MODELLO].filter(Boolean).join(' ') || 'Generatore';
@@ -2077,20 +2090,20 @@ function sezioneRceeGenerica(i, r, tpl, mappa){
     ${sezD.length ? '<h3 class="sottotit">Controllo dell\'impianto</h3>' + sezD.map(riga).join('') : ''}
     ${sezE.length ? '<h3 class="sottotit">Controllo e verifica del gruppo</h3>' + sezE.map(riga).join('') : ''}
     ${cl.length ? '<h3 class="sottotit">Check-list: interventi consigliati</h3>' + cl.map(t => `<div class="controllo"><span>${esc(t.testo)}</span><span class="tris">${triBtn(i, t.col, 'T', 'Sì')}</span></div>`).join('') : ''}
-    ${ossProssima()}
+    ${(ossAssegnata = false, ossProssima(i))}
     <h3 class="sottotit">Esito</h3>
     <div class="controllo"><span><b>L'impianto può funzionare</b></span><span class="tris">${triBtn(i, 'IMPPUOFUNZIONARE', 'T', 'Sì')}${triBtn(i, 'IMPPUOFUNZIONARE', 'F', 'No')}</span></div>
     <p class="aiuto" style="margin-top:8px">I dati del generatore arrivano da Levante; data e orari vengono da "Orari e viaggio".</p>
   </div>`;
 }
 function sezioneRcee(){
-  const sup = rcSupportati(lavoro); ossAssegnata = false;
+  const sup = rcSupportati(lavoro);
   return sup.map(({r, i}) => {
-    const mod = modelliRcee()[r._tpl];
-    if (r._man) return sezioneManuale(i, r, mod, window.MAPPE_RCEE[r._tipo]);
-    if (r._tipo !== 'RCEE1') return sezioneRceeGenerica(i, r, mod, window.MAPPE_RCEE[r._tipo]);
+    const mod = modelliRcee()[r._tpl], chiave = (lavoro.id || '') + ':' + i + ':' + r._tipo;
+    if (r._man) return comprimiRcee(sezioneManuale(i, r, mod, window.MAPPE_RCEE[r._tipo]), chiave, true);
+    if (r._tipo !== 'RCEE1') return comprimiRcee(sezioneRceeGenerica(i, r, mod, window.MAPPE_RCEE[r._tipo]), chiave, false);
     const nome = [r.GENCAL_COSTRUTTORE, r.GENCAL_MODELLO].filter(Boolean).join(' ') || 'Generatore';
-    return `<div class="passo rcee-blocco"><h2>Allegato RCEE${sup.length > 1 ? ' ' + (i + 1) : ''}</h2>
+    return comprimiRcee(`<div class="passo rcee-blocco"><h2>Allegato RCEE${sup.length > 1 ? ' ' + (i + 1) : ''}</h2>
       <p class="aiuto">${esc(nome)}${r.GENCAL_MATRICOLA ? ' · matr. ' + esc(r.GENCAL_MATRICOLA) : ''}. Creato dall'ufficio e già compilato: correggi solo quello che serve.</p>
       ${mod.verificato ? '' : '<div class="avviso"><b>Modello non ancora verificato</b>Controlla bene il PDF prima di farlo firmare.</div>'}
       <h3 class="sottotit">Analisi di combustione</h3>
@@ -2099,11 +2112,11 @@ function sezioneRcee(){
       ${RCEE_CONTROLLI.map(([tit, righe]) => `<h3 class="sottotit">${tit}</h3>${righe.map(([c, l, inv]) => rigaControllo(i, c, l, inv)).join('')}`).join('')}
       <h3 class="sottotit">Check-list: interventi consigliati</h3>
       ${RCEE_CHECKLIST.map(([c, l]) => `<div class="controllo"><span>${esc(l)}</span><span class="tris">${triBtn(i, c, 'T', 'Sì')}</span></div>`).join('')}
-      ${ossProssima()}
+      ${(ossAssegnata = false, ossProssima(i))}
       <h3 class="sottotit">Esito</h3>
       <div class="controllo"><span><b>L'impianto può funzionare</b></span><span class="tris">${triBtn(i, 'IMPPUOFUNZIONARE', 'T', 'Sì')}${triBtn(i, 'IMPPUOFUNZIONARE', 'F', 'No')}</span></div>
       <p class="aiuto" style="margin-top:8px">Data e orari vengono da "Orari e viaggio".</p>
-    </div>`;
+    </div>`, chiave, false);
   }).join('');
 }
 function righeEmailOpz(){
@@ -2117,14 +2130,29 @@ function righeEmailOpz(){
 /* Osservazioni, Raccomandazioni e Prescrizioni fanno parte dell'allegato RCEE: stanno dentro il rapporto, subito prima di «L'impianto può funzionare»
    (una sola volta, nel primo rapporto). Se non c'e' nessun RCEE ma hanno gia' del testo (vecchie bozze) restano visibili in una sezione a parte. */
 function ossHaRcee(w){ try { return rcSupportati(w).length > 0 || rcLiberi(w).length > 0; } catch(e) { return false; } }
-function ossCampi(){
+/* osservazioni, raccomandazioni e prescrizioni sono di OGNI allegato: chiavi «o<n>_osservazioni» (n = posizione dell'allegato).
+   Senza n (nessun RCEE) restano le chiavi semplici. Le vecchie bozze con un solo testo lo ritrovano nel primo allegato. */
+const OSS_NOMI = ['osservazioni', 'raccomandazioni', 'prescrizioni'];
+const ossChiave = (i, b) => (i === undefined || i === null) ? b : 'o' + i + '_' + b;
+function ossDi(w, i, b){ const k = ossChiave(i, b); return w[k] !== undefined ? w[k] : ((!i) ? (w[b] || '') : ''); }
+function ossElenco(w){
+  return rcSupportati(w).concat(rcLiberi(w)).sort((x, y) => x.i - y.i).map(({r, i}) => ({i, r,
+    nome: [r.GENCAL_COSTRUTTORE, r.GENCAL_MODELLO].filter(Boolean).join(' ') || ('Allegato ' + (i + 1)), o: ossDi(w, i, 'osservazioni'), a: ossDi(w, i, 'raccomandazioni'), p: ossDi(w, i, 'prescrizioni')}));
+}
+function ossUnite(w, b){                        // per il file dati e per l'ufficio: un solo testo, con il nome del generatore se sono piu' allegati
+  const el = ossElenco(w); if (!el.length) return w[b] || '';
+  const k = b === 'osservazioni' ? 'o' : b === 'raccomandazioni' ? 'a' : 'p';
+  return el.map(x => (el.length > 1 && x[k] ? x.nome + ': ' : '') + x[k]).filter(Boolean).join('\n');
+}
+function ossCampi(i){
+  OSS_NOMI.forEach(b => { const k = ossChiave(i, b); if (lavoro[k] === undefined) lavoro[k] = (i === undefined || i === 0) ? (lavoro[b] || '') : ''; });
   return `<h3 class="sottotit">Osservazioni, raccomandazioni e prescrizioni</h3>
-    ${campoTesto('osservazioni', 'Osservazioni', {area:true, max:255, frasi:true})}
-    ${campoTesto('raccomandazioni', 'Raccomandazioni', {area:true, max:255, frasi:true, ph:'Lavori consigliati al cliente.'})}
-    ${campoTesto('prescrizioni', 'Prescrizioni', {area:true, max:255, frasi:true, ph:'Interventi obbligatori per la sicurezza.'})}`;
+    ${campoTesto(ossChiave(i, 'osservazioni'), 'Osservazioni', {area:true, max:255, frasi:true})}
+    ${campoTesto(ossChiave(i, 'raccomandazioni'), 'Raccomandazioni', {area:true, max:255, frasi:true, ph:'Lavori consigliati al cliente.'})}
+    ${campoTesto(ossChiave(i, 'prescrizioni'), 'Prescrizioni', {area:true, max:255, frasi:true, ph:'Interventi obbligatori per la sicurezza.'})}`;
 }
 let ossAssegnata = false;
-function ossProssima(){ if (ossAssegnata) return ''; ossAssegnata = true; return ossCampi(); }
+function ossProssima(i){ if (ossAssegnata) return ''; ossAssegnata = true; return ossCampi(i); }
 function ossFuori(w){ return (!ossHaRcee(w) && (w.osservazioni || w.raccomandazioni || w.prescrizioni)) ? '<h2>Osservazioni, raccomandazioni e prescrizioni</h2><p class="aiuto">Servono per l\'allegato RCEE: se non lo aggiungi, puoi svuotarle.</p>' + ossCampi().replace(/<h3[^>]*>.*?<\/h3>/, '') : ''; }
 function aggiornaOssRcee(){ const e = $('#oss-rcee'); if (!e) return; e.innerHTML = ossFuori(lavoro); e.hidden = !e.innerHTML; }
 function disegnaScheda(){
@@ -2451,9 +2479,9 @@ function costruisciPdf(w, ctx){
   });
 
   blocco('Relazione dell\'intervento', w.relazione);
-  blocco('Osservazioni', w.osservazioni);
-  blocco('Raccomandazioni', w.raccomandazioni);
-  blocco('Prescrizioni', w.prescrizioni);
+  { const ol = ossElenco(w);
+    if (ol.length <= 1) { blocco('Osservazioni', ol.length ? ol[0].o : w.osservazioni); blocco('Raccomandazioni', ol.length ? ol[0].a : w.raccomandazioni); blocco('Prescrizioni', ol.length ? ol[0].p : w.prescrizioni); }
+    else ol.forEach(x => { blocco('Osservazioni – ' + x.nome, x.o); blocco('Raccomandazioni – ' + x.nome, x.a); blocco('Prescrizioni – ' + x.nome, x.p); }); }
 
   const tot = w.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0);
   titolo('Orari');
@@ -2520,13 +2548,13 @@ function costruisciRcee(w){
   const doc = new jsPDF({unit:'pt', format:'a4', compress:true});
   const sup = rcSupportati(w), lib = rcLiberi(w), tot = sup.length + lib.length;
   const prima = w.orari.find(o => o.dal), ultima = [...w.orari].reverse().find(o => o.al);
-  sup.forEach(({r}, n) => {
+  sup.forEach(({r, i}, n) => {
     if (n > 0) doc.addPage();
     const rec = Object.assign({}, r, {
       DATACONTROLLO: w.data ? w.data + ' 00:00:00' : r.DATACONTROLLO,
       DATAORAARRIVO: prima ? `${prima.data || w.data} ${prima.dal}:00` : r.DATAORAARRIVO,
       DATAORAPARTENZA: ultima ? `${ultima.data || w.data} ${ultima.al}:00` : r.DATAORAPARTENZA,
-      OSSERVAZIONI: w.osservazioni, RACCOMANDAZIONI: w.raccomandazioni, PRESCRIZIONI: w.prescrizioni,
+      OSSERVAZIONI: ossDi(w, i, 'osservazioni'), RACCOMANDAZIONI: ossDi(w, i, 'raccomandazioni'), PRESCRIZIONI: ossDi(w, i, 'prescrizioni'),
       TECNICO_NOMECOGNOME: r.TECNICO_NOMECOGNOME || w.tecnico, PAG: String(n + 1), PAGDI: String(tot)
     });
     const tpl = modelliRcee()[r._tpl];
@@ -2534,9 +2562,9 @@ function costruisciRcee(w){
     window.rceeTesti(doc, tpl, rec);
     window.rceeFirme(doc, tpl, {firmaTecnico: impostazioni.firmaTecnico, firmaCliente: w.firma});
   });
-  lib.forEach(({r}, k) => {
+  lib.forEach(({r, i}, k) => {
     if (sup.length + k > 0) doc.addPage();
-    disegnaRapportoLibero(doc, r, w, tot, sup.length + k + 1);
+    disegnaRapportoLibero(doc, r, w, tot, sup.length + k + 1, i);
   });
   return doc.output('blob');
 }
@@ -3374,7 +3402,7 @@ function sezioneLibera(i, r){
   const tpl = modelloLibero(r);
   if (!tpl) return `<div class="passo rcee-blocco"><h2>Allegato ${esc(r._tipo)}</h2><p class="aiuto">Il modello di questo rapporto non è disponibile su questo dispositivo.</p>
     <button class="btn sec piccolo" type="button" data-togli-lib="${i}">Togli</button></div>`;
-  const dovevo = !ossAssegnata;
+  ossAssegnata = false; const dovevo = true;
   const d = descrizioneLibera(tpl), mods = modelliLiberi(r._tipo), nomiMod = Object.keys(mods), apps = (lavoro.r && lavoro.r.a) || [];
   const input = (c, v) => `<div class="campo${c.w > 150 ? ' largo' : ''}"><label>${esc(c.et)}</label><input type="text" ${c.num ? 'inputmode="decimal" ' : ''}data-rcl="${i}|${esc(c.field)}" value="${esc(v || '')}"></div>`;
   const riga = g => {
@@ -3405,15 +3433,15 @@ function sezioneLibera(i, r){
     const voci = [].concat(campi.map(c => ({y: c.y, x: c.x, c})), gr.map(g => ({y: g.y, x: g.x, g}))).sort((a, z) => (Math.round(a.y / 6) - Math.round(z.y / 6)) || (a.x - z.x));
     let blocco = [];
     const chiudi = () => { if (blocco.length) { b += '<div class="tre">' + blocco.map(c => input(c, r[c.field])).join('') + '</div>'; blocco = []; } };
-    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (/funzionare/i.test(v.g.titolo || '')) b += ossProssima(); b += riga(v.g); } });
+    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (/funzionare/i.test(v.g.titolo || '')) b += ossProssima(i); b += riga(v.g); } });
     chiudi();
     h += `<h3 class="sottotit">${esc(titoloSez(s.titolo))}</h3>${b}`;
   });
-  if (dovevo && !ossAssegnata) h += ossProssima();
+  if (dovevo && !ossAssegnata) h += ossProssima(i);
   h += `<div style="margin-top:12px"><button class="btn sec piccolo" type="button" data-togli-lib="${i}">Togli questo rapporto</button></div></div>`;
   return h;
 }
-function sezioniLibere(){ ossAssegnata = rcSupportati(lavoro).length > 0; return rcLiberi(lavoro).map(x => sezioneLibera(x.i, x.r)).join(''); }
+function sezioniLibere(){ return rcLiberi(lavoro).map(x => comprimiRcee(sezioneLibera(x.i, x.r), (lavoro.id || '') + ':lib:' + x.i, true)).join(''); }
 function disegnaLiberi(){ const r = $('#rcee'); if (r) r.innerHTML = rcBlocco(); const c = $('#rcee-lib'); if (c) c.innerHTML = sezioniLibere(); aggiornaOssRcee(); }
 /* ==================================================================
    RCEE tipo 1, 1B e 2 creati dal tecnico (quando l'ufficio non ha creato l'allegato in Levante)
@@ -3544,7 +3572,7 @@ function sezioneManuale(i, r, tpl, mappa){
   const vm = modelliDelTipo(r._tipo), nm = Object.keys(vm);
   if (nm.length > 1) h += `<div class="campo"><label>Modulo (regione)</label><select data-manmod="${i}">${nm.map(k => `<option value="${esc(k)}"${k === r._tpl ? ' selected' : ''}>${esc(etichettaModello(k))}</option>`).join('')}</select></div>`;
   if (apps.length) h += `<div class="campo"><label>Apparecchio (riempie fabbricante, modello, matricola, potenza)</label><select data-manapp="${i}"><option value="">— scrivo io —</option>${apps.map(a => `<option value="${esc(a.id)}"${a.id === r._app ? ' selected' : ''}>${esc([a.c, a.m, a.s ? 'matr. ' + a.s : ''].filter(Boolean).join(' · ') || 'Apparecchio')}</option>`).join('')}</select></div>`;
-  const dovevo = !ossAssegnata;
+  ossAssegnata = false; const dovevo = true;
   const titoli = d.sezioni.map(s => s.titolo); if (titoli.indexOf('') < 0) titoli.unshift('');
   titoli.forEach(t => {
     const campi = d.campi.filter(c => c.sez === t), gr = d.gruppi.filter(g => g.sez === t);
@@ -3552,12 +3580,12 @@ function sezioneManuale(i, r, tpl, mappa){
     const voci = [].concat(campi.map(c => ({y: c.y, x: c.x, c})), gr.map(g => ({y: g.y, x: g.x, g}))).sort((a, z) => (Math.round(a.y / 6) - Math.round(z.y / 6)) || (a.x - z.x));
     let b = '', blocco = [];
     const chiudi = () => { if (blocco.length) { b += '<div class="tre">' + blocco.map(input).join('') + '</div>'; blocco = []; } };
-    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (v.g.col === 'IMPPUOFUNZIONARE') b += ossProssima(); b += riga(v.g); } });
+    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (v.g.col === 'IMPPUOFUNZIONARE') b += ossProssima(i); b += riga(v.g); } });
     chiudi();
     const anag = /^A\.|DATI IDENT/i.test(t);
     h += anag ? `<details class="altre"><summary>${esc(titoloSez(t))} (già compilati)</summary>${b}</details>` : `<h3 class="sottotit">${esc(titoloSez(t) || 'Dati')}</h3>${b}`;
   });
-  if (dovevo && !ossAssegnata) h += ossProssima();
+  if (dovevo && !ossAssegnata) h += ossProssima(i);
   h += `<div style="margin-top:12px"><button class="btn sec piccolo" type="button" data-togli-man="${i}">Togli questo rapporto</button></div></div>`;
   return h;
 }
@@ -3586,11 +3614,11 @@ function valoreLibero(w, c, r, tot, pag){
     default: return '';
   }
 }
-function disegnaRapportoLibero(doc, r, w, tot, pag){
+function disegnaRapportoLibero(doc, r, w, tot, pag, iRc){
   const orig = modelloLibero(r); if (!orig) return;
   const d = descrizioneLibera(orig);
   const tpl = JSON.parse(JSON.stringify(orig)), rec = {};
-  const testoZone = {osservazioni: w.osservazioni, raccomandazioni: w.raccomandazioni, prescrizioni: w.prescrizioni};
+  const testoZone = {osservazioni: ossDi(w, iRc, 'osservazioni'), raccomandazioni: ossDi(w, iRc, 'raccomandazioni'), prescrizioni: ossDi(w, iRc, 'prescrizioni')};
   doc.setFont('helvetica', 'bold');
   d.campi.forEach(c => {
     if (c.auto === 'zona') return;
@@ -5496,7 +5524,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.47.6 (24/10/2026)';
+const VERSIONE_APP = '1.48.1 (26/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -6210,7 +6238,7 @@ function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
     li: (w.levante && w.levante.li) || '',
     orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})),
-    km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: w.osservazioni || '', raccomandazioni: w.raccomandazioni || '', prescrizioni: w.prescrizioni || '', note: w.note || '',
+    km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: ossUnite(w, 'osservazioni'), raccomandazioni: ossUnite(w, 'raccomandazioni'), prescrizioni: ossUnite(w, 'prescrizioni'), note: w.note || '',
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     file: pdf || [], inviato: Date.now()};
