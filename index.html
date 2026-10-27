@@ -2420,7 +2420,7 @@ function disegnaScheda(){
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
       <label class="spunta" style="margin-top:6px"><input type="checkbox" data-dc="1"${lavoro.dc ? ' checked' : ''}> Diritto fisso di chiamata</label>
     </div>
-    <div class="passo"><h2>Materiali</h2>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
+    <div class="passo"><h2>Materiali</h2>${listinoHtml()}${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
       <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
     ${sezioneImporti()}
     <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
@@ -5781,7 +5781,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.49.5 (27/10/2026)';
+const VERSIONE_APP = '1.49.6 (27/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -5979,12 +5979,13 @@ function risultatiArticoli(q, largo){
   return pt.slice(0, 12).map(x => x[1]);
 }
 function avviaArticoli(){
+  document.addEventListener('change', e => { if (e.target && e.target.id === 'lst-sel' && lavoro) cambiaListino(e.target.value); });
   document.addEventListener('input', e => {
     if (!e.target || e.target.id !== 'mat-cerca') return;
     const tutti = leggiArticoli(), box = $('#mat-cerca-ris');
     const ris = risultatiArticoli(e.target.value);
     if (!ris.length) { box.innerHTML = e.target.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde. Puoi scrivere il materiale a mano qui sotto.</p>' + BTN_ANNULLA_RIC('mat') : ''; return; }
-    box.innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(a[3]) : ''}</button>`; }).join('') + BTN_ANNULLA_RIC('mat');
+    box.innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}${a[2] ? ' · ' + esc(a[2]) : ''}${a[3] ? ' · € ' + esc(prezzoArt(a, true)) + (listinoCorr() > 1 ? ' (L' + listinoCorr() + ')' : '') : ''}</button>`; }).join('') + BTN_ANNULLA_RIC('mat');
   });
   document.addEventListener('click', e => {
     const an = e.target.closest && e.target.closest('[data-annulla-ric]'); if (an) { fermaDettatura(); pulisciRicerca(an.dataset.annullaRic); return; }
@@ -6024,13 +6025,34 @@ function aggiungiArticolo(a, q){
 let barre = null, barreMappa = null, barreLoc = null, zxLettore = null, scanFlusso = null, scanAttivo = false, scanUltimo = '';
 let scanPausa = false, scanProposto = null, scanModoFoto = false, scanPre = '';      // lettura continua: dopo ogni codice si sceglie la quantita' e la lettura riparte
 /* prezzo di un articolo: colonna del listino di vendita del cliente (1-4, come in Levante); senza cliente o senza prezzo in quel listino vale il listino 1 */
-function prezzoArt(a, perCliente){
+function listinoCorr(){          // listino di vendita in uso per questo intervento: scelto dal tecnico, altrimenti quello del cliente, altrimenti il 1
+  if (!lavoro) return 1;
+  const l = parseInt(lavoro.lst || (lavoro.r && lavoro.r.c && lavoro.r.c.l), 10);
+  return l >= 2 && l <= 4 ? l : 1;
+}
+function prezzoArtL(a, l){
   const base = a[3] || '';
-  if (!perCliente || !lavoro || !lavoro.r || !lavoro.r.c) return base;
-  const l = parseInt(lavoro.r.c.l, 10);
   if (!(l >= 2 && l <= 4)) return base;
   const p = a[2 + l];
   return (p !== undefined && p !== '' && parseFloat(String(p).replace(',', '.')) > 0) ? p : base;
+}
+function prezzoArt(a, perCliente){ return perCliente && lavoro ? prezzoArtL(a, listinoCorr()) : (a[3] || ''); }
+function listinoHtml(){
+  if (!lavoro) return '';
+  const l = listinoCorr(), cl = parseInt(lavoro.r && lavoro.r.c && lavoro.r.c.l, 10) || 1;
+  return `<div class="campo" style="margin:0 0 10px"><label for="lst-sel">Listino prezzi</label><select id="lst-sel" aria-label="Listino di vendita">${[1, 2, 3, 4].map(n => `<option value="${n}"${n === l ? ' selected' : ''}>Listino ${n}${n === cl ? ' (del cliente)' : ''}</option>`).join('')}</select></div>`;
+}
+function cambiaListino(n){
+  const v = listinoCorr(); lavoro.lst = String(n); const nuovo = listinoCorr(); let k = 0;
+  const num = x => parseFloat(String(x == null ? '' : x).replace(',', '.'));
+  const art = leggiArticoli();
+  lavoro.materiali.forEach(m => {
+    if (!m.codice) return;
+    const a = art.find(x => String(x[0]).trim() === String(m.codice).trim()); if (!a) return;
+    if (num(m.prezzo) === num(prezzoArtL(a, v))) { m.prezzo = prezzoArtL(a, nuovo); k++; }   // i prezzi corretti a mano non si toccano
+  });
+  $('#materiali').innerHTML = righeMateriali(); bozzaModificata();
+  mostraAvviso('Listino ' + nuovo + (k ? ': aggiornati i prezzi di ' + k + (k === 1 ? ' materiale.' : ' materiali.') : '.'));
 }
 function leggiBarre(){ if (barre === null) barre = store.get('ass_barre', []) || []; return barre; }
 function salvaBarre(l){
@@ -6129,7 +6151,7 @@ async function scanDaFoto(file){
 function scanProponi(a, testo){
   scanPausa = true; scanProposto = a;
   scanMsg('Letto ' + (testo || a[0] || '') + '.');
-  $('#scan-trovato').innerHTML = `<div class="scan-box"><strong>${esc(a[1] || a[0] || '')}</strong>${a[0] ? `<small style="display:block;opacity:.8">${esc(a[0])}</small>` : ''}
+  $('#scan-trovato').innerHTML = `<div class="scan-box"><strong>${esc(a[1] || a[0] || '')}</strong>${a[0] ? `<small style="display:block;opacity:.8">${esc(a[0])}</small>` : ''}${(!scanCn && lavoro && a[3]) ? `<small style="display:block;opacity:.8">€ ${esc(prezzoArt(a, true))}${listinoCorr() > 1 ? ' (listino ' + listinoCorr() + ')' : ''}</small>` : ''}
     <div style="display:flex;gap:8px;align-items:center;margin:10px 0"><button class="btn chiaro" type="button" id="scan-q-meno" aria-label="Meno">−</button>
     <input type="text" inputmode="decimal" id="scan-q" value="1" autocomplete="off" aria-label="Quantità" style="width:90px;text-align:center;font-size:22px"><button class="btn chiaro" type="button" id="scan-q-piu" aria-label="Più">+</button>
     <span>${esc(a[2] || 'pz')}</span></div>
