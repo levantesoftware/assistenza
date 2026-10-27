@@ -739,6 +739,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <button class="btn sec pieno" id="b-ricontrolla" type="button" style="margin-bottom:8px">Ricontrolla lo stato</button>
     <button class="btn sec pieno" id="b-ricarica" type="button">Aggiorna l'app (serve la connessione)</button>
     <label class="spunta" style="margin-top:12px"><input type="checkbox" id="chk-dett-tast"> Dettatura con il microfono della tastiera <span class="aiuto">(se quella dell'app si blocca: il pulsante del microfono apre la tastiera e tu tocchi il suo microfono)</span></label>
+    <div class="campo" style="margin-top:12px"><label for="sel-scan">Lettore codici a barre</label><select id="sel-scan"><option value="live">Prova prima la fotocamera dal vivo</option><option value="foto">Vai direttamente alla foto</option></select><span class="aiuto">Con «foto» il pulsante del lettore apre subito la fotocamera per scattare: più sicuro su telefoni dove il video dal vivo non legge bene.</span></div>
     <button class="btn sec pieno" id="b-prova-mic" type="button" style="margin-top:8px">Prova il microfono (diagnosi)</button>
     <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Stampante</h2>
@@ -5524,7 +5525,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.48.1 (26/10/2026)';
+const VERSIONE_APP = '1.48.2 (27/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -5806,6 +5807,11 @@ function scanLettore(){
 }
 async function scanApri(){
   $('#scan').hidden = false; $('#scan-trovato').innerHTML = ''; scanUltimo = '';
+  if (impostazioni.scanFoto) {                 // scelta nelle Impostazioni: si passa subito alla foto, senza provare il video dal vivo (va chiamato nel tocco, prima di ogni attesa)
+    scanMsg('Scatta una foto del codice a barre, ben dritto e con buona luce. Per usare la fotocamera dal vivo cambia la scelta nelle Impostazioni.');
+    const f = $('#scan-foto'); if (f) { try { f.click(); } catch(e) {} }
+    return;
+  }
   scanMsg('Preparo lo scanner…');
   try { await scanLibreria(); } catch(e) {
     scanMsg('Lo scanner non è ancora salvato su questo dispositivo e senza connessione non si può caricare. Puoi scrivere il numero a mano.', true); return;
@@ -7385,6 +7391,7 @@ function avvia(){
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#novita-modale').hidden) $('#novita-modale').hidden = true; });
   $('#b-ricontrolla').onclick = () => { tentativiStato = 0; aggiornaStatoApp(); };
   $('#b-prova-mic').onclick = provaMicrofono;
+  { const s = $('#sel-scan'); if (s) { s.value = impostazioni.scanFoto ? 'foto' : 'live'; s.onchange = () => { impostazioni.scanFoto = s.value === 'foto'; salvaImpostazioni(); }; } }
   { const c = $('#chk-dett-tast'); c.checked = !!impostazioni.dettTastiera; c.onchange = () => { impostazioni.dettTastiera = c.checked; salvaImpostazioni(); }; }
   $('#b-ricarica').onclick = () => { if (navigator.onLine === false) { alert('Senza connessione non posso cercare aggiornamenti: l\'app continua a funzionare con la versione che hai.'); return; } forzaAggiornamento(); };
   registraServiceWorker(); setTimeout(controllaNuovaVersione, 4000);
