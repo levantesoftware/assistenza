@@ -5525,7 +5525,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.48.2 (27/10/2026)';
+const VERSIONE_APP = '1.48.3 (27/10/2026)';
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
 const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
@@ -5739,20 +5739,22 @@ function avviaArticoli(){
   avviaScanner();
 }
 let scanCn = false;                                   // lo scanner e' aperto dal rapportino di un cantiere (non da un intervento)
-function aggiungiArticoloCn(a){
-  const r = regCorr; if (!r) return;
+const qtaTesto = q => String(q > 0 ? q : 1).replace('.', ',');
+function aggiungiArticoloCn(a, q){
+  q = q > 0 ? q : 1; const r = regCorr; if (!r) return;
   const gia = a[0] ? r.materiali.find(m => m.codice === a[0]) : null;
-  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
-  else r.materiali.unshift({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
+  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = qtaTesto(n + q); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
+  else r.materiali.unshift({descr: a[1], codice: a[0], qta: qtaTesto(q), um: a[2] || 'pz', prezzo: a[3] || ''});
   const m = $('#cn-mat'); if (m) m.innerHTML = righeMatCn(r);
   salvaReg();
 }
-function aggiungiArticolo(a){
-  if (scanCn === 'portato') { aggiungiPortato(a); return; }
-  if (scanCn) { aggiungiArticoloCn(a); return; }
+function aggiungiArticolo(a, q){
+  q = q > 0 ? q : 1;
+  if (scanCn === 'portato') { aggiungiPortato(a, q); return; }
+  if (scanCn) { aggiungiArticoloCn(a, q); return; }
   const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
-  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
-  else lavoro.materiali.unshift({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''});
+  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = qtaTesto(n + q); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
+  else lavoro.materiali.unshift({descr: a[1], codice: a[0], qta: qtaTesto(q), um: a[2] || 'pz', prezzo: a[3] || ''});
   $('#materiali').innerHTML = righeMateriali();           // niente focus sul campo quantita': tastiera aperta = il microfono dopo non parte
   bozzaModificata();
 }
@@ -5763,6 +5765,7 @@ function aggiungiArticolo(a){
    Ricerca: codici imparati dal tecnico -> codici a barre di Levante -> codice articolo uguale al numero letto.
    ================================================================== */
 let barre = null, barreMappa = null, barreLoc = null, zxLettore = null, scanFlusso = null, scanAttivo = false, scanUltimo = '';
+let scanPausa = false, scanProposto = null, scanModoFoto = false, scanPre = '';      // lettura continua: dopo ogni codice si sceglie la quantita' e la lettura riparte
 function leggiBarre(){ if (barre === null) barre = store.get('ass_barre', []) || []; return barre; }
 function salvaBarre(l){
   if (!Array.isArray(l) || !l.length) return;
@@ -5785,14 +5788,14 @@ function cercaBarre(testo){
   return null;
 }
 function ricordaBarre(testo, a){ const k = chiaveBarre(testo); if (!k) return; if (barreLoc === null) barreLoc = store.get('ass_barre_loc', {}) || {}; barreLoc[k] = a; store.set('ass_barre_loc', barreLoc); }
-function scanMsg(t, errore){ const m = $('#scan-msg'); m.textContent = t; m.style.color = errore ? '#ffb4a8' : '#fff'; }
+function scanMsg(t, errore){ const m = $('#scan-msg'); m.textContent = (scanPre ? scanPre + ' ' : '') + t; m.style.color = errore ? '#ffb4a8' : '#fff'; }
 function scanFerma(){
   scanAttivo = false;
   try { if (zxLettore) zxLettore.reset(); } catch(e) {}
   const v = $('#scan-video'); if (v) { try { v.pause(); } catch(e) {} v.srcObject = null; v.hidden = true; }
   if (scanFlusso) { try { scanFlusso.getTracks().forEach(t => t.stop()); } catch(e) {} scanFlusso = null; }
 }
-function scanChiudi(){ scanFerma(); $('#scan').hidden = true; }
+function scanChiudi(){ scanFerma(); scanPausa = false; scanProposto = null; scanModoFoto = false; scanPre = ''; $('#scan-trovato').innerHTML = ''; $('#scan').hidden = true; }
 async function scanLibreria(){
   if (window.ZXing) return;
   await caricaScript(['zxing.min.js', 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js']);
@@ -5808,6 +5811,7 @@ function scanLettore(){
 async function scanApri(){
   $('#scan').hidden = false; $('#scan-trovato').innerHTML = ''; scanUltimo = '';
   if (impostazioni.scanFoto) {                 // scelta nelle Impostazioni: si passa subito alla foto, senza provare il video dal vivo (va chiamato nel tocco, prima di ogni attesa)
+    scanModoFoto = true;
     scanMsg('Scatta una foto del codice a barre, ben dritto e con buona luce. Per usare la fotocamera dal vivo cambia la scelta nelle Impostazioni.');
     const f = $('#scan-foto'); if (f) { try { f.click(); } catch(e) {} }
     return;
@@ -5823,7 +5827,7 @@ async function scanApri(){
     scanMsg('Inquadra il codice a barre, a circa 15-20 cm, con buona luce, e tieni fermo un attimo. Se non lo legge, usa "Scatta una foto del codice".');
     setTimeout(() => { try { const tr = v.srcObject && v.srcObject.getVideoTracks()[0]; if (tr && tr.applyConstraints) tr.applyConstraints({advanced: [{focusMode: 'continuous'}]}).catch(() => {}); } catch(e) {} }, 900);
     await scanLettore().decodeFromConstraints({video: {facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080}, frameRate: {ideal: 30}}, audio: false}, 'scan-video', (ris) => {
-      if (ris && scanAttivo) { const t = ris.getText(); if (t && t !== scanUltimo) { scanUltimo = t; scanRisultato(t); } }
+      if (ris && scanAttivo && !scanPausa) { const t = ris.getText(); if (t && t !== scanUltimo) { scanUltimo = t; scanRisultato(t); } }
     });
   } catch(e) {
     scanFerma();
@@ -5855,9 +5859,31 @@ async function scanDaFoto(file){
     if (t) scanRisultato(t); else scanMsg('Non riesco a leggere il codice in questa foto. Avvicinati, con buona luce e il codice dritto, e riprova; oppure scrivi il numero.', true);
   } catch(e) { scanMsg('Non riesco a leggere la foto (' + (e && e.message || 'errore') + '). Puoi scrivere il numero.', true); }
 }
+/* dopo la lettura: nome, quantita' da scegliere e conferma; poi la lettura riparte da sola (video dal vivo o nuova foto) */
+function scanProponi(a, testo){
+  scanPausa = true; scanProposto = a;
+  scanMsg('Letto ' + (testo || a[0] || '') + '.');
+  $('#scan-trovato').innerHTML = `<div class="scan-box"><strong>${esc(a[1] || a[0] || '')}</strong>${a[0] ? `<small style="display:block;opacity:.8">${esc(a[0])}</small>` : ''}
+    <div style="display:flex;gap:8px;align-items:center;margin:10px 0"><button class="btn chiaro" type="button" id="scan-q-meno" aria-label="Meno">−</button>
+    <input type="text" inputmode="decimal" id="scan-q" value="1" autocomplete="off" aria-label="Quantità" style="width:90px;text-align:center;font-size:22px"><button class="btn chiaro" type="button" id="scan-q-piu" aria-label="Più">+</button>
+    <span>${esc(a[2] || 'pz')}</span></div>
+    <button class="btn pieno" type="button" id="scan-q-ok">Aggiungi e leggi il prossimo</button></div>`;
+}
+function scanConferma(){
+  const a = scanProposto; if (!a) return;
+  const i = $('#scan-q'); let q = parseFloat(String(i ? i.value : '1').replace(',', '.')); if (!(q > 0)) q = 1;
+  scanProposto = null; scanPausa = false; $('#scan-trovato').innerHTML = '';
+  aggiungiArticolo(a, q);
+  scanPre = 'Aggiunto: ' + (a[1] || a[0]) + ' × ' + qtaTesto(q) + '.';
+  const ult = scanUltimo; setTimeout(() => { if (scanUltimo === ult) scanUltimo = ''; }, 2500);           // il codice ancora inquadrato non si rilegge subito
+  if (scanAttivo) { scanMsg('Inquadra il prossimo codice, oppure tocca Chiudi.'); return; }
+  if (scanModoFoto) { scanMsg('Scatta la foto del prossimo codice, oppure tocca Chiudi.'); const f = $('#scan-foto'); if (f) { try { f.click(); } catch(e) {} } return; }
+  scanApri();
+}
 function scanRisultato(testo){
   const a = cercaBarre(testo);
-  if (a && (lavoro || (scanCn && regCorr))) { scanChiudi(); aggiungiArticolo(a); mostraAvviso('Letto ' + testo + ': ' + a[1]); return; }
+  scanPre = '';
+  if (a && (lavoro || (scanCn && regCorr))) { scanProponi(a, testo); return; }
   scanFerma();
   scanMsg('Codice ' + testo + ' non conosciuto. Scegli l\'articolo oppure scrivilo: la prossima volta verrà riconosciuto da solo.');
   const ha = leggiArticoli().length > 0;
@@ -5873,13 +5899,15 @@ function avviaScanner(){
     if (t.closest('#cn-port-scan')) { if (regCorr) { scanCn = 'portato'; scanApri(); } return; }
     if (t.closest('#cn-port-foto')) { const i = $('#cn-port-foto-in'); if (i) i.click(); return; }
     if (t.closest('#scan-chiudi')) { scanChiudi(); return; }
+    if (t.closest('#scan-q-meno') || t.closest('#scan-q-piu')) { const i = $('#scan-q'); if (i) { const v = parseFloat(String(i.value).replace(',', '.')) || 0; i.value = qtaTesto(Math.max(1, v + (t.closest('#scan-q-piu') ? 1 : -1))); } return; }
+    if (t.closest('#scan-q-ok')) { scanConferma(); return; }
     if (t.closest('#scan-num')) { const n = prompt('Numero del codice a barre:'); if (n && n.trim()) scanRisultato(n.trim()); return; }
     const art = t.closest('[data-scan-art]');
-    if (art) { const a = leggiArticoli()[+art.dataset.scanArt]; const bc = $('#scan-trovato').dataset.barre; if (a && bc) { ricordaBarre(bc, a); scanChiudi(); aggiungiArticolo(a); mostraAvviso('Codice ricordato: ' + a[1]); } return; }
+    if (art) { const a = leggiArticoli()[+art.dataset.scanArt]; const bc = $('#scan-trovato').dataset.barre; if (a && bc) { ricordaBarre(bc, a); scanProponi(a, bc); } return; }
     if (t.closest('#scan-agg')) {
       const bc = $('#scan-trovato').dataset.barre, d = $('#scan-descr').value.trim(), c = $('#scan-cod').value.trim();
       if (!d && !c) { scanMsg('Scrivi almeno la descrizione.', true); return; }
-      const a = [c, d || c, 'pz', '']; ricordaBarre(bc, a); scanChiudi(); aggiungiArticolo(a); mostraAvviso('Codice ricordato per la prossima volta.'); return;
+      const a = [c, d || c, 'pz', '']; ricordaBarre(bc, a); scanProponi(a, bc); return;
     }
   });
   document.addEventListener('input', e => {
@@ -5888,8 +5916,8 @@ function avviaScanner(){
     $('#scan-cerca-ris').innerHTML = ris.map(i => { const a = tutti[i]; return `<button class="btn chiaro piccolo" type="button" data-scan-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(a[0] ? a[0] + ' · ' : '')}${esc(a[1])}</button>`; }).join('');
   });
   document.addEventListener('change', e => {
-    if (e.target && e.target.id === 'cn-port-foto-in' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanCn = 'portato'; $('#scan').hidden = false; $('#scan-trovato').innerHTML = ''; scanUltimo = ''; scanDaFoto(f); return; }
-    if (e.target && e.target.id === 'scan-foto' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanFerma(); scanDaFoto(f); }
+    if (e.target && e.target.id === 'cn-port-foto-in' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanCn = 'portato'; $('#scan').hidden = false; $('#scan-trovato').innerHTML = ''; scanUltimo = ''; scanModoFoto = true; scanDaFoto(f); return; }
+    if (e.target && e.target.id === 'scan-foto' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanFerma(); scanModoFoto = true; scanDaFoto(f); }
   });
 }
 /* ==================================================================
@@ -5970,11 +5998,11 @@ function righePortato(r){
     return `<div class="cn-port" style="display:grid;grid-template-columns:1fr 58px 96px 34px;gap:6px;margin:6px 0;align-items:center"><div style="min-width:0">${esc(p.descr || p.codice)}${p.codice && p.descr ? `<span class="aiuto" style="display:block">${esc(p.codice)}</span>` : ''}</div><input type="text" inputmode="decimal" data-cn-pq="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="btn ${u ? '' : 'sec'} piccolo" type="button" data-cn-pus="${i}" aria-pressed="${u}" style="margin:0">${u ? '✓ Installato' : 'Installato'}</button><button class="togli" type="button" data-cn-ptogli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
 }
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'cn-port-d') portApr[d.dataset.rid] = d.open; }, true);
-function aggiungiPortato(a){
-  const r = regCorr; if (!r) return; r.portato = r.portato || [];
+function aggiungiPortato(a, q){
+  q = q > 0 ? q : 1; const r = regCorr; if (!r) return; r.portato = r.portato || [];
   const gia = a[0] ? r.portato.find(p => p.codice === a[0]) : null;
-  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = String(n + 1).replace('.', ','); mostraAvviso(a[1] + ': quantità portata a ' + gia.qta + '.'); }
-  else { r.portato.unshift({codice: a[0] || '', descr: a[1] || '', um: a[2] || 'pz', prezzo: a[3] || '', qta: '1'}); mostraAvviso('Aggiunto: ' + a[1]); }
+  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = qtaTesto(n + q); mostraAvviso(a[1] + ': quantità portata a ' + gia.qta + '.'); }
+  else { r.portato.unshift({codice: a[0] || '', descr: a[1] || '', um: a[2] || 'pz', prezzo: a[3] || '', qta: qtaTesto(q)}); mostraAvviso('Aggiunto: ' + a[1]); }
   const b = $('#cn-port'); if (b) b.innerHTML = righePortato(r);
   salvaReg();
 }
