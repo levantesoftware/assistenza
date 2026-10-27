@@ -4809,7 +4809,7 @@ function aggiungiMaterialiVoce(){
   const dest = vmCn ? (regCorr ? regCorr.materiali : []) : lavoro.materiali;
   vmRighe.filter(r => r && (r.descr || r.qta)).forEach(r => {
     const a = (r.art !== '' && r.art != null) ? leggiArticoli()[+r.art] : null;
-    if (a) dest.push({descr: a[1], codice: a[0], qta: r.qta, um: (!r.um || r.um === 'pz') ? (a[2] || 'pz') : r.um, prezzo: a[3] || ''});
+    if (a) dest.push({descr: a[1], codice: a[0], qta: r.qta, um: (!r.um || r.um === 'pz') ? (a[2] || 'pz') : r.um, prezzo: prezzoArt(a, !vmCn)});
     else dest.push({descr: r.descr, codice: '', qta: r.qta, um: r.um || 'pz'});
   });
   if (vmCn) { const m = $('#cn-mat'); if (m && regCorr) m.innerHTML = righeMatCn(regCorr); salvaReg(true); }
@@ -5136,7 +5136,7 @@ function costruisciDaLevante(T){
     const opsApp = opa[a.ID] || [], selOp = {}, selApp = new Set();
     opsApp.forEach(o => { selOp[o.IDOPPRATICA] = o; if (o.IDAPPARECCHIOPRAT && o.IDAPPARECCHIOPRAT !== '0') selApp.add(o.IDAPPARECCHIOPRAT); });
     const r = {v:'1', li:a.ID, mi:a.MASTER_ID, tp:tipoInt(a.TIPOINTERVENTO)};
-    r.c = senzaVuoti(c0 ? {k:c0.CODICE, n:c0.RAGIONESOCIALE || a.RAGSOCCLI, t:c0.TELEFONO, m:c0.CELLULARE, e:c0.EMAIL, p:c0.PEC, ce:(c0.COM_EMAIL || '').toUpperCase() === 'F' ? 'F' : '', nm:c0.NOME, cg:c0.COGNOME, cf:c0.CODICEFISCALE, iv:c0.PARTITAIVA, ia:c0.INDIRIZZO, ic:c0.NUMCIVICO, ik:c0.CITTA, ip:c0.PROVINCIA} : {k:a.CLIENTE, n:a.RAGSOCCLI});
+    r.c = senzaVuoti(c0 ? {k:c0.CODICE, n:c0.RAGIONESOCIALE || a.RAGSOCCLI, t:c0.TELEFONO, m:c0.CELLULARE, e:c0.EMAIL, p:c0.PEC, ce:(c0.COM_EMAIL || '').toUpperCase() === 'F' ? 'F' : '', nm:c0.NOME, cg:c0.COGNOME, cf:c0.CODICEFISCALE, iv:c0.PARTITAIVA, l:(/^[1-4]$/.test(String(c0.LISTINO || '').trim()) ? String(c0.LISTINO).trim() : ''), ia:c0.INDIRIZZO, ic:c0.NUMCIVICO, ik:c0.CITTA, ip:c0.PROVINCIA} : {k:a.CLIENTE, n:a.RAGSOCCLI});
     if (i0) {
       r.i = senzaVuoti({id:i0.ID, d:i0.DESCRIZIONE, u:ubicazioneDa(i0), z:i0.UBICAZ_ZONA, tp:i0.TIPOIMPIANTO, pv:dt10(i0.PROXVISITAENTRO),
         ct:i0.CONTRATTO_STATO, tel:i0.TELEFONOCLI || i0.CELLULARECLI, nt:(i0.NOTE || '').slice(0, 300)});
@@ -5203,9 +5203,9 @@ function costruisciDaLevante(T){
   const tipiOre = (T.tipiore || []).filter(r => String(r.TIPO || '').toUpperCase() === 'OREDIP1' && r.DESCRIZIONE).map(r => r.DESCRIZIONE);
   const iva = {}; (T.aliquote_iva || []).forEach(a => { if (a.CODICEIVA) iva[a.CODICEIVA] = [parseFloat(a.ALIQUOTAIVA) || 0, a.DESCRIZIONEIVA || '', a.PA_NATURA || '']; });
   return {appuntamenti: out, chiamate, tecnici, cantieri, dipendenti, tecNomi, tipiOre, iva, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
-    articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '']),
-    listino: (T.listino || []).filter(r => r.CODICE).map(r => [r.CODICE, r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '']),
-    barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || ''])};
+    articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
+    listino: (T.listino || []).filter(r => r.CODICE).map(r => [r.CODICE, r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
+    barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || ''])};
 }
 
 
@@ -5781,7 +5781,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.49.4 (27/10/2026)';
+const VERSIONE_APP = '1.49.5 (27/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -5940,7 +5940,7 @@ async function caricaListinoDaDb(){
   try { const db = await apriDb(); rec = await new Promise((ok, ko) => { const r = db.transaction('listino').objectStore('listino').get('tsv'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); }); db.close(); } catch(e) { return; }
   if (!rec || !rec.tsv) return;
   const righe = rec.tsv.split('\n'), out = [];
-  for (let i = 0; i < righe.length; i++) { if (!righe[i]) continue; const c = righe[i].split('\t'); if (c[0] || c[1]) out.push([c[0] || '', c[1] || '', c[2] || '', c[3] || '']); }
+  for (let i = 0; i < righe.length; i++) { if (!righe[i]) continue; const c = righe[i].split('\t'); if (c[0] || c[1]) out.push([c[0] || '', c[1] || '', c[2] || '', c[3] || '', c[4] || '', c[5] || '', c[6] || '']); }
   listinoRighe = out; listinoQuando = rec.quando || '';
   await costruisciArt();
 }
@@ -6011,7 +6011,7 @@ function aggiungiArticolo(a, q){
   if (scanCn) { aggiungiArticoloCn(a, q); return; }
   const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
   if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = qtaTesto(n + q); mostraAvviso(a[1] + ': era già nell\'elenco, quantità portata a ' + gia.qta + '.'); }
-  else lavoro.materiali.unshift({descr: a[1], codice: a[0], qta: qtaTesto(q), um: a[2] || 'pz', prezzo: a[3] || ''});
+  else lavoro.materiali.unshift({descr: a[1], codice: a[0], qta: qtaTesto(q), um: a[2] || 'pz', prezzo: prezzoArt(a, true)});
   $('#materiali').innerHTML = righeMateriali();           // niente focus sul campo quantita': tastiera aperta = il microfono dopo non parte
   bozzaModificata();
 }
@@ -6023,12 +6023,21 @@ function aggiungiArticolo(a, q){
    ================================================================== */
 let barre = null, barreMappa = null, barreLoc = null, zxLettore = null, scanFlusso = null, scanAttivo = false, scanUltimo = '';
 let scanPausa = false, scanProposto = null, scanModoFoto = false, scanPre = '';      // lettura continua: dopo ogni codice si sceglie la quantita' e la lettura riparte
+/* prezzo di un articolo: colonna del listino di vendita del cliente (1-4, come in Levante); senza cliente o senza prezzo in quel listino vale il listino 1 */
+function prezzoArt(a, perCliente){
+  const base = a[3] || '';
+  if (!perCliente || !lavoro || !lavoro.r || !lavoro.r.c) return base;
+  const l = parseInt(lavoro.r.c.l, 10);
+  if (!(l >= 2 && l <= 4)) return base;
+  const p = a[2 + l];
+  return (p !== undefined && p !== '' && parseFloat(String(p).replace(',', '.')) > 0) ? p : base;
+}
 function leggiBarre(){ if (barre === null) barre = store.get('ass_barre', []) || []; return barre; }
 function salvaBarre(l){
   if (!Array.isArray(l) || !l.length) return;
   barre = l; barreMappa = null;
   try { localStorage.setItem('ass_barre', JSON.stringify(l)); return; } catch(e) {}
-  const ridotto = l.map(r => [r[0], r[1], String(r[2] || '').slice(0, 40), r[3], r[4]]);          // memoria piena: descrizioni accorciate
+  const ridotto = l.map(r => [r[0], r[1], String(r[2] || '').slice(0, 40), r[3], r[4], r[5], r[6], r[7]]);          // memoria piena: descrizioni accorciate
   try { localStorage.setItem('ass_barre', JSON.stringify(ridotto)); barre = ridotto; return; } catch(e) {}
   try { localStorage.removeItem('ass_barre'); } catch(e) {}
 }
@@ -6037,7 +6046,7 @@ function cercaBarre(testo){
   const k = chiaveBarre(testo); if (!k) return null;
   if (barreLoc === null) barreLoc = store.get('ass_barre_loc', {}) || {};
   if (barreLoc[k]) return barreLoc[k];
-  if (!barreMappa) { barreMappa = {}; leggiBarre().forEach(r => { const c = chiaveBarre(r[0]); if (c && !barreMappa[c]) barreMappa[c] = [r[1], r[2], r[3], r[4]]; }); }
+  if (!barreMappa) { barreMappa = {}; leggiBarre().forEach(r => { const c = chiaveBarre(r[0]); if (c && !barreMappa[c]) barreMappa[c] = [r[1], r[2], r[3], r[4], r[5], r[6], r[7]]; }); }
   if (barreMappa[k]) return barreMappa[k];
   const art = leggiArticoli();
   if (ART && ART.lista === art) { const i = ART.mappa.get(k); return i === undefined ? null : art[i]; }
