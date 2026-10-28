@@ -2426,7 +2426,7 @@ function disegnaScheda(){
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
       <label class="spunta" style="margin-top:6px"><input type="checkbox" data-dc="1"${lavoro.dc ? ' checked' : ''}> Diritto fisso di chiamata</label>
     </div>
-    <div class="passo"><h2>Materiali</h2>${listinoHtml()}${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
+    <div class="passo"><h2>Materiali</h2>${listinoHtml()}${portatoLHtml()}${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
       <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
     ${sezioneImporti()}
     <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
@@ -4690,7 +4690,7 @@ function fermaDettatura(){
   if (d.dest === 'vm') interpretaDaTesto();
 }
 function pulisciRicerca(tipo){
-  const base = tipo === 'mat' ? 'mat-cerca' : tipo === 'cnp' ? 'cn-pcerca' : 'cn-cerca', inp = $('#' + base), box = $('#' + base + '-ris');
+  const base = tipo === 'mat' ? 'mat-cerca' : tipo === 'cnp' ? 'cn-pcerca' : tipo === 'ptl' ? 'pt-cerca' : 'cn-cerca', inp = $('#' + base), box = $('#' + base + '-ris');
   if (inp) inp.value = ''; if (box) box.innerHTML = '';
 }
 const BTN_ANNULLA_RIC = tipo => `<button class="btn sec piccolo" type="button" data-annulla-ric="${tipo}" style="margin:4px 0">Annulla e cerca di nuovo</button>`;
@@ -4810,6 +4810,60 @@ function interpretaDaRighe(){
   const box = $('#vm-risultato');
   box.innerHTML = vmRighe.length ? '<p class="etichetta" style="margin:10px 0 6px">Controlla le righe:</p>' + vmRighe.map(rigaVmHtml).join('') : '';
   $('#vm-aggiungi').disabled = !vmRighe.length; $('#vm-aggiungi').textContent = 'Aggiungi ' + vmRighe.length + (vmRighe.length === 1 ? ' materiale' : ' materiali');
+}
+/* ---- materiale portato (appuntamenti): la lista fatta in magazzino; a fine lavoro si tocca quello che si e' usato e passa in «Materiali» col prezzo del listino del cliente ---- */
+let ptApr = {};
+const ptKey = () => (lavoro && lavoro.id) || '';
+function ptConta(w){ const n = (w.portato || []).length, u = (w.portato || []).filter(p => portatoUsato(w, p)).length; return n ? ' · ' + n + (n === 1 ? ' articolo' : ' articoli') + (u ? ', usati ' + u : '') : ''; }
+function righePortatoL(){
+  const w = lavoro; w.portato = w.portato || [];
+  const sp = document.getElementById('pt-n'); if (sp) sp.textContent = ptConta(w);
+  if (!w.portato.length) return '<p class="aiuto" style="margin:4px 0">Ancora nessun articolo. In magazzino fotografa l\'etichetta, scansiona o cerca qui sopra.</p>';
+  const usati = w.portato.filter(p => portatoUsato(w, p)).length;
+  return `<p class="aiuto" style="margin:4px 0">${w.portato.length} articoli · usati ${usati}. A fine lavoro tocca «Usato» sui pezzi montati.</p>` + w.portato.map((p, i) => { const u = portatoUsato(w, p);
+    return `<div style="display:grid;grid-template-columns:1fr 58px 90px 34px;gap:6px;margin:6px 0;align-items:center"><div style="min-width:0">${esc(p.descr || p.codice)}${p.codice && p.descr ? `<span class="aiuto" style="display:block">${esc(p.codice)}</span>` : ''}</div><input type="text" inputmode="decimal" data-pt-q="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="btn ${u ? '' : 'sec'} piccolo" type="button" data-pt-us="${i}" aria-pressed="${u}" style="margin:0">${u ? '✓ Usato' : 'Usato'}</button><button class="togli" type="button" data-pt-togli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
+}
+function portatoLHtml(){
+  if (!lavoro) return '';
+  const nA = leggiArticoli().length, w = lavoro, aperto = ptApr[ptKey()] !== undefined ? ptApr[ptKey()] : false;
+  return `<details class="campo" id="pt-d"${aperto ? ' open' : ''} style="margin:0 0 10px"><summary style="font-weight:700;cursor:pointer;padding:6px 0">Materiale portato<span id="pt-n" class="aiuto" style="font-weight:400">${esc(ptConta(w))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista che fai in magazzino: a fine lavoro tocchi quello che hai usato e passa nei materiali.</p>${nA ? `<div class="cbox"><input type="text" id="pt-cerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista"></div><div id="pt-cerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="pt-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="pt-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="pt-foto-in" accept="image/*" capture="environment" hidden><div id="pt-lista">${righePortatoL()}</div></details>`;
+}
+function aggiungiPortatoL(a, q){
+  q = q > 0 ? q : 1; const w = lavoro; if (!w) return; w.portato = w.portato || [];
+  const gia = a[0] ? w.portato.find(p => p.codice === a[0]) : null;
+  if (gia) { const n = parseFloat(String(gia.qta || '0').replace(',', '.')) || 0; gia.qta = qtaTesto(n + q); mostraAvviso(a[1] + ': quantità portata a ' + gia.qta + '.'); }
+  else { w.portato.unshift({codice: a[0] || '', descr: a[1] || '', um: a[2] || 'pz', prezzo: a[3] || '', art: a.slice(0, 7), qta: qtaTesto(q)}); mostraAvviso('Aggiunto: ' + a[1]); }
+  const b = $('#pt-lista'); if (b) b.innerHTML = righePortatoL();
+  bozzaModificata();
+}
+function ptUsa(i){
+  const w = lavoro, pp = (w.portato || [])[i]; if (!pp) return;
+  const k = chiavePort(pp), ix = w.materiali.findIndex(m => chiavePort(m) === k);
+  if (ix >= 0) w.materiali.splice(ix, 1);
+  else w.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: pp.qta || '1', um: pp.um || 'pz', prezzo: pp.art ? prezzoArtL(pp.art, listinoCorr()) : (pp.prezzo || '')});
+  $('#pt-lista').innerHTML = righePortatoL(); $('#materiali').innerHTML = righeMateriali(); bozzaModificata();
+}
+function avviaPortatoL(){
+  document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'pt-d') ptApr[ptKey()] = d.open; }, true);
+  document.addEventListener('click', e => {
+    const t = e.target; if (!t || !t.closest || !lavoro) return;
+    if (t.closest('#pt-scan')) { scanCn = 'portatoL'; scanApri(); return; }
+    if (t.closest('#pt-foto')) { const i = $('#pt-foto-in'); if (i) i.click(); return; }
+    const b = t.closest('[data-pt-art],[data-pt-us],[data-pt-togli]'); if (!b) return;
+    if (b.dataset.ptArt !== undefined) { const a = leggiArticoli()[+b.dataset.ptArt]; if (a) { aggiungiPortatoL(a); $('#pt-cerca-ris').innerHTML = ''; $('#pt-cerca').value = ''; } }
+    else if (b.dataset.ptUs !== undefined) ptUsa(+b.dataset.ptUs);
+    else if (b.dataset.ptTogli !== undefined) { lavoro.portato.splice(+b.dataset.ptTogli, 1); $('#pt-lista').innerHTML = righePortatoL(); bozzaModificata(); }
+  });
+  document.addEventListener('input', e => {
+    const t = e.target; if (!t || !lavoro) return;
+    if (t.id === 'pt-cerca') {
+      const tutti = leggiArticoli(), ris = risultatiArticoli(t.value), box = $('#pt-cerca-ris');
+      box.innerHTML = ris.length ? ris.map(i => `<button class="btn chiaro piccolo" type="button" data-pt-art="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;white-space:normal">${esc(tutti[i][0] ? tutti[i][0] + ' · ' : '')}${esc(tutti[i][1])}</button>`).join('') + BTN_ANNULLA_RIC('ptl') : (t.value.trim() ? '<p class="aiuto" style="margin:4px 0">Nessun articolo corrisponde.</p>' : '');
+    } else if (t.dataset && t.dataset.ptQ !== undefined) { const pp = (lavoro.portato || [])[+t.dataset.ptQ]; if (pp) { pp.qta = t.value; bozzaModificata(); } }
+  });
+  document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'pt-foto-in' && e.target.files && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; scanCn = 'portatoL'; $('#scan').hidden = false; $('#scan-trovato').innerHTML = ''; scanUltimo = ''; scanModoFoto = true; scanDaFoto(f); }
+  });
 }
 function aggiungiMaterialiVoce(){
   const dest = vmCn ? (regCorr ? regCorr.materiali : []) : lavoro.materiali;
@@ -5788,7 +5842,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.51.0 (28/10/2026)';
+const VERSIONE_APP = '1.52.0 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -5998,6 +6052,7 @@ function avviaArticoli(){
     const an = e.target.closest && e.target.closest('[data-annulla-ric]'); if (an) { fermaDettatura(); pulisciRicerca(an.dataset.annullaRic); return; }
     const b = e.target.closest && e.target.closest('[data-art]'); if (!b || !lavoro) return;
     const a = leggiArticoli()[+b.dataset.art]; if (!a) return;
+    scanCn = false;                                    // l'aggiunta dalla ricerca va sempre nei materiali, non nella lista portata
     aggiungiArticolo(a);
     $('#mat-cerca').value = ''; $('#mat-cerca-ris').innerHTML = '';
   });
@@ -6015,6 +6070,7 @@ function aggiungiArticoloCn(a, q){
 }
 function aggiungiArticolo(a, q){
   q = q > 0 ? q : 1;
+  if (scanCn === 'portatoL') { aggiungiPortatoL(a, q); return; }
   if (scanCn === 'portato') { aggiungiPortato(a, q); return; }
   if (scanCn) { aggiungiArticoloCn(a, q); return; }
   const gia = a[0] ? lavoro.materiali.find(m => m.codice === a[0]) : null;
@@ -6158,7 +6214,7 @@ async function scanDaFoto(file){
 function scanProponi(a, testo){
   scanPausa = true; scanProposto = a;
   scanMsg('Letto ' + (testo || a[0] || '') + '.');
-  $('#scan-trovato').innerHTML = `<div class="scan-box"><strong>${esc(a[1] || a[0] || '')}</strong>${a[0] ? `<small style="display:block;opacity:.8">${esc(a[0])}</small>` : ''}${(!scanCn && lavoro && a[3]) ? `<small style="display:block;opacity:.8">€ ${esc(prezzoArt(a, true))}${listinoCorr() > 1 ? ' (listino ' + listinoCorr() + ')' : ''}</small>` : ''}
+  $('#scan-trovato').innerHTML = `<div class="scan-box"><strong>${esc(a[1] || a[0] || '')}</strong>${a[0] ? `<small style="display:block;opacity:.8">${esc(a[0])}</small>` : ''}${((!scanCn || scanCn === 'portatoL') && lavoro && a[3]) ? `<small style="display:block;opacity:.8">€ ${esc(prezzoArt(a, true))}${listinoCorr() > 1 ? ' (listino ' + listinoCorr() + ')' : ''}</small>` : ''}
     <div style="display:flex;gap:8px;align-items:center;margin:10px 0"><button class="btn chiaro" type="button" id="scan-q-meno" aria-label="Meno">−</button>
     <input type="text" inputmode="decimal" id="scan-q" value="1" autocomplete="off" aria-label="Quantità" style="width:90px;text-align:center;font-size:22px"><button class="btn chiaro" type="button" id="scan-q-piu" aria-label="Più">+</button>
     <span>${esc(a[2] || 'pz')}</span></div>
@@ -7769,7 +7825,7 @@ function disegnaVociPred(){
 function avvia(){
   appuntamenti = caricaAppuntamenti();
   avviaServizio();
-  avviaPosta(); avviaArticoli(); avviaFoglio(); avviaPin(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 800);
+  avviaPosta(); avviaArticoli(); avviaPortatoL(); avviaFoglio(); avviaPin(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 800);
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
