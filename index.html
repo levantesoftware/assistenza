@@ -189,6 +189,40 @@ details.rcee-blocco[open]>summary{margin-bottom:6px}
 .imp-r.man .imp-i{grid-column:1/3}
 .imp-r label.spunta,.imp-r select[data-impcanone]{grid-column:1/-1;width:100%}
 .imp-incl{font-size:14px;margin:6px 0;padding:8px;background:var(--petrolio-c);border-radius:8px}
+/* ---- Incassi dei tecnici ---- */
+.inc-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 16px}
+.inc-k{background:var(--foglio);border:1px solid var(--riga);border-left:4px solid var(--acciaio-s);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.inc-k .e{font-size:12px;color:var(--tenue);text-transform:uppercase;letter-spacing:.04em}
+.inc-k .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--inchiostro)}
+.inc-k .s{font-size:12px;color:var(--tenue)}
+.inc-k.ok{border-left-color:var(--ok)}.inc-k.cont{border-left-color:var(--petrolio)}.inc-k.fi{border-left-color:var(--fiamma)}.inc-k.ri{border-left-color:var(--rosso)}
+.inc-card{background:var(--foglio);border:1px solid var(--riga);border-radius:12px;margin:0 0 16px;overflow:hidden}
+.inc-card>header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px;padding:12px 14px;background:var(--petrolio-c);border-bottom:1px solid var(--riga)}
+.inc-card>header h2{margin:0;font-size:18px;color:var(--petrolio-s)}
+.inc-cont{font-size:14px;color:var(--petrolio-s)}.inc-cont b{font-size:16px;font-variant-numeric:tabular-nums}
+.inc-sc{overflow-x:auto}
+.inc-t{width:100%;min-width:560px;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.inc-t th,.inc-t td{padding:9px 7px;border-bottom:1px solid var(--riga2);white-space:nowrap}
+.inc-t thead th{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--tenue);background:#F7FAFB;text-align:right;border-bottom:1px solid var(--riga);vertical-align:bottom;white-space:normal}
+.inc-t thead th.g{text-align:left}
+.inc-t .g{text-align:left;font-weight:600;color:var(--inchiostro);position:sticky;left:0;background:var(--foglio)}
+.inc-t thead th.g{background:#F7FAFB}
+.inc-t td.n,.inc-t th.n{text-align:right}
+.inc-t td.z{color:var(--acciaio-s)}
+.inc-t td.t{font-weight:700;background:rgba(14,90,107,.05)}
+.inc-t td.fi{color:var(--fiamma);font-weight:600}.inc-t td.ri{color:var(--rosso);font-weight:600}.inc-t td.nd{color:var(--tenue)}
+.inc-t tbody tr:nth-child(even):not(.tot) td,.inc-t tbody tr:nth-child(even):not(.tot) th.g{background:#FAFCFC}
+.inc-t tr.tot th,.inc-t tr.tot td{font-weight:700;background:#F0F5F6;border-top:2px solid var(--acciaio);border-bottom:none}
+.inc-gs{display:inline-block;min-width:2.2em;color:var(--tenue);font-weight:400;text-transform:capitalize}
+.inc-gn{display:block;font-size:11.5px;font-weight:400;color:var(--tenue)}
+.inc-d{padding:8px 14px 12px;border-top:1px solid var(--riga2)}.inc-d summary{cursor:pointer;color:var(--petrolio);font-weight:600;padding:4px 0}
+.inc-d ul{list-style:none;margin:6px 0 0;padding:0}
+.inc-d li{display:grid;grid-template-columns:150px 1fr auto;gap:4px 12px;padding:7px 0;border-bottom:1px solid var(--riga2);font-size:14px;align-items:baseline}
+.inc-d li:last-child{border-bottom:none}.inc-d li .a{color:var(--tenue);font-size:13px}.inc-d li .c{text-align:right}
+.inc-b{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--petrolio-c);color:var(--petrolio-s);margin-left:4px}
+.inc-b.fi{background:var(--fiamma-c);color:var(--fiamma)}.inc-b.ri{background:var(--rosso-c);color:var(--rosso)}.inc-b.nd{background:#EDF0F1;color:var(--tenue)}
+.inc-nota{font-size:13px;color:var(--tenue);margin:6px 0 0}
+@media (max-width:640px){.inc-d li{grid-template-columns:1fr}.inc-d li .c{text-align:left}}
 .imp-tot{margin:10px 0 4px}.imp-tot div{display:flex;justify-content:space-between;padding:2px 0;font-size:15px}.imp-tot .tt{font-size:19px;font-weight:700;border-top:1px solid var(--riga);margin-top:4px;padding-top:6px}
 .passo>.aiuto{font-size:14px;color:var(--tenue);margin-bottom:10px}
 .campo{margin:0 0 14px}
@@ -2357,14 +2391,14 @@ async function costruisciPdfRicevuta(w, c){
   const intest = [].concat(w.ric ? [[w.ric.t, 'Ricevuta n.']] : [], [[w.cliente, 'Cliente'], [w.indirizzo, 'Indirizzo'], [dataIT(w.data), 'Data'], [w.tecnico, 'Tecnico'], [app ? [app.c, app.m].filter(Boolean).join(' ') + (app.s ? ' (matr. ' + app.s + ')' : '') : (w.impianto || ''), 'Impianto']]).filter(r => r[0]);
   intest.forEach(([v, et]) => { doc.setFontSize(8); col(GRIGIO); doc.text(et, M, y + 3); doc.setFontSize(10.5); col(INK); const ls = doc.splitTextToSize(String(v), CW - 25); doc.text(ls, M + 22, y + 3.2); y += Math.max(6, ls.length * 4.8 + 1.5); });
   y += 3;
-  const X = {q: M + CW - 78, p: M + CW - 58, iv: M + CW - 32, im: M + CW};
+  const X = {q: M + CW - 84, p: M + CW - 62, im: M + CW - 22, iv: M + CW};
   const testa = () => { doc.setFillColor(238, 242, 243); doc.rect(M, y, CW, 7, 'F'); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(INK);
-    doc.text('Descrizione', M + 2, y + 4.8); doc.text('Q.tà', X.q, y + 4.8, {align: 'right'}); doc.text('Prezzo', X.p, y + 4.8, {align: 'right'}); doc.text('IVA', X.iv, y + 4.8, {align: 'right'}); doc.text('Importo', X.im - 1, y + 4.8, {align: 'right'}); y += 9; doc.setFont('helvetica', 'normal'); };
+    doc.text('Descrizione', M + 2, y + 4.8); doc.text('Q.tà', X.q, y + 4.8, {align: 'right'}); doc.text('Prezzo', X.p, y + 4.8, {align: 'right'}); doc.text('Importo', X.im, y + 4.8, {align: 'right'}); doc.text('IVA', X.iv - 1, y + 4.8, {align: 'right'}); y += 9; doc.setFont('helvetica', 'normal'); };
   testa();
   const riga = (d, q, p, iv, im) => {
     doc.setFontSize(10); col(INK); const ls = doc.splitTextToSize(String(d), X.q - M - 22), alt = Math.max(6, ls.length * 4.6 + 1.5);
     if (y + alt > H - 70) { doc.addPage(); y = M; testa(); }
-    doc.text(ls, M + 2, y + 3.5); if (q !== '') doc.text(String(q), X.q, y + 3.5, {align: 'right'}); if (p !== '') doc.text(p, X.p, y + 3.5, {align: 'right'}); if (iv) doc.text(iv, X.iv, y + 3.5, {align: 'right'}); if (im !== '') doc.text(im, X.im - 1, y + 3.5, {align: 'right'});
+    doc.text(ls, M + 2, y + 3.5); if (q !== '') doc.text(String(q), X.q, y + 3.5, {align: 'right'}); if (p !== '') doc.text(p, X.p, y + 3.5, {align: 'right'}); if (im !== '') doc.text(im, X.im, y + 3.5, {align: 'right'}); if (iv) doc.text(iv, X.iv - 1, y + 3.5, {align: 'right'});
     doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + alt, W - M, y + alt); y += alt + 1;
   };
   c.righe.forEach(x => {
@@ -5879,7 +5913,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.53.1 (28/10/2026)';
+const VERSIONE_APP = '1.54.1 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6662,7 +6696,7 @@ function nomeDati(w){ return 'Dati_' + slugNome(w.cliente) + '_' + (w.data || is
 function impPerUfficio(w){
   try { const c = impCalcola(w); if (!impHaDati(c)) return undefined;
     return {tot: c.tot, imponibile: c.imponibile, iva: c.iva, modo: c.modo, incassato: c.inc, residuo: c.residuo, canone: (w.imp && w.imp.canone) || 'ora',
-      righe: c.righe.filter(x => x.imp > 0 || x.k === 'ctr' || x.k === 'mat').map(x => ({d: x.d, q: x.q, p: x.p, iva: ivaDi(x.iv)[0], imp: x.imp, k: x.k, c: x.c || '', um: x.um || '', pk: x.k === 'man' ? ((w.imp.righe[x.n] || {}).k || '') : ''})), incluse: c.incluse}; } catch(e) { return undefined; }
+      righe: c.righe.map(x => ({d: x.d, q: x.q, p: x.p, iva: ivaDi(x.iv)[0], ive: ivaCorta(x.iv), imp: x.imp, k: x.k, on: x.k === 'ctr' ? !!x.on : undefined, c: x.c || '', um: x.um || '', pk: x.k === 'man' ? ((w.imp.righe[x.n] || {}).k || '') : ''})), incluse: c.incluse}; } catch(e) { return undefined; }
 }
 function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
@@ -6720,10 +6754,23 @@ function csvNum(v, virg){
   s = String(Math.round(n * 100) / 100); return virg ? s.replace('.', ',') : s;
 }
 function csvPrezzo(v, virg){ const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); if (isNaN(n) || n <= 0) return ''; const t = n.toFixed(2); return virg ? t.replace('.', ',') : t; }
+function righeCsvRicevuta(r, c, cp){     // con la ricevuta del tecnico: stesse voci e stesso ordine della ricevuta
+  const rows = [], man = codiciMan(c), rip = ripartizione(r), cm = (rip.find(x => x.c) || man[0] || {}).c || (man[0] || {}).cod || '';
+  const prz = v => c.prezzo ? ((parseFloat(String(v).replace(',', '.')) || 0) > 0 ? csvPrezzo(v, c.virgola) : (c.virgola ? '0,00' : '0.00')) : '';
+  impRigheRicevuta(r.importi).forEach(x => {
+    let cod = '', um = '';
+    if (x.k === 'mat') { cod = x.c || ''; um = x.um || ''; }
+    else if (x.k === 'man' && x.pk === 'chiamata') { cod = c.dcCod || ''; um = 'nr'; }
+    else if (x.k === 'man' && x.pk === 'manodopera') { cod = cm; um = c.um || ''; }
+    rows.push([cp(cod), cp(x.d), cp(um), csvNum(x.q, c.virgola), prz(x.p)]);
+  });
+  return rows;
+}
 function righeCsv(r){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), rows = [];
   if (c.intest) rows.push(['codice', 'descrizione', 'unità di misura', 'quantità', 'prezzo unitario']);
   const nomeMan = k => { const m = c.man.find(x => x.cod === k); return m && m.desc ? m.desc : 'Manodopera'; };
+  if (!r.cant && r.importi && (r.importi.righe || []).length) return rows.concat(righeCsvRicevuta(r, c, cp));
   if (r.cant) {                                           // cantiere: le ore vanno sul codice di manodopera del dipendente (indice di Levante), altrimenti sul primo codice impostato
     const op = r.operaio, mc = (op && c.man[op.op] && c.man[op.op].cod) ? c.man[op.op] : (codiciMan(c)[0] || {cod: 'M0', desc: 'Manodopera'}), o = numOre(r.ore);
     if (o > 0 && mc.cod) rows.push([cp(mc.cod), cp(mc.desc || nomeMan(mc.cod)), cp(c.um), csvNum(o, c.virgola), '']);
@@ -6731,7 +6778,6 @@ function righeCsv(r){
   if (!r.cant && c.kmCod && parseFloat(String(r.km || '').replace(',', '.')) > 0) rows.push([cp(c.kmCod), cp(c.kmDesc), 'km', csvNum(r.km, c.virgola), '']);
   if (!r.cant && c.dcCod && r.dc) rows.push([cp(c.dcCod), cp(c.dcDesc), 'nr', '1', '']);
   (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), c.prezzo ? csvPrezzo(m.prezzo, c.virgola) : '']));
-  if (!r.cant && r.importi) (r.importi.righe || []).forEach(x => { if (x.k !== 'mat' && x.imp > 0) rows.push(['', cp(x.d), '', csvNum(x.q, c.virgola), c.prezzo ? csvPrezzo(x.p, c.virgola) : '']); });   // dalla ricevuta: contratto, operazioni a prezzo, manodopera, chiamata, trasferta e voci a mano; le doppie si tolgono in Levante   // senza prezzo il campo resta vuoto: Levante lo evidenzia in rosso
   return rows;
 }
 function bytesWin(s){
@@ -6797,7 +6843,7 @@ function disegnaPosta(){
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
     const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), diff = Math.abs(somma - min / 60) > 0.011;
-    const ripHtml = min > 0 ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
+    const ripHtml = (min > 0 && !(r.importi && (r.importi.righe || []).length)) ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
     const conTab = !!(r.importi && (r.importi.righe || []).length);
     const extra = conTab ? '' : (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
     const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
@@ -6821,17 +6867,29 @@ function disegnaPosta(){
   box.innerHTML = testa + box.innerHTML;
 }
 /* importi e pagamento arrivati dal tecnico (blocco per l'ufficio) */
+/* le righe della ricevuta, nello stesso ordine del PDF: contratto (con le operazioni comprese subito sotto), operazioni, materiali, voci a mano */
+function impRigheRicevuta(m){
+  const out = [], incl = (m.incluse || []).map(n => ({k: 'incl', d: n + ' - compresa nel contratto', q: 1, p: 0, imp: 0, iva: '', c: '', um: '', pk: ''}));
+  let haCtr = false;
+  (m.righe || []).forEach(x => {
+    if (x.k === 'ctr') { haCtr = true; const on = x.on !== undefined ? x.on : m.canone !== 'gia';
+      out.push(Object.assign({}, x, {d: x.d + (on ? '' : ' (già pagato o fatturato a parte)'), q: 1, p: on ? x.p : 0, imp: on ? x.imp : 0})); incl.forEach(i => out.push(i)); }
+    else out.push(x);
+  });
+  if (!haCtr) incl.forEach(i => out.push(i));
+  return out;
+}
 function impUffHtml(r){
   const m = r.importi; if (!m) return '';
   const modo = (PAG_MODI.find(x => x[0] === m.modo) || ['', 'pagamento non indicato'])[1];
   const pag = m.modo === 'fattura' ? 'non pagato, da fatturare' : (m.modo ? 'incassati ' + euro(m.incassato) + ' € (' + modo + ')' + (m.residuo > 0.004 ? ' · <b>restano ' + euro(m.residuo) + ' €</b>' : '') : 'pagamento non indicato');
   const th = 'style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--riga)"', thr = 'style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--riga)"', td = 'style="padding:3px 6px;vertical-align:top"', tdr = 'style="padding:3px 6px;text-align:right;white-space:nowrap;vertical-align:top"';
-  const righe = (m.righe || []).map(x => { const mancaPrezzo = x.k === 'mat' && !(x.p > 0);
-    return '<tr><td ' + td + '>' + esc(x.d) + (x.c ? '<br><small style="opacity:.7">' + esc(x.c) + '</small>' : '') + '</td><td ' + tdr + '>' + esc(String(x.q == null ? '' : x.q).replace('.', ',')) + (x.um ? ' ' + esc(x.um) : '') + '</td><td ' + tdr + '>' + (mancaPrezzo ? '<b>manca</b>' : euro(x.p)) + '</td><td ' + tdr + '>' + esc(String(x.iva).replace('.', ',')) + '%</td><td ' + tdr + '>' + euro(x.imp) + '</td></tr>'; }).join('');
+  const righe = impRigheRicevuta(m).map(x => { const mancaPrezzo = x.k === 'mat' && !(x.p > 0);
+    return '<tr><td ' + td + '>' + esc(x.d) + (x.c ? '<br><small style="opacity:.7">' + esc(x.c) + '</small>' : '') + '</td><td ' + tdr + '>' + esc(String(x.q == null ? '' : x.q).replace('.', ',')) + (x.um ? ' ' + esc(x.um) : '') + '</td><td ' + tdr + '>' + (mancaPrezzo ? '<b>manca</b>' : (x.k === 'incl' ? '' : euro(x.p))) + '</td><td ' + tdr + '>' + euro(x.imp) + '</td><td ' + tdr + '>' + (x.iva === '' ? '' : esc(x.ive || (String(x.iva).replace('.', ',') + '%'))) + '</td></tr>'; }).join('');
   const incl = (m.incluse && m.incluse.length) ? '<p style="margin:4px 0 0;font-size:13px;opacity:.8">Comprese nel contratto: ' + m.incluse.map(esc).join(', ') + '</p>' : '';
-  return '<div style="margin:10px 0"><b>Righe dell\'intervento e ricevuta</b>' + (r.ric ? ' · <b>' + esc(r.ric.t) + '</b>' : '') + '' + (righe ? '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px;margin-top:4px"><thead><tr><th ' + th + '>Voce</th><th ' + thr + '>Q.tà</th><th ' + thr + '>Prezzo</th><th ' + thr + '>IVA</th><th ' + thr + '>Importo</th></tr></thead><tbody>' + righe + '</tbody></table></div>' : '') + incl +
+  return '<div style="margin:10px 0"><b>Righe dell\'intervento e ricevuta</b>' + (r.ric ? ' · <b>' + esc(r.ric.t) + '</b>' : '') + '' + (righe ? '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px;margin-top:4px"><thead><tr><th ' + th + '>Voce</th><th ' + thr + '>Q.tà</th><th ' + thr + '>Prezzo</th><th ' + thr + '>Importo</th><th ' + thr + '>IVA</th></tr></thead><tbody>' + righe + '</tbody></table></div>' : '') + incl +
     '<p style="margin:6px 0 0">Imponibile <b>' + euro(m.imponibile) + ' €</b> · IVA ' + euro(m.iva) + ' € · totale <b>' + euro(m.tot) + ' €</b><br>' + pag + (m.canone === 'gia' ? ' · canone del contratto già pagato o fatturato a parte' : '') + '</p>' +
-    '<p style="margin:6px 0 0;font-size:13px;opacity:.8">Il CSV per Levante contiene tutte queste righe, più le ore per fascia, i km e il diritto di chiamata con i loro codici: se una voce compare due volte, in Levante tieni quella giusta.</p></div>';
+    '<p style="margin:6px 0 0;font-size:13px;opacity:.8">Il CSV per Levante contiene esattamente queste righe, nello stesso ordine.</p></div>';
 }
 // ---- Incassi dei tecnici (ufficio): somma di cio' che i tecnici hanno dichiarato nelle ricevute ----
 const INC_COL = [['contanti', 'Contanti'], ['pos', 'POS / carta'], ['bonifico', 'Bonifico'], ['assegno', 'Assegno']];
@@ -6859,28 +6917,35 @@ function incElenco(){
   return posta.filter(r => r.importi && (+r.importi.tot > 0 || +r.importi.incassato > 0) && incInPeriodo(incGiorno(r), per) && (!tec || (r.tecnico || 'Senza nome') === tec))
     .sort((a, b) => (a.tecnico || '').localeCompare(b.tecnico || '') || incGiorno(a).localeCompare(incGiorno(b)) || String(a.cliente).localeCompare(String(b.cliente)));
 }
+function incGiornoEt(g){ const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(g || ''); if (!m) return esc(g || 'senza data'); const d = new Date(+m[1], +m[2] - 1, +m[3]); return '<span class="inc-gs">' + esc(d.toLocaleDateString('it-IT', {weekday: 'short'})) + '</span> ' + m[3] + '/' + m[2]; }
 function disegnaIncassi(){
   const corpo = $('#inc-corpo'); if (!corpo) return;
   const sel = $('#inc-tec'), corr = sel.value, nomi = [...new Set(posta.filter(r => r.importi).map(r => r.tecnico || 'Senza nome'))].sort();
   sel.innerHTML = '<option value="">Tutti</option>' + nomi.map(n => '<option value="' + esc(n) + '"' + (n === corr ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
   const L = incElenco();
-  if (!L.length) { corpo.innerHTML = '<p style="font-size:13px;opacity:.75">Nessun incasso in questo periodo. Compaiono qui gli interventi arrivati dai tecnici con la sezione «Importi e pagamento» compilata.</p>'; return; }
+  if (!L.length) { corpo.innerHTML = '<p class="inc-nota">Nessun incasso in questo periodo. Compaiono qui gli interventi arrivati dai tecnici con la sezione «Importi e pagamento» compilata.</p>'; return; }
   const per = {}; L.forEach(r => { const t = r.tecnico || 'Senza nome'; ((per[t] = per[t] || {})[incGiorno(r)] = per[t][incGiorno(r)] || []).push(r); });
-  const cella = v => '<td style="text-align:right;white-space:nowrap">' + (v ? euro(v) : '–') + '</td>';
-  const riga = (et, t, forte) => '<tr' + (forte ? ' style="font-weight:700;background:rgba(127,127,127,.12)"' : '') + '><td>' + et + '</td>' + INC_COL.map(c => cella(t[c[0]])).join('') + cella(t.fatturare) + cella(t.resta) + cella(t.nd) + cella(t.tot) + '</tr>';
-  const intesta = '<thead><tr><th style="text-align:left">Giorno</th>' + INC_COL.map(c => '<th style="text-align:right">' + c[1] + '</th>').join('') + '<th style="text-align:right">Da fatturare</th><th style="text-align:right">Resta da incassare</th><th style="text-align:right">Pagamento non indicato</th><th style="text-align:right">Totale</th></tr></thead>';
+  const cella = (v, cl) => '<td class="n' + (v ? '' : ' z') + (cl && v ? ' ' + cl : '') + '">' + (v ? euro(v) : '–') + '</td>';
+  const sm = incVuoto(); L.forEach(r => incSomma(sm, r));
+  const COLS = [['contanti', 'Contanti', ''], ['pos', 'POS / carta', ''], ['bonifico', 'Bonifico', ''], ['assegno', 'Assegno', ''], ['fatturare', 'Da fatturare', 'fi'], ['resta', 'Da incassare', 'ri'], ['nd', 'Non indicato', 'nd']].filter(c => sm[c[0]] > 0);   // si vedono solo le colonne che hanno qualcosa nel periodo
+  const riga = (et, t, forte) => '<tr' + (forte ? ' class="tot"' : '') + '><th scope="row" class="g">' + et + '</th><td class="n t">' + euro(t.tot) + '</td>' + COLS.map(c => cella(t[c[0]], c[2])).join('') + '</tr>';
+  const intesta = '<thead><tr><th class="g">Giorno</th><th class="n">Totale</th>' + COLS.map(c => '<th class="n">' + c[1] + '</th>').join('') + '</tr></thead>';
+  const incassato = t => r2(t.contanti + t.pos + t.bonifico + t.assegno);
+  const kpi = (et, v, cl, sotto) => '<div class="inc-k ' + (cl || '') + '"><span class="e">' + et + '</span><span class="v">' + euro(v) + ' €</span>' + (sotto ? '<span class="s">' + sotto + '</span>' : '') + '</div>';
   const gen = incVuoto();
   let h = '';
   Object.keys(per).sort().forEach(tec => {
-    const tt = incVuoto(), righe = Object.keys(per[tec]).sort().map(g => { const t = incVuoto(); per[tec][g].forEach(r => { incSomma(t, r); incSomma(tt, r); incSomma(gen, r); }); return riga(esc(incDataIt(g)) + ' <span style="opacity:.7">(' + t.n + ')</span>', t); }).join('');
-    const dett = Object.keys(per[tec]).sort().map(g => per[tec][g].map(r => { const m = r.importi, md = (PAG_MODI.find(x => x[0] === m.modo) || ['', 'non indicato'])[1];
-      return '<li>' + esc(incDataIt(g)) + ' · ' + (r.ric ? esc(r.ric.t) + ' · ' : '') + esc(r.cliente || '') + ' · <b>' + euro(m.tot) + ' €</b> · ' + (m.modo === 'fattura' ? 'da fatturare' : esc(md) + (m.modo ? ': ' + euro(m.incassato) + ' €' : '') + (m.residuo > 0.004 && m.modo !== 'fattura' ? ' (restano ' + euro(m.residuo) + ' €)' : '')) + '</li>'; }).join('')).join('');
-    h += '<div class="card" style="margin:0 0 14px;overflow-x:auto"><h2 style="margin:0 0 4px">' + esc(tec) + '</h2><p style="margin:0 0 8px">Contanti da consegnare: <b>' + euro(tt.contanti) + ' €</b></p>' +
-      '<table style="width:100%;border-collapse:collapse;font-size:14px">' + intesta + '<tbody>' + righe + riga('Totale', tt, true) + '</tbody></table>' +
-      '<details style="margin-top:8px"><summary>Interventi (' + tt.n + ')</summary><ul style="margin:6px 0 0;padding-left:18px">' + dett + '</ul></details></div>';
+    const tt = incVuoto(), giorni = Object.keys(per[tec]).sort();
+    const righe = giorni.map(g => { const t = incVuoto(); per[tec][g].forEach(r => { incSomma(t, r); incSomma(tt, r); incSomma(gen, r); }); return riga(incGiornoEt(g) + ' <span class="inc-gn">' + t.n + (t.n === 1 ? ' intervento' : ' interventi') + '</span>', t); }).join('');
+    const dett = giorni.map(g => per[tec][g].map(r => { const m = r.importi, md = (PAG_MODI.find(x => x[0] === m.modo) || ['', 'non indicato'])[1];
+      const stato = m.modo === 'fattura' ? '<span class="inc-b fi">da fatturare</span>' : (m.modo ? '<span class="inc-b">' + esc(md) + ' ' + euro(m.incassato) + ' €</span>' : '<span class="inc-b nd">pagamento non indicato</span>') + (m.residuo > 0.004 && m.modo && m.modo !== 'fattura' ? ' <span class="inc-b ri">restano ' + euro(m.residuo) + ' €</span>' : '');
+      return '<li><span class="a">' + esc(incDataIt(g)) + (r.ric ? ' · ' + esc(r.ric.t) : '') + '</span><span class="b">' + esc(r.cliente || '') + '</span><span class="c"><b>' + euro(m.tot) + ' €</b> ' + stato + '</span></li>'; }).join('')).join('');
+    h += '<section class="inc-card"><header><h2>' + esc(tec) + '</h2><span class="inc-cont">Contanti da consegnare <b>' + euro(tt.contanti) + ' €</b></span></header>' +
+      '<div class="inc-sc"><table class="inc-t">' + intesta + '<tbody>' + righe + riga('Totale', tt, true) + '</tbody></table></div>' +
+      '<details class="inc-d"><summary>Elenco interventi (' + tt.n + ')</summary><ul>' + dett + '</ul></details></section>';
   });
-  const tot = Object.keys(per).length > 1 ? '<div class="card" style="margin:0 0 14px;overflow-x:auto"><h2 style="margin:0 0 4px">Tutti i tecnici</h2><p style="margin:0 0 8px">Contanti da consegnare in tutto: <b>' + euro(gen.contanti) + ' €</b></p><table style="width:100%;border-collapse:collapse;font-size:14px">' + intesta + '<tbody>' + riga('Totale (' + gen.n + ' interventi)', gen, true) + '</tbody></table></div>' : '';
-  corpo.innerHTML = tot + h + '<p style="font-size:13px;opacity:.75">I valori sono quelli dichiarati dai tecnici sul posto. «Resta da incassare» è la parte non pagata di chi ha pagato solo in parte; «Da fatturare» è quanto non pagato in loco.</p>';
+  const tot = '<div class="inc-kpi">' + kpi('Incassato', incassato(gen), 'ok', gen.n + (gen.n === 1 ? ' intervento' : ' interventi')) + kpi('Contanti da consegnare', gen.contanti, 'cont') + kpi('Da fatturare', gen.fatturare, gen.fatturare ? 'fi' : '') + kpi('Resta da incassare', gen.resta, gen.resta ? 'ri' : '') + '</div>';
+  corpo.innerHTML = tot + h + '<p class="inc-nota">I valori sono quelli dichiarati dai tecnici sul posto. «Resta da incassare» è la parte non pagata di chi ha pagato solo in parte; «Da fatturare» è quanto non pagato in loco; «Non indicato» sono gli interventi senza modalità di pagamento.</p>';
 }
 function scaricaIncassi(){
   const L = incElenco(), c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), n = v => { const t = r2(+v || 0).toFixed(2); return c.virgola === false ? t : t.replace('.', ','); };
