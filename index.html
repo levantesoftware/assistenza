@@ -5913,7 +5913,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.55.0 (28/10/2026)';
+const VERSIONE_APP = '1.55.1 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6838,7 +6838,10 @@ function disegnaPosta(){
   etichettaPosta();
   const box = $('#posta-elenco'); if (!box) return;
   const tutti = $('#posta-fatti').checked, tuttiOrd = posta.map((r, i) => ({r, i})).filter(x => tutti || !x.r.fatto)
-    .sort((a, b) => String(a.r.data).localeCompare(String(b.r.data)) || String(a.r.cliente).localeCompare(String(b.r.cliente)));
+    /* prima quelli da registrare, dai piu' recentemente arrivati in ufficio; a parita' di giorno l'ultimo arrivato sta in alto; i registrati in fondo */
+    .sort((a, b) => (a.r.fatto ? 1 : 0) - (b.r.fatto ? 1 : 0) || String(b.r.ricevuto || '').localeCompare(String(a.r.ricevuto || '')) || b.i - a.i);
+  const etArrivo = g => { if (!g) return 'Arrivo non registrato'; const o = isoGiorno(new Date()), ie = isoGiorno(new Date(Date.now() - 864e5)); return g === o ? 'Arrivati oggi' : g === ie ? 'Arrivati ieri' : 'Arrivati il ' + dataIT(g); };
+  let grPrec = null;
   let lista = tuttiOrd, testa = '';
   const aperti = tuttiOrd.filter(x => !x.r.fatto);
   if (codaOn) {
@@ -6853,7 +6856,8 @@ function disegnaPosta(){
   if (!lista.length) { box.innerHTML = '<p class="aiuto">Nessun intervento da registrare.</p>'; return; }
   const blocco = (tit, t, i, k) => t ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${tit}</b><button class="btn sec piccolo" type="button" data-copia="${i}|${k}">Copia</button></div><div style="white-space:pre-wrap">${esc(t)}</div></div>` : '';
   box.innerHTML = lista.map(({r, i}) => {
-    if (r.cant) return schedaCantiere(r, i);
+    const gr = (r.fatto ? 'F' : 'A') + (r.ricevuto || ''), intest = (!codaOn && gr !== grPrec) ? `<h3 style="margin:14px 0 6px;font-size:15px">${r.fatto ? 'Già registrati · ' : ''}${esc(etArrivo(r.ricevuto))}</h3>` : ''; grPrec = gr;
+    if (r.cant) return intest + schedaCantiere(r, i);
     const min = minutiTotali(r), h = min ? fmtOre(min) : '';
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
@@ -6866,7 +6870,7 @@ function disegnaPosta(){
     const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
     const ctrlChip = r.fatto || !ctrl.length ? '' : ` <span class="chip ${nGravi ? 'urg' : 'bozza'}">${ctrl.length} ${ctrl.length === 1 ? 'controllo' : 'controlli'}</span>`;
     const avanti = codaOn && !r.fatto ? `<button class="btn pieno" type="button" data-coda="avanti" data-i="${i}" style="margin-top:12px">Registrato in Levante: passa al prossimo</button>` : '';
-    return `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
+    return intest + `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
       ${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
