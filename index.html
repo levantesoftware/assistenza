@@ -2209,7 +2209,7 @@ const ivaDi = c => ivaTab()[c] || IVA_BASE[c] || [22, '22%', ''];
 const ivaEt = c => { const x = ivaDi(c); return x[0] > 0 ? String(x[0]).replace('.', ',') + '%' : (x[1] || 'Senza IVA'); };
 const ivaPredef = () => (impostazioni.ivaPredef && ivaTab()[impostazioni.ivaPredef]) ? impostazioni.ivaPredef : '1';
 function ivaOpzioni(sel){
-  const t = ivaTab(); let c = Object.keys(t).filter(k => t[k][0] > 0 || k === '514' || k === '513').sort((a, b) => t[b][0] - t[a][0]);
+  const t = ivaTab(); let c = Object.keys(t).filter(k => t[k][0] > 0 || k === '514' || k === '513' || /^N[1-5]/.test(String(t[k][2] || ''))).sort((a, b) => t[b][0] - t[a][0]);
   if (sel && !c.includes(sel)) c.push(sel);
   return c.map(k => `<option value="${esc(k)}"${k === sel ? ' selected' : ''}>${esc(ivaEt(k))}</option>`).join('');
 }
@@ -2217,7 +2217,7 @@ const numI = v => { const n = parseFloat(String(v == null ? '' : v).replace(/\s/
 const r2 = n => Math.round((n + (n < 0 ? -1e-9 : 1e-9)) * 100) / 100;
 const euro = n => r2(n).toFixed(2).replace('.', ',');
 const PAG_MODI = [['', 'Da scegliere'], ['contanti', 'Contanti'], ['pos', 'POS / carta'], ['bonifico', 'Bonifico'], ['assegno', 'Assegno'], ['fattura', 'Non pagato: da fatturare']];
-const VOCI_PRED = [['chiamata', 'Diritto di chiamata'], ['trasferta', 'Trasferta'], ['manodopera', 'Manodopera (prezzo all\'ora)']];
+const VOCI_PRED = [['chiamata', 'Diritto di chiamata'], ['trasferta', 'Trasferta'], ['manodopera', 'Manodopera (prezzo all\'ora)'], ['bollino', 'Bollino']];
 const vociPred = () => (datiReali && datiReali.voci && Object.keys(datiReali.voci).length) ? datiReali.voci : (impostazioni.voci || {});
 function impNuovaRiga(k, etichetta){
   const v = (k && vociPred()[k]) || {};
@@ -2294,6 +2294,7 @@ function sezioneImporti(){
       <button class="btn sec piccolo" type="button" data-imp-add="Manodopera" data-imp-k="manodopera" style="margin:0 6px 6px 0">+ Manodopera</button>
       <button class="btn sec piccolo" type="button" data-imp-add="Diritto di chiamata" data-imp-k="chiamata" style="margin:0 6px 6px 0">+ Diritto di chiamata</button>
       <button class="btn sec piccolo" type="button" data-imp-add="Trasferta" data-imp-k="trasferta" style="margin:0 6px 6px 0">+ Trasferta</button>
+      <button class="btn sec piccolo" type="button" data-imp-add="Bollino" data-imp-k="bollino" style="margin:0 6px 6px 0">+ Bollino</button>
       <button class="btn sec piccolo" type="button" data-imp-add="" style="margin:0 6px 6px 0">+ Altra voce</button></div>
     <div id="imp-tot">${impTotHtml(c)}</div><div id="imp-pag">${impPagHtml(c)}</div></details>`;
 }
@@ -5842,7 +5843,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.52.0 (28/10/2026)';
+const VERSIONE_APP = '1.52.2 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
