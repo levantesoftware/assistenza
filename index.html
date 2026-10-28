@@ -4690,6 +4690,7 @@ function fermaDettatura(){
   if (!dett) return;
   const d = dett; dett = null; dettStop = d; dettFine = Date.now(); dlog('fermata');
   try { if (dettRec) dettRec.stop(); } catch(e){}
+  setTimeout(() => { if (!dett && dettInCorso && dettRec) { try { dettRec.abort(); dlog('chiusa di forza'); } catch(e) {} } }, 700);      // lo stop normale lascia consegnare le ultime parole; se non chiude, si chiude di forza
   aggiornaMic(); barraDett('');
   if (d.dest === 'vm') interpretaDaTesto();
 }
@@ -4745,6 +4746,8 @@ function usaTastiera(dest, msg){
   if (el) { try { el.focus(); } catch(e) {} }
   barraDett(msg || 'Tocca il microfono sulla tastiera del telefono e parla.', 8000);
 }
+/* a frasi (non continuo) su Android e iPhone/iPad: ogni frase chiude da sola la sessione e se ne apre una nuova; il modo continuo su iPhone rende muta la seconda dettatura */
+const DETT_CONT = !(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1));
 let dettLog = [], dettFine = 0, dettRec = null, dettInCorso = false, dettStop = null;
 const dlog = m => { dettLog.unshift(new Date().toLocaleTimeString() + ' ' + m); if (dettLog.length > 80) dettLog.length = 80; };
 /* UN SOLO riconoscitore per tutta la vita della pagina: su iPhone (Safari) un riconoscitore nuovo, dopo il primo, apre l'audio ma non sente piu' nulla (registro: audiostart senza speechstart).
@@ -4781,7 +4784,7 @@ function dettCrea(){
     if (d && d.attivo) {                                  // fine "naturale" (pausa, frase conclusa): si riparte con lo stesso riconoscitore
       d.vuoti = d.audio ? 0 : (d.vuoti || 0) + 1; d.audio = false;
       if (d.vuoti >= 3) { dlog('nessun audio dopo 3 tentativi: mi fermo'); d.attivo = false; barraDett('Il microfono non risponde. Prova con il microfono della tastiera (Impostazioni > Dettatura con il microfono della tastiera).', 9000); }
-      else { setTimeout(() => { if (dett !== d || !d.attivo) return; try { rec.continuous = !/Android/i.test(navigator.userAgent); rec.start(); dlog('riavviato'); } catch(x) { dlog('riavvio fallito: ' + x.message); fineDett(d); } }, 250); return; }
+      else { setTimeout(() => { if (dett !== d || !d.attivo) return; try { rec.continuous = DETT_CONT; rec.start(); dlog('riavviato'); } catch(x) { dlog('riavvio fallito: ' + x.message); fineDett(d); } }, 250); return; }
     }
     if (d) fineDett(d); else aggiornaMic();
   };
@@ -4800,7 +4803,7 @@ function avviaDettatura(dest){
   const rec = dettCrea();
   const parti = () => {
     if (dett !== d) return;
-    try { rec.continuous = !/Android/i.test(navigator.userAgent); rec.start(); dlog('avvio richiesto per ' + dest); } catch(e) { dlog('start fallito: ' + e.message); dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
+    try { rec.continuous = DETT_CONT; rec.start(); dlog('avvio richiesto per ' + dest + (DETT_CONT ? ' (continuo)' : ' (a frasi)')); } catch(e) { dlog('start fallito: ' + e.message); dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
     aggiornaMic(); barraDett('Ascolto… parla pure');
     setTimeout(() => { if (dett === d && d.attivo && !d.audio) barraDett('Il microfono non parte. Se non sente nulla, usa il microfono della tastiera (Impostazioni).', 9000); }, 4500);
   };
@@ -5876,7 +5879,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.53.0 (28/10/2026)';
+const VERSIONE_APP = '1.53.1 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
