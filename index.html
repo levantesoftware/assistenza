@@ -797,6 +797,11 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div id="voci-pred"></div>
     </div>
     <div class="solo-uff">
+    <h2 class="giorno" style="margin-top:26px">Numero delle ricevute</h2>
+    <p class="aiuto" style="margin:0 0 8px">Ogni ricevuta ha un numero progressivo del tecnico, che riparte da 1 ogni anno (esempio RIC-ROSSI-2026-0001). Qui scegliete la sigla di ciascun tecnico; se la lasciate vuota si usa il nome. Non è un numero fiscale.</p>
+    <div id="sigle-ric"></div>
+    </div>
+    <div class="solo-uff">
     <h2 class="giorno" style="margin-top:26px">Funzioni per i tecnici</h2>
     <p class="aiuto" style="margin:0 0 8px">Sezioni in più nell'app dei tecnici. Quando le attivi, i dettagli (a chi sono stati inviati i cantieri, le chiamate in attesa) compaiono in «Invio ai tecnici».</p>
     <label class="tile" style="margin-top:8px"><input type="checkbox" id="chk-cantieri"><span>Gestisci i cantieri<small>I cantieri che in Levante hanno «visibile su Express Mag» acceso vanno a tutti, in una sezione «Cantieri»: ognuno scrive ore, cosa ha fatto, materiali e foto, e tutto torna nella posta in arrivo. Gli operai che non sono in agenda ricevono solo i cantieri (e contano nella licenza). Attiva solo se vuoi lavorare così.</small></span></label>
@@ -2331,6 +2336,7 @@ function collegaImporti(){
   });
 }
 async function costruisciPdfRicevuta(w, c){
+  ricAssegna(w);
   const { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', compress: true});
   const M = 15, W = 210, H = 297, CW = W - 2 * M, INK = [20, 35, 43], GRIGIO = [91, 109, 117], PET = [14, 90, 107];
   const col = x => doc.setTextColor(x[0], x[1], x[2]);
@@ -2345,7 +2351,7 @@ async function costruisciPdfRicevuta(w, c){
   dl.forEach((r, n) => doc.text(r, M + 3, y + 5 + n * 4)); y += dl.length * 4 + 7;
   doc.setFont('helvetica', 'normal');
   const imp = (w.r && w.r.i) || {}, app = ((w.r && w.r.a) || []).filter(a => a.x)[0] || ((w.r && w.r.a) || [])[0] || null;
-  const intest = [[w.cliente, 'Cliente'], [w.indirizzo, 'Indirizzo'], [dataIT(w.data), 'Data'], [w.tecnico, 'Tecnico'], [app ? [app.c, app.m].filter(Boolean).join(' ') + (app.s ? ' (matr. ' + app.s + ')' : '') : (w.impianto || ''), 'Impianto']].filter(r => r[0]);
+  const intest = [].concat(w.ric ? [[w.ric.t, 'Ricevuta n.']] : [], [[w.cliente, 'Cliente'], [w.indirizzo, 'Indirizzo'], [dataIT(w.data), 'Data'], [w.tecnico, 'Tecnico'], [app ? [app.c, app.m].filter(Boolean).join(' ') + (app.s ? ' (matr. ' + app.s + ')' : '') : (w.impianto || ''), 'Impianto']]).filter(r => r[0]);
   intest.forEach(([v, et]) => { doc.setFontSize(8); col(GRIGIO); doc.text(et, M, y + 3); doc.setFontSize(10.5); col(INK); const ls = doc.splitTextToSize(String(v), CW - 25); doc.text(ls, M + 22, y + 3.2); y += Math.max(6, ls.length * 4.8 + 1.5); });
   y += 3;
   const X = {q: M + CW - 78, p: M + CW - 58, iv: M + CW - 32, im: M + CW};
@@ -3192,7 +3198,7 @@ async function preparaAllegati(){
   }
   try {
     const ci = impCalcola(lavoro);
-    if (impHaDati(ci)) { const blobR = await costruisciPdfRicevuta(lavoro, ci); lista.push({id: 'ricevuta-pdf', nome: `Ricevuta_${slugNome(lavoro.cliente || 'intervento')}_${lavoro.data || isoGiorno(new Date())}.pdf`, mime: 'application/pdf', blob: blobR, on: true, onCli: true, base: true, etichetta: 'Riepilogo importi e ricevuta di pagamento (non fiscale)'}); }
+    if (impHaDati(ci)) { const blobR = await costruisciPdfRicevuta(lavoro, ci); lista.push({id: 'ricevuta-pdf', nome: `Ricevuta_${lavoro.ric ? lavoro.ric.t + '_' : ''}${slugNome(lavoro.cliente || 'intervento')}_${lavoro.data || isoGiorno(new Date())}.pdf`, mime: 'application/pdf', blob: blobR, on: true, onCli: true, base: true, etichetta: 'Riepilogo importi e ricevuta di pagamento (non fiscale)'}); }
   } catch(e) { const m = $('#pdf-msg'); if (m) m.textContent = 'Non sono riuscito a preparare la ricevuta (' + e.message + ').'; }
   for (const d of docs) {
     try {
@@ -5641,7 +5647,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 async function salvaDati(d, leggero){
@@ -5749,6 +5755,7 @@ async function caricaPacchetto(file){
       }
     }
     salvaArticoli(d.articoli); salvaBarre(d.barre);
+    try { ricImporta(d.ric); } catch(e) {}
     let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
     if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
     await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
@@ -5781,7 +5788,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.49.6 (27/10/2026)';
+const VERSIONE_APP = '1.51.0 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6562,7 +6569,7 @@ function nomeDati(w){ return 'Dati_' + slugNome(w.cliente) + '_' + (w.data || is
 function impPerUfficio(w){
   try { const c = impCalcola(w); if (!impHaDati(c)) return undefined;
     return {tot: c.tot, imponibile: c.imponibile, iva: c.iva, modo: c.modo, incassato: c.inc, residuo: c.residuo, canone: (w.imp && w.imp.canone) || 'ora',
-      righe: c.righe.filter(x => x.imp > 0 || x.k === 'ctr').map(x => ({d: x.d, q: x.q, p: x.p, iva: ivaDi(x.iv)[0], imp: x.imp})), incluse: c.incluse}; } catch(e) { return undefined; }
+      righe: c.righe.filter(x => x.imp > 0 || x.k === 'ctr' || x.k === 'mat').map(x => ({d: x.d, q: x.q, p: x.p, iva: ivaDi(x.iv)[0], imp: x.imp, k: x.k, c: x.c || '', um: x.um || '', pk: x.k === 'man' ? ((w.imp.righe[x.n] || {}).k || '') : ''})), incluse: c.incluse}; } catch(e) { return undefined; }
 }
 function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
@@ -6572,6 +6579,7 @@ function datiIntervento(w, pdf){
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     importi: impPerUfficio(w),
+    ric: w.ric || undefined,
     file: pdf || [], inviato: Date.now()};
 }
 let posta = store.get('ass_posta', []);
@@ -6629,7 +6637,8 @@ function righeCsv(r){
   } else ripartizione(r).forEach(x => { const o = parseFloat(String(x.o || '').replace(',', '.')); if (x.c && o > 0) rows.push([cp(x.c), cp(nomeMan(x.c)), cp(c.um), csvNum(o, c.virgola), '']); });
   if (!r.cant && c.kmCod && parseFloat(String(r.km || '').replace(',', '.')) > 0) rows.push([cp(c.kmCod), cp(c.kmDesc), 'km', csvNum(r.km, c.virgola), '']);
   if (!r.cant && c.dcCod && r.dc) rows.push([cp(c.dcCod), cp(c.dcDesc), 'nr', '1', '']);
-  (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), c.prezzo ? csvPrezzo(m.prezzo, c.virgola) : '']));   // senza prezzo il campo resta vuoto: Levante lo evidenzia in rosso
+  (r.materiali || []).forEach(m => rows.push([cp(m.codice), cp(m.descr), cp(m.um), csvNum(m.qta, c.virgola), c.prezzo ? csvPrezzo(m.prezzo, c.virgola) : '']));
+  if (!r.cant && r.importi) (r.importi.righe || []).forEach(x => { if (x.k !== 'mat' && x.imp > 0) rows.push(['', cp(x.d), '', csvNum(x.q, c.virgola), c.prezzo ? csvPrezzo(x.p, c.virgola) : '']); });   // dalla ricevuta: contratto, operazioni a prezzo, manodopera, chiamata, trasferta e voci a mano; le doppie si tolgono in Levante   // senza prezzo il campo resta vuoto: Levante lo evidenzia in rosso
   return rows;
 }
 function bytesWin(s){
@@ -6696,7 +6705,8 @@ function disegnaPosta(){
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
     const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), diff = Math.abs(somma - min / 60) > 0.011;
     const ripHtml = min > 0 ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
-    const extra = (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
+    const conTab = !!(r.importi && (r.importi.righe || []).length);
+    const extra = conTab ? '' : (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
     const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
     const ctrl = controlliIntervento(r), nGravi = ctrl.filter(x => x.grave).length;
     const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
@@ -6709,7 +6719,7 @@ function disegnaPosta(){
       ${impUffHtml(r)}
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
-      ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
+      ${conTab ? '' : mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
       <p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
@@ -6722,8 +6732,13 @@ function impUffHtml(r){
   const m = r.importi; if (!m) return '';
   const modo = (PAG_MODI.find(x => x[0] === m.modo) || ['', 'pagamento non indicato'])[1];
   const pag = m.modo === 'fattura' ? 'non pagato, da fatturare' : (m.modo ? 'incassati ' + euro(m.incassato) + ' € (' + modo + ')' + (m.residuo > 0.004 ? ' · <b>restano ' + euro(m.residuo) + ' €</b>' : '') : 'pagamento non indicato');
-  const righe = (m.righe || []).map(x => '<li>' + esc(x.d) + ': ' + (x.q && x.q !== 1 ? esc(String(x.q).replace('.', ',')) + ' × ' : '') + euro(x.p) + ' € + IVA ' + esc(String(x.iva).replace('.', ',')) + '% = ' + euro(x.imp) + ' €</li>').join('');
-  return '<div style="margin:8px 0"><b>Importi:</b> totale <b>' + euro(m.tot) + ' €</b> (imponibile ' + euro(m.imponibile) + ' + IVA ' + euro(m.iva) + ') · ' + pag + (m.canone === 'gia' ? ' · canone del contratto già pagato o fatturato a parte' : '') + (righe ? '<ul style="margin:4px 0 0;padding-left:20px">' + righe + '</ul>' : '') + ((m.incluse || []).length ? '<div class="aiuto">Comprese nel contratto: ' + m.incluse.map(esc).join(', ') + '</div>' : '') + '</div>';
+  const th = 'style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--riga)"', thr = 'style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--riga)"', td = 'style="padding:3px 6px;vertical-align:top"', tdr = 'style="padding:3px 6px;text-align:right;white-space:nowrap;vertical-align:top"';
+  const righe = (m.righe || []).map(x => { const mancaPrezzo = x.k === 'mat' && !(x.p > 0);
+    return '<tr><td ' + td + '>' + esc(x.d) + (x.c ? '<br><small style="opacity:.7">' + esc(x.c) + '</small>' : '') + '</td><td ' + tdr + '>' + esc(String(x.q == null ? '' : x.q).replace('.', ',')) + (x.um ? ' ' + esc(x.um) : '') + '</td><td ' + tdr + '>' + (mancaPrezzo ? '<b>manca</b>' : euro(x.p)) + '</td><td ' + tdr + '>' + esc(String(x.iva).replace('.', ',')) + '%</td><td ' + tdr + '>' + euro(x.imp) + '</td></tr>'; }).join('');
+  const incl = (m.incluse && m.incluse.length) ? '<p style="margin:4px 0 0;font-size:13px;opacity:.8">Comprese nel contratto: ' + m.incluse.map(esc).join(', ') + '</p>' : '';
+  return '<div style="margin:10px 0"><b>Righe dell\'intervento e ricevuta</b>' + (r.ric ? ' · <b>' + esc(r.ric.t) + '</b>' : '') + '' + (righe ? '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px;margin-top:4px"><thead><tr><th ' + th + '>Voce</th><th ' + thr + '>Q.tà</th><th ' + thr + '>Prezzo</th><th ' + thr + '>IVA</th><th ' + thr + '>Importo</th></tr></thead><tbody>' + righe + '</tbody></table></div>' : '') + incl +
+    '<p style="margin:6px 0 0">Imponibile <b>' + euro(m.imponibile) + ' €</b> · IVA ' + euro(m.iva) + ' € · totale <b>' + euro(m.tot) + ' €</b><br>' + pag + (m.canone === 'gia' ? ' · canone del contratto già pagato o fatturato a parte' : '') + '</p>' +
+    '<p style="margin:6px 0 0;font-size:13px;opacity:.8">Il CSV per Levante contiene tutte queste righe, più le ore per fascia, i km e il diritto di chiamata con i loro codici: se una voce compare due volte, in Levante tieni quella giusta.</p></div>';
 }
 // ---- Incassi dei tecnici (ufficio): somma di cio' che i tecnici hanno dichiarato nelle ricevute ----
 const INC_COL = [['contanti', 'Contanti'], ['pos', 'POS / carta'], ['bonifico', 'Bonifico'], ['assegno', 'Assegno']];
@@ -6766,7 +6781,7 @@ function disegnaIncassi(){
   Object.keys(per).sort().forEach(tec => {
     const tt = incVuoto(), righe = Object.keys(per[tec]).sort().map(g => { const t = incVuoto(); per[tec][g].forEach(r => { incSomma(t, r); incSomma(tt, r); incSomma(gen, r); }); return riga(esc(incDataIt(g)) + ' <span style="opacity:.7">(' + t.n + ')</span>', t); }).join('');
     const dett = Object.keys(per[tec]).sort().map(g => per[tec][g].map(r => { const m = r.importi, md = (PAG_MODI.find(x => x[0] === m.modo) || ['', 'non indicato'])[1];
-      return '<li>' + esc(incDataIt(g)) + ' · ' + esc(r.cliente || '') + ' · <b>' + euro(m.tot) + ' €</b> · ' + (m.modo === 'fattura' ? 'da fatturare' : esc(md) + (m.modo ? ': ' + euro(m.incassato) + ' €' : '') + (m.residuo > 0.004 && m.modo !== 'fattura' ? ' (restano ' + euro(m.residuo) + ' €)' : '')) + '</li>'; }).join('')).join('');
+      return '<li>' + esc(incDataIt(g)) + ' · ' + (r.ric ? esc(r.ric.t) + ' · ' : '') + esc(r.cliente || '') + ' · <b>' + euro(m.tot) + ' €</b> · ' + (m.modo === 'fattura' ? 'da fatturare' : esc(md) + (m.modo ? ': ' + euro(m.incassato) + ' €' : '') + (m.residuo > 0.004 && m.modo !== 'fattura' ? ' (restano ' + euro(m.residuo) + ' €)' : '')) + '</li>'; }).join('')).join('');
     h += '<div class="card" style="margin:0 0 14px;overflow-x:auto"><h2 style="margin:0 0 4px">' + esc(tec) + '</h2><p style="margin:0 0 8px">Contanti da consegnare: <b>' + euro(tt.contanti) + ' €</b></p>' +
       '<table style="width:100%;border-collapse:collapse;font-size:14px">' + intesta + '<tbody>' + righe + riga('Totale', tt, true) + '</tbody></table>' +
       '<details style="margin-top:8px"><summary>Interventi (' + tt.n + ')</summary><ul style="margin:6px 0 0;padding-left:18px">' + dett + '</ul></details></div>';
@@ -6776,9 +6791,9 @@ function disegnaIncassi(){
 }
 function scaricaIncassi(){
   const L = incElenco(), c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), n = v => { const t = r2(+v || 0).toFixed(2); return c.virgola === false ? t : t.replace('.', ','); };
-  const righe = [['data', 'tecnico', 'cliente', 'indirizzo', 'n. appuntamento', 'totale', 'imponibile', 'iva', 'modalita pagamento', 'incassato', 'resta da incassare', 'da fatturare', 'contratto']];
+  const righe = [['data', 'tecnico', 'n. ricevuta', 'cliente', 'indirizzo', 'n. appuntamento', 'totale', 'imponibile', 'iva', 'modalita pagamento', 'incassato', 'resta da incassare', 'da fatturare', 'contratto']];
   L.forEach(r => { const m = r.importi, md = m.modo === 'fattura' ? 'Da fatturare' : (PAG_MODI.find(x => x[0] === m.modo) || ['', 'Non indicato'])[1];
-    righe.push([incDataIt(incGiorno(r)), cp(r.tecnico), cp(r.cliente), cp(r.indirizzo), cp(r.li), n(m.tot), n(m.imponibile), n(m.iva), cp(m.modo ? md : 'Non indicato'), m.modo === 'fattura' ? n(0) : n(m.incassato), m.modo && m.modo !== 'fattura' ? n(m.residuo) : n(0), m.modo === 'fattura' ? n(m.tot) : n(0), m.canone === 'gia' ? 'si' : '']); });
+    righe.push([incDataIt(incGiorno(r)), cp(r.tecnico), cp(r.ric && r.ric.t), cp(r.cliente), cp(r.indirizzo), cp(r.li), n(m.tot), n(m.imponibile), n(m.iva), cp(m.modo ? md : 'Non indicato'), m.modo === 'fattura' ? n(0) : n(m.incassato), m.modo && m.modo !== 'fattura' ? n(m.residuo) : n(0), m.modo === 'fattura' ? n(m.tot) : n(0), m.canone === 'gia' ? 'si' : '']); });
   const t = righe.map(x => x.join(';')).join('\r\n') + '\r\n';
   const blob = new Blob(['﻿' + t], {type: 'text/csv;charset=utf-8'});
   scaricaBlob(blob, 'Incassi_' + (($('#inc-per') || {}).value || 'tutto') + '_' + new Date().toISOString().slice(0, 10) + '.csv');
@@ -6806,6 +6821,7 @@ async function leggiPosta(files){
     try {
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
       if (!o || (o.assist !== 'intervento' && o.assist !== 'cantiere')) { altri++; continue; }
+      if (o.ric) { try { ricRegistra(o.ric); } catch(e) {} }
       if (o.assist === 'cantiere') {               // la registrazione di un operaio su un cantiere: sta nella posta, accanto agli interventi
         const cn = o.cantiere || {}; o.cant = true; o.cliente = ((cn.cod ? cn.cod + ' · ' : '') + (cn.descr || cn.nome || 'Cantiere') + (cn.descr && cn.nome ? ' (' + cn.nome + ')' : '')).trim(); o.indirizzo = [cn.cli, cn.ind].filter(Boolean).join(' · ');
         if (!o.tecnico && o.operaio) o.tecnico = o.operaio.n;
@@ -7711,7 +7727,40 @@ function avviaPin(){
   $('#pin-dopo').onchange = e => { if (impostazioni.pin) { impostazioni.pin.min = +e.target.value; salvaImpostazioni(); } };
   aggiornaImpPin(); bloccaPin();
 }
+/* ---- numero della ricevuta: progressivo per tecnico, riparte ogni anno (RIC-SIGLA-AAAA-0001) ---- */
+function ricSiglaDa(nome){ const t = String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, ''); return (t || 'TEC').slice(0, 8); }
+function ricTesto(sigla, anno, n){ return 'RIC-' + sigla + '-' + anno + '-' + String(n).padStart(4, '0'); }
+function ricAssegna(w){
+  if (!w || w.ric) return;
+  const st = store.get('ass_ric', null) || {sigla: '', n: {}}, anno = String(w.data || isoGiorno(new Date())).slice(0, 4);
+  const sigla = st.sigla || ricSiglaDa(w.tecnico || impostazioni.tecnico), n = (st.n[anno] || 0) + 1;
+  st.n[anno] = n; store.set('ass_ric', st);
+  w.ric = {s: sigla, a: anno, n, t: ricTesto(sigla, anno, n)};
+  try { bozzaModificata(true); } catch(e) {}
+}
+function ricImporta(d){            // dal pacchetto dell'ufficio: la sigla scelta e l'ultimo numero gia' arrivato in ufficio
+  if (!d || !d.sigla) return;
+  const st = store.get('ass_ric', null) || {sigla: '', n: {}};
+  st.sigla = String(d.sigla); Object.keys(d.max || {}).forEach(a => { st.n[a] = Math.max(st.n[a] || 0, parseInt(d.max[a], 10) || 0); });
+  store.set('ass_ric', st);
+}
+function ricRegistra(r){           // ufficio: ricorda il numero piu' alto ricevuto per ogni sigla e anno
+  if (!r || !r.s || !r.a) return;
+  const m = store.get('ass_ric_max', {}) || {}, k = r.s + '|' + r.a; if ((m[k] || 0) < r.n) { m[k] = r.n; store.set('ass_ric_max', m); }
+}
+function ricPerTecnico(id, nome){
+  const sigla = (impostazioni.sigle && impostazioni.sigle[id]) || ricSiglaDa(nome), anno = String(new Date().getFullYear()), m = store.get('ass_ric_max', {}) || {};
+  let mx = m[sigla + '|' + anno] || 0; posta.forEach(r => { if (r.ric && r.ric.s === sigla && r.ric.a === anno && r.ric.n > mx) mx = r.ric.n; });
+  return {sigla, max: {[anno]: mx}};
+}
+function disegnaSigle(){
+  const bx = $('#sigle-ric'); if (!bx) return;
+  const T = (datiLevante && datiLevante.tecnici) || {}, ids = Object.keys(T); const sg = impostazioni.sigle = impostazioni.sigle || {};
+  bx.innerHTML = ids.length ? ids.map(id => `<div class="campo"><label>${esc(T[id])}</label><input type="text" data-sigla="${esc(id)}" maxlength="8" autocapitalize="characters" placeholder="${esc(ricSiglaDa(T[id]))}" aria-label="Sigla di ${esc(T[id])}" value="${esc(sg[id] || '')}"></div>`).join('') : '<p class="aiuto">I tecnici compaiono dopo aver caricato i dati di Levante.</p>';
+  bx.oninput = bx.onchange = e => { const d = e.target.dataset; if (!d || d.sigla === undefined) return; const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (v) sg[d.sigla] = v; else delete sg[d.sigla]; salvaImpostazioni(); };
+}
 function disegnaVociPred(){
+  try { disegnaSigle(); } catch(e) {}
   { const bx = $('#voci-pred'); if (bx) { const v = impostazioni.voci = impostazioni.voci || {};
       bx.innerHTML = VOCI_PRED.map(([k, et]) => `<div class="campo"><label>${et}</label><div style="display:flex;gap:8px"><input type="text" inputmode="decimal" data-voce="${k}" data-c="p" placeholder="Prezzo €" aria-label="Prezzo ${esc(et)}" value="${esc((v[k] || {}).p || '')}"><select data-voce="${k}" data-c="iv" aria-label="IVA ${esc(et)}">${ivaOpzioni((v[k] || {}).iv || ivaPredef())}</select></div></div>`).join('');
       const salva = e => { const d = e.target.dataset; if (!d || !d.voce) return; (v[d.voce] = v[d.voce] || {})[d.c] = e.target.value.trim(); salvaImpostazioni(); };
