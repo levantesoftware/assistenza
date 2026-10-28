@@ -4688,9 +4688,8 @@ function aggiornaMic(){
 }
 function fermaDettatura(){
   if (!dett) return;
-  const d = dett; dett = null; dettFine = Date.now(); dlog('fermata');
-  try { d.rec.onend = null; d.rec.stop(); } catch(e){}
-  const rv = d.rec; setTimeout(() => { if (dettUltimo === rv) dettLiberaMic(); }, 700);      // dopo lo stop si lascia il tempo di consegnare le ultime parole, poi si chiude davvero
+  const d = dett; dett = null; dettStop = d; dettFine = Date.now(); dlog('fermata');
+  try { if (dettRec) dettRec.stop(); } catch(e){}
   aggiornaMic(); barraDett('');
   if (d.dest === 'vm') interpretaDaTesto();
 }
@@ -4746,44 +4745,45 @@ function usaTastiera(dest, msg){
   if (el) { try { el.focus(); } catch(e) {} }
   barraDett(msg || 'Tocca il microfono sulla tastiera del telefono e parla.', 8000);
 }
-let dettLog = [], dettSeq = 0, dettFine = 0, dettUltimo = null;
-function dettLiberaMic(){          // se il riconoscitore precedente e' rimasto agganciato al microfono, nessun altro parte finche' non scade: lo si chiude di forza
-  const r = dettUltimo; dettUltimo = null; if (!r) return;
-  try { r.onend = null; r.onresult = null; r.onerror = null; r.abort(); dlog('chiuso il riconoscitore precedente'); } catch(e) {}
-}
+let dettLog = [], dettFine = 0, dettRec = null, dettInCorso = false, dettStop = null;
 const dlog = m => { dettLog.unshift(new Date().toLocaleTimeString() + ' ' + m); if (dettLog.length > 80) dettLog.length = 80; };
-function dettNuovoRec(d){            // un riconoscitore nuovo a ogni giro: riusare lo stesso dopo la fine e' la causa piu' comune del "funziona solo la prima volta"
-  dettLiberaMic();
-  const rec = new SR(), k = ++dettSeq, dest = d.dest; dettUltimo = rec;
+/* UN SOLO riconoscitore per tutta la vita della pagina: su iPhone (Safari) un riconoscitore nuovo, dopo il primo, apre l'audio ma non sente piu' nulla (registro: audiostart senza speechstart).
+   Riavviando sempre lo stesso oggetto la seconda, la terza... dettatura funzionano. I gestori leggono la dettatura corrente da "dett". */
+function dettCrea(){
+  if (dettRec) return dettRec;
+  const rec = dettRec = new SR();
   rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1;
-  rec.continuous = !/Android/i.test(navigator.userAgent);   // su Android si ricomincia a ogni frase: evita le frasi ripetute
-  d.rec = rec; d.audio = false;
-  ['start', 'audiostart', 'speechstart', 'speechend', 'end'].forEach(ev => rec.addEventListener(ev, () => { dlog('#' + k + ' ' + ev); if (ev === 'audiostart' || ev === 'speechstart') d.audio = true; }));
+  ['start', 'audiostart', 'speechstart', 'speechend', 'end'].forEach(ev => rec.addEventListener(ev, () => {
+    dlog(ev); if (ev === 'start') dettInCorso = true; if (ev === 'end') dettInCorso = false;
+    if ((ev === 'audiostart' || ev === 'speechstart') && dett) dett.audio = true;
+  }));
   rec.onresult = e => {
+    const d = dett || (Date.now() - dettFine < 1500 ? dettStop : null); if (!d) return;       // le ultime parole possono arrivare subito dopo lo stop
     let provvisorio = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const r = e.results[i];
-      if (r.isFinal) { dlog('#' + k + ' testo: ' + r[0].transcript); inserisciDettato(dest, r[0].transcript); } else provvisorio += r[0].transcript;
+      if (r.isFinal) { dlog('testo: ' + r[0].transcript); inserisciDettato(d.dest, r[0].transcript); } else provvisorio += r[0].transcript;
     }
     d.vuoti = 0; barraDett(provvisorio ? '… ' + provvisorio : 'Ascolto… parla pure');
   };
   rec.onerror = e => {
-    const err = e && e.error; dlog('#' + k + ' ERRORE ' + err);
+    const err = e && e.error; dlog('ERRORE ' + err);
     if (err === 'no-speech' || err === 'aborted') return;       // il riavvio lo gestisce onend
     const msg = {'not-allowed': 'Il microfono è bloccato: consentilo dalle impostazioni del browser.',
       'service-not-allowed': 'Questo browser non permette la dettatura (se l\'app è sulla schermata Home, prova ad aprirla da Safari o Chrome).',
       'network': 'Serve la connessione internet per la dettatura.', 'audio-capture': 'Non trovo il microfono.',
       'language-not-supported': 'La dettatura in italiano non è disponibile su questo dispositivo.'}[err] || ('Dettatura interrotta (' + err + ').');
-    if (dett === d) d.attivo = false;
+    if (dett) dett.attivo = false;
     aggiornaMic(); barraDett(msg, 9000);
   };
   rec.onend = () => {
-    if (dett === d && d.rec === rec && d.attivo) {
-      d.vuoti = d.audio ? 0 : (d.vuoti || 0) + 1;
-      if (d.vuoti >= 3) { dlog('nessun audio dopo 3 tentativi: mi fermo'); d.attivo = false; aggiornaMic(); barraDett('Il microfono non risponde. Prova con il microfono della tastiera (Impostazioni > Dettatura con il microfono della tastiera).', 9000); }
-      else { setTimeout(() => { if (dett !== d || !d.attivo) return; try { dettNuovoRec(d).start(); dlog('riavviato'); } catch(x) { dlog('riavvio fallito: ' + x.message); fineDett(d); } }, 250); return; }
+    const d = dett;
+    if (d && d.attivo) {                                  // fine "naturale" (pausa, frase conclusa): si riparte con lo stesso riconoscitore
+      d.vuoti = d.audio ? 0 : (d.vuoti || 0) + 1; d.audio = false;
+      if (d.vuoti >= 3) { dlog('nessun audio dopo 3 tentativi: mi fermo'); d.attivo = false; barraDett('Il microfono non risponde. Prova con il microfono della tastiera (Impostazioni > Dettatura con il microfono della tastiera).', 9000); }
+      else { setTimeout(() => { if (dett !== d || !d.attivo) return; try { rec.continuous = !/Android/i.test(navigator.userAgent); rec.start(); dlog('riavviato'); } catch(x) { dlog('riavvio fallito: ' + x.message); fineDett(d); } }, 250); return; }
     }
-    fineDett(d);
+    if (d) fineDett(d); else aggiornaMic();
   };
   return rec;
 }
@@ -4796,16 +4796,19 @@ function avviaDettatura(dest){
   if (navigator.onLine === false) { barraDett('Senza connessione la dettatura non funziona: usa il microfono della tastiera del telefono.', 7000); return; }
   if (!SR) { barraDett('La dettatura non è disponibile su questo browser. Usa il microfono della tastiera del telefono.', 7000); return; }
   if (dett && dett.attivo) { const stessa = dett.dest === dest; fermaDettatura(); if (stessa) return; }
-  const d = dett = {rec: null, dest, attivo: true, audio: false, vuoti: 0};
+  const d = dett = {dest, attivo: true, audio: false, vuoti: 0};
+  const rec = dettCrea();
   const parti = () => {
     if (dett !== d) return;
-    try { dettNuovoRec(d).start(); dlog('avvio richiesto per ' + dest); } catch(e) { dlog('start fallito: ' + e.message); dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
+    try { rec.continuous = !/Android/i.test(navigator.userAgent); rec.start(); dlog('avvio richiesto per ' + dest); } catch(e) { dlog('start fallito: ' + e.message); dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
     aggiornaMic(); barraDett('Ascolto… parla pure');
     setTimeout(() => { if (dett === d && d.attivo && !d.audio) barraDett('Il microfono non parte. Se non sente nulla, usa il microfono della tastiera (Impostazioni).', 9000); }, 4500);
   };
-  dettLiberaMic();
-  const attesa = Math.max(0, 500 - (Date.now() - dettFine));   // dopo uno stop il browser ha bisogno di un attimo prima di un nuovo avvio
-  if (attesa > 0) setTimeout(parti, attesa); else parti();
+  if (dettInCorso) {                                     // la sessione precedente non e' ancora finita: si chiude e si riparte appena finisce
+    try { rec.abort(); } catch(e) {}
+    let fatto = false; const via = () => { if (fatto) return; fatto = true; dettInCorso = false; setTimeout(parti, 60); };
+    rec.addEventListener('end', via, {once: true}); setTimeout(via, 1200);
+  } else parti();
 }
 
 /* ---- materiali a voce: si detta (o si scrive) una frase, l'app la trasforma in righe e le fa controllare ---- */
@@ -5873,7 +5876,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.52.5 (28/10/2026)';
+const VERSIONE_APP = '1.53.0 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
