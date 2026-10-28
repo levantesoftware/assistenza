@@ -4690,6 +4690,7 @@ function fermaDettatura(){
   if (!dett) return;
   const d = dett; dett = null; dettFine = Date.now(); dlog('fermata');
   try { d.rec.onend = null; d.rec.stop(); } catch(e){}
+  const rv = d.rec; setTimeout(() => { if (dettUltimo === rv) dettLiberaMic(); }, 700);      // dopo lo stop si lascia il tempo di consegnare le ultime parole, poi si chiude davvero
   aggiornaMic(); barraDett('');
   if (d.dest === 'vm') interpretaDaTesto();
 }
@@ -4745,10 +4746,15 @@ function usaTastiera(dest, msg){
   if (el) { try { el.focus(); } catch(e) {} }
   barraDett(msg || 'Tocca il microfono sulla tastiera del telefono e parla.', 8000);
 }
-let dettLog = [], dettSeq = 0, dettFine = 0;
+let dettLog = [], dettSeq = 0, dettFine = 0, dettUltimo = null;
+function dettLiberaMic(){          // se il riconoscitore precedente e' rimasto agganciato al microfono, nessun altro parte finche' non scade: lo si chiude di forza
+  const r = dettUltimo; dettUltimo = null; if (!r) return;
+  try { r.onend = null; r.onresult = null; r.onerror = null; r.abort(); dlog('chiuso il riconoscitore precedente'); } catch(e) {}
+}
 const dlog = m => { dettLog.unshift(new Date().toLocaleTimeString() + ' ' + m); if (dettLog.length > 80) dettLog.length = 80; };
 function dettNuovoRec(d){            // un riconoscitore nuovo a ogni giro: riusare lo stesso dopo la fine e' la causa piu' comune del "funziona solo la prima volta"
-  const rec = new SR(), k = ++dettSeq, dest = d.dest;
+  dettLiberaMic();
+  const rec = new SR(), k = ++dettSeq, dest = d.dest; dettUltimo = rec;
   rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1;
   rec.continuous = !/Android/i.test(navigator.userAgent);   // su Android si ricomincia a ogni frase: evita le frasi ripetute
   d.rec = rec; d.audio = false;
@@ -4797,7 +4803,8 @@ function avviaDettatura(dest){
     aggiornaMic(); barraDett('Ascolto… parla pure');
     setTimeout(() => { if (dett === d && d.attivo && !d.audio) barraDett('Il microfono non parte. Se non sente nulla, usa il microfono della tastiera (Impostazioni).', 9000); }, 4500);
   };
-  const attesa = Math.max(0, 350 - (Date.now() - dettFine));   // dopo uno stop il browser ha bisogno di un attimo prima di un nuovo avvio
+  dettLiberaMic();
+  const attesa = Math.max(0, 500 - (Date.now() - dettFine));   // dopo uno stop il browser ha bisogno di un attimo prima di un nuovo avvio
   if (attesa > 0) setTimeout(parti, attesa); else parti();
 }
 
@@ -5866,7 +5873,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.52.4 (28/10/2026)';
+const VERSIONE_APP = '1.52.5 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
