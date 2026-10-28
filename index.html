@@ -4921,7 +4921,7 @@ function avviaPortatoL(){
     if (t.closest('#pt-scan')) { scanCn = 'portatoL'; scanApri(); return; }
     if (t.closest('#pt-foto')) { const i = $('#pt-foto-in'); if (i) i.click(); return; }
     const b = t.closest('[data-pt-art],[data-pt-us],[data-pt-togli]'); if (!b) return;
-    if (b.dataset.ptArt !== undefined) { const a = leggiArticoli()[+b.dataset.ptArt]; if (a) { aggiungiPortatoL(a); $('#pt-cerca-ris').innerHTML = ''; $('#pt-cerca').value = ''; } }
+    if (b.dataset.ptArt !== undefined) { const a = leggiArticoli()[+b.dataset.ptArt]; if (a) qtaPannello('#pt-cerca-ris', a, q => aggiungiPortatoL(a, q), '#pt-cerca'); }
     else if (b.dataset.ptUs !== undefined) ptUsa(+b.dataset.ptUs);
     else if (b.dataset.ptTogli !== undefined) { lavoro.portato.splice(+b.dataset.ptTogli, 1); $('#pt-lista').innerHTML = righePortatoL(); bozzaModificata(); }
   });
@@ -5913,7 +5913,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.54.1 (28/10/2026)';
+const VERSIONE_APP = '1.55.0 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6110,6 +6110,23 @@ function risultatiArticoli(q, largo){
   pt.sort((x, y) => (y[0] - x[0]) || (x[1] - y[1]));
   return pt.slice(0, 12).map(x => x[1]);
 }
+/* dopo aver toccato un articolo trovato con la ricerca: si sceglie la quantita' e poi si aggiunge */
+function qtaPannello(boxSel, a, onOk, inputSel){
+  const box = $(boxSel); if (!box) { onOk(1); return; }
+  const pz = (a[3] && a[3] !== '') ? ' · € ' + esc(a[3]) : '';
+  box.innerHTML = `<div class="avviso info" style="margin:6px 0"><strong>${esc(a[1] || a[0] || '')}</strong><small style="display:block;opacity:.8">${esc(a[0] || '')}${pz}</small>
+    <div style="display:flex;gap:8px;align-items:center;margin:10px 0"><button class="btn chiaro" type="button" data-qp="meno" aria-label="Meno">−</button><input type="text" inputmode="decimal" id="qp-q" value="1" autocomplete="off" aria-label="Quantità" style="width:90px;text-align:center;font-size:22px"><button class="btn chiaro" type="button" data-qp="piu" aria-label="Più">+</button><span>${esc(a[2] || 'pz')}</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pieno" type="button" data-qp="ok" style="margin:0">Aggiungi</button><button class="btn sec" type="button" data-qp="no" style="margin:0">Annulla</button></div></div>`;
+  const q = $('#qp-q'), val = () => { const v = parseFloat(String(q.value).replace(',', '.')); return v > 0 ? v : 1; };
+  const chiudi = () => { box.innerHTML = ''; const i = inputSel && $(inputSel); if (i) { i.value = ''; } };
+  box.querySelector('[data-qp="meno"]').onclick = () => { q.value = qtaTesto(Math.max(1, val() - 1)); };
+  box.querySelector('[data-qp="piu"]').onclick = () => { q.value = qtaTesto(val() + 1); };
+  const ok = () => { const n = val(); chiudi(); onOk(n); };
+  box.querySelector('[data-qp="ok"]').onclick = ok;
+  box.querySelector('[data-qp="no"]').onclick = () => { const i = inputSel && $(inputSel); if (i) i.dispatchEvent(new Event('input', {bubbles: true})); else box.innerHTML = ''; };
+  q.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } };
+  try { q.focus(); q.select(); } catch(e) {}
+}
 function avviaArticoli(){
   document.addEventListener('change', e => { if (e.target && e.target.id === 'lst-sel' && lavoro) cambiaListino(e.target.value); });
   document.addEventListener('input', e => {
@@ -6123,9 +6140,7 @@ function avviaArticoli(){
     const an = e.target.closest && e.target.closest('[data-annulla-ric]'); if (an) { fermaDettatura(); pulisciRicerca(an.dataset.annullaRic); return; }
     const b = e.target.closest && e.target.closest('[data-art]'); if (!b || !lavoro) return;
     const a = leggiArticoli()[+b.dataset.art]; if (!a) return;
-    scanCn = false;                                    // l'aggiunta dalla ricerca va sempre nei materiali, non nella lista portata
-    aggiungiArticolo(a);
-    $('#mat-cerca').value = ''; $('#mat-cerca-ris').innerHTML = '';
+    qtaPannello('#mat-cerca-ris', a, q => { scanCn = false; aggiungiArticolo(a, q); }, '#mat-cerca');   // l'aggiunta dalla ricerca va sempre nei materiali, non nella lista portata
   });
   avviaScanner();
 }
@@ -6634,7 +6649,7 @@ function avviaCantieri(){
     else if (b.id === 'cn-foto-agg') $('#cn-foto-in').click();
     else if (d.cnFtogli !== undefined) { if (!confirm('Tolgo questa foto?')) return; r.foto = r.foto.filter(x => x.id !== d.cnFtogli); try { await cancellaFotoChiave(chiaveFoto('cant-' + r.id, d.cnFtogli)); } catch(x) {} $('#cn-foto').innerHTML = fotoCn(r); salvaReg(true); }
     else if (d.cnApri !== undefined) { const f = ultimiCn[+d.cnApri]; if (f) { const x = mostraFile(f, f.name, f.type), m = $('#cn-msg'); if (x.html && m) m.insertAdjacentHTML('beforeend', '<br>' + x.testo); } }
-    else if (d.cnPart !== undefined) { const a = leggiArticoli()[+d.cnPart]; if (a) { aggiungiPortato(a); $('#cn-pcerca-ris').innerHTML = ''; $('#cn-pcerca').value = ''; } }
+    else if (d.cnPart !== undefined) { const a = leggiArticoli()[+d.cnPart]; if (a) qtaPannello('#cn-pcerca-ris', a, q => aggiungiPortato(a, q), '#cn-pcerca'); }
     else if (d.cnPus !== undefined) {
       const pp = (r.portato || [])[+d.cnPus]; if (pp) {
         const k = chiavePort(pp), ix = r.materiali.findIndex(m => chiavePort(m) === k);
@@ -6645,7 +6660,7 @@ function avviaCantieri(){
     else if (d.cnPtogli !== undefined) { r.portato.splice(+d.cnPtogli, 1); $('#cn-port').innerHTML = righePortato(r); salvaReg(); }
     else if (d.cnArt !== undefined) {
       const a = leggiArticoli()[+d.cnArt]; if (!a) return;
-      r.materiali.unshift({descr: a[1], codice: a[0], qta: '1', um: a[2] || 'pz', prezzo: a[3] || ''}); $('#cn-mat').innerHTML = righeMatCn(r); $('#cn-cerca-ris').innerHTML = ''; $('#cn-cerca').value = ''; salvaReg();
+      qtaPannello('#cn-cerca-ris', a, q => aggiungiArticoloCn(a, q), '#cn-cerca');
     }
     else if (b.id === 'cn-elimina') {
       if (!confirm('Elimino questa registrazione' + (r.inviato ? ' (è già stata inviata)' : '') + '?')) return;
