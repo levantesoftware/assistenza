@@ -757,6 +757,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div class="campo"><label for="ric-dic">Dicitura in alto sulla ricevuta</label><textarea id="ric-dic" rows="3" maxlength="300" placeholder="Documento di cortesia non valido ai fini fiscali. La fattura verrà emessa dall'ufficio e inviata per via elettronica."></textarea></div>
     <div class="campo"><label for="ric-note">Testo in fondo alla ricevuta (per esempio l'informativa privacy)</label><textarea id="ric-note" rows="4" maxlength="900"></textarea></div></div>
     <button class="btn sec pieno" id="b-prova-mic" type="button" style="margin-top:8px">Prova il microfono (diagnosi)</button>
+    <button class="btn sec pieno" id="b-dett-log" type="button" style="margin-top:8px">Copia il registro della dettatura</button>
     <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Stampante</h2>
     <p class="aiuto" style="margin-bottom:10px">Premendo <b>Stampa</b> si apre il menu di condivisione del dispositivo: scegli l'app della tua stampante Bluetooth e il documento si carica lì.</p>
@@ -2207,6 +2208,7 @@ const IVA_BASE = {'1': [22, '22%', ''], '506': [10, '10%', ''], '525': [5, '5%',
 const ivaTab = () => { let t = (datiReali && datiReali.iva) || {}; if (!Object.keys(t).length) { try { t = (datiLevante && datiLevante.iva) || {}; } catch(e) {} } return Object.keys(t).length ? t : IVA_BASE; };
 const ivaDi = c => ivaTab()[c] || IVA_BASE[c] || [22, '22%', ''];
 const ivaEt = c => { const x = ivaDi(c); return x[0] > 0 ? String(x[0]).replace('.', ',') + '%' : (x[1] || 'Senza IVA'); };
+const ivaCorta = c => { const x = ivaDi(c); return x[0] > 0 ? String(x[0]).replace('.', ',') + '%' : (x[2] ? String(x[2]) : 'Senza IVA'); };   // per le colonne strette del PDF: la descrizione lunga dell'esenzione va in legenda
 const ivaPredef = () => (impostazioni.ivaPredef && ivaTab()[impostazioni.ivaPredef]) ? impostazioni.ivaPredef : '1';
 function ivaOpzioni(sel){
   const t = ivaTab(); let c = Object.keys(t).filter(k => t[k][0] > 0 || k === '514' || k === '513' || /^N[1-5]/.test(String(t[k][2] || ''))).sort((a, b) => t[b][0] - t[a][0]);
@@ -2366,15 +2368,16 @@ async function costruisciPdfRicevuta(w, c){
     doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + alt, W - M, y + alt); y += alt + 1;
   };
   c.righe.forEach(x => {
-    if (x.k === 'ctr') { riga(x.d + (x.on ? '' : ' (già pagato o fatturato a parte)'), '', x.on ? euro(x.p) : '', ivaEt(x.iv), x.on ? euro(x.imp) : '0,00'); c.incluse.forEach(n => riga('   ' + n + ' - compresa nel contratto', 1, '', '', '0,00')); }
-    else riga(x.d, String(x.q).replace('.', ','), euro(x.p), ivaEt(x.iv), euro(x.imp));
+    if (x.k === 'ctr') { riga(x.d + (x.on ? '' : ' (già pagato o fatturato a parte)'), '', x.on ? euro(x.p) : '', ivaCorta(x.iv), x.on ? euro(x.imp) : '0,00'); c.incluse.forEach(n => riga('   ' + n + ' - compresa nel contratto', 1, '', '', '0,00')); }
+    else riga(x.d, String(x.q).replace('.', ','), euro(x.p), ivaCorta(x.iv), euro(x.imp));
   });
   if (!c.righe.some(x => x.k === 'ctr')) c.incluse.forEach(n => riga(n + ' - compresa nel contratto', 1, '', '', '0,00'));
   y += 3; if (y > H - 70) { doc.addPage(); y = M; }
   const cod = Object.keys(c.gruppi);
   if (cod.length) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(GRIGIO); doc.text('Dettaglio IVA', M, y + 3); y += 6; doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); col(INK);
-    cod.forEach(k => { const g = c.gruppi[k]; doc.text('Imponibile ' + euro(g.imp) + ' €', M, y + 3); doc.text(ivaEt(k), M + 50, y + 3); doc.text('IVA ' + euro(g.iva) + ' €', M + 90, y + 3); y += 5; });
+    cod.forEach(k => { const g = c.gruppi[k]; doc.text('Imponibile ' + euro(g.imp) + ' €', M, y + 3); doc.text(ivaCorta(k), M + 50, y + 3); doc.text('IVA ' + euro(g.iva) + ' €', M + 90, y + 3); y += 5;
+      if (!(g.perc > 0)) { doc.setFontSize(8); col(GRIGIO); const ls = doc.splitTextToSize(ivaCorta(k) + ' = ' + ivaEt(k), CW - 4); doc.text(ls, M + 2, y + 2.5); y += ls.length * 3.8 + 1.5; doc.setFontSize(9.5); col(INK); } });
     y += 2;
   }
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12); col(INK); doc.text('TOTALE', M, y + 5); doc.text(euro(c.tot) + ' €', W - M - 1, y + 5, {align: 'right'}); y += 9;
@@ -4685,7 +4688,7 @@ function aggiornaMic(){
 }
 function fermaDettatura(){
   if (!dett) return;
-  const d = dett; dett = null;
+  const d = dett; dett = null; dettFine = Date.now(); dlog('fermata');
   try { d.rec.onend = null; d.rec.stop(); } catch(e){}
   aggiornaMic(); barraDett('');
   if (d.dest === 'vm') interpretaDaTesto();
@@ -4742,40 +4745,60 @@ function usaTastiera(dest, msg){
   if (el) { try { el.focus(); } catch(e) {} }
   barraDett(msg || 'Tocca il microfono sulla tastiera del telefono e parla.', 8000);
 }
-function avviaDettatura(dest){
-  if (impostazioni.dettTastiera) { usaTastiera(dest); return; }
-  if (navigator.onLine === false) { barraDett('Senza connessione la dettatura non funziona: usa il microfono della tastiera del telefono.', 7000); return; }
-  if (!SR) { barraDett('La dettatura non è disponibile su questo browser. Usa il microfono della tastiera del telefono.', 7000); return; }
-  if (dett && dett.attivo) { const stessa = dett.dest === dest; fermaDettatura(); if (stessa) return; }
-  const rec = new SR();
+let dettLog = [], dettSeq = 0, dettFine = 0;
+const dlog = m => { dettLog.unshift(new Date().toLocaleTimeString() + ' ' + m); if (dettLog.length > 80) dettLog.length = 80; };
+function dettNuovoRec(d){            // un riconoscitore nuovo a ogni giro: riusare lo stesso dopo la fine e' la causa piu' comune del "funziona solo la prima volta"
+  const rec = new SR(), k = ++dettSeq, dest = d.dest;
   rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1;
   rec.continuous = !/Android/i.test(navigator.userAgent);   // su Android si ricomincia a ogni frase: evita le frasi ripetute
-  dett = {rec, dest, attivo: true};
+  d.rec = rec; d.audio = false;
+  ['start', 'audiostart', 'speechstart', 'speechend', 'end'].forEach(ev => rec.addEventListener(ev, () => { dlog('#' + k + ' ' + ev); if (ev === 'audiostart' || ev === 'speechstart') d.audio = true; }));
   rec.onresult = e => {
     let provvisorio = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const r = e.results[i];
-      if (r.isFinal) inserisciDettato(dest, r[0].transcript); else provvisorio += r[0].transcript;
+      if (r.isFinal) { dlog('#' + k + ' testo: ' + r[0].transcript); inserisciDettato(dest, r[0].transcript); } else provvisorio += r[0].transcript;
     }
-    barraDett(provvisorio ? '… ' + provvisorio : 'Ascolto… parla pure');
+    d.vuoti = 0; barraDett(provvisorio ? '… ' + provvisorio : 'Ascolto… parla pure');
   };
   rec.onerror = e => {
-    const err = e && e.error;
+    const err = e && e.error; dlog('#' + k + ' ERRORE ' + err);
     if (err === 'no-speech' || err === 'aborted') return;       // il riavvio lo gestisce onend
     const msg = {'not-allowed': 'Il microfono è bloccato: consentilo dalle impostazioni del browser.',
       'service-not-allowed': 'Questo browser non permette la dettatura (se l\'app è sulla schermata Home, prova ad aprirla da Safari o Chrome).',
       'network': 'Serve la connessione internet per la dettatura.', 'audio-capture': 'Non trovo il microfono.',
       'language-not-supported': 'La dettatura in italiano non è disponibile su questo dispositivo.'}[err] || ('Dettatura interrotta (' + err + ').');
-    if (dett && dett.rec === rec) dett.attivo = false;
+    if (dett === d) d.attivo = false;
     aggiornaMic(); barraDett(msg, 9000);
   };
   rec.onend = () => {
-    if (dett && dett.rec === rec && dett.attivo) { try { rec.start(); return; } catch(e){} }
-    if (dett && dett.rec === rec) { const d = dett; dett = null; if (d.dest === 'vm') interpretaDaTesto(); }
-    aggiornaMic();
+    if (dett === d && d.rec === rec && d.attivo) {
+      d.vuoti = d.audio ? 0 : (d.vuoti || 0) + 1;
+      if (d.vuoti >= 3) { dlog('nessun audio dopo 3 tentativi: mi fermo'); d.attivo = false; aggiornaMic(); barraDett('Il microfono non risponde. Prova con il microfono della tastiera (Impostazioni > Dettatura con il microfono della tastiera).', 9000); }
+      else { setTimeout(() => { if (dett !== d || !d.attivo) return; try { dettNuovoRec(d).start(); dlog('riavviato'); } catch(x) { dlog('riavvio fallito: ' + x.message); fineDett(d); } }, 250); return; }
+    }
+    fineDett(d);
   };
-  try { rec.start(); } catch(e) { dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
-  aggiornaMic(); barraDett('Ascolto… parla pure');
+  return rec;
+}
+function fineDett(d){
+  if (dett === d) { dett = null; if (d.dest === 'vm') interpretaDaTesto(); }
+  aggiornaMic();
+}
+function avviaDettatura(dest){
+  if (impostazioni.dettTastiera) { usaTastiera(dest); return; }
+  if (navigator.onLine === false) { barraDett('Senza connessione la dettatura non funziona: usa il microfono della tastiera del telefono.', 7000); return; }
+  if (!SR) { barraDett('La dettatura non è disponibile su questo browser. Usa il microfono della tastiera del telefono.', 7000); return; }
+  if (dett && dett.attivo) { const stessa = dett.dest === dest; fermaDettatura(); if (stessa) return; }
+  const d = dett = {rec: null, dest, attivo: true, audio: false, vuoti: 0};
+  const parti = () => {
+    if (dett !== d) return;
+    try { dettNuovoRec(d).start(); dlog('avvio richiesto per ' + dest); } catch(e) { dlog('start fallito: ' + e.message); dett = null; barraDett('Non riesco ad avviare il microfono (' + e.message + ').', 7000); return; }
+    aggiornaMic(); barraDett('Ascolto… parla pure');
+    setTimeout(() => { if (dett === d && d.attivo && !d.audio) barraDett('Il microfono non parte. Se non sente nulla, usa il microfono della tastiera (Impostazioni).', 9000); }, 4500);
+  };
+  const attesa = Math.max(0, 350 - (Date.now() - dettFine));   // dopo uno stop il browser ha bisogno di un attimo prima di un nuovo avvio
+  if (attesa > 0) setTimeout(parti, attesa); else parti();
 }
 
 /* ---- materiali a voce: si detta (o si scrive) una frase, l'app la trasforma in righe e le fa controllare ---- */
@@ -5843,7 +5866,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.52.2 (28/10/2026)';
+const VERSIONE_APP = '1.52.4 (28/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -7900,6 +7923,7 @@ function avvia(){
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#novita-modale').hidden) $('#novita-modale').hidden = true; });
   $('#b-ricontrolla').onclick = () => { tentativiStato = 0; aggiornaStatoApp(); };
   $('#b-prova-mic').onclick = provaMicrofono;
+  $('#b-dett-log').onclick = () => { copiaTesto('Dettatura - ' + navigator.userAgent + '\n' + (dettLog.length ? dettLog.slice().reverse().join('\n') : '(nessun evento)')); };
   disegnaVociPred();
   { const si = $('#sel-iva'); if (si) { si.innerHTML = ivaOpzioni(ivaPredef()); si.onchange = () => { impostazioni.ivaPredef = si.value; salvaImpostazioni(); }; }
     const rd = $('#ric-dic'); if (rd) { rd.value = impostazioni.ricevutaDic || ''; rd.oninput = () => { impostazioni.ricevutaDic = rd.value.trim(); salvaImpostazioni(); }; }
