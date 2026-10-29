@@ -263,6 +263,21 @@ textarea.alta{min-height:150px}
 .mat input[data-c="um"]{grid-column:1 / 3}
 .mat input[data-c="qta"]{grid-column:3 / 5}
 .mat.vm .descr{grid-column:1 / 4}
+.ptr{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.6fr) 44px 36px 28px;gap:4px;align-items:center;padding:5px;margin:0 0 4px;background:var(--foglio);border:1px solid var(--riga);border-radius:10px;font-size:.74rem;line-height:1.2}
+.ptr .ptc{font-weight:700;word-break:break-word;padding:0 3px}
+.ptr .ptd{word-break:break-word;padding:0 3px}
+.ptr input{min-height:30px;height:30px;padding:0 2px;text-align:center;font-size:.8rem}
+.ptr .ptu{min-height:36px;height:36px;width:36px;padding:0;border:2px solid var(--riga);background:#fff;border-radius:9px;font-size:1.2rem;font-weight:800;color:#fff;cursor:pointer}
+.ptr.usato .ptu{background:#2E7D32;border-color:#2E7D32}
+.ptr.usato .ptc,.ptr.usato .ptd{color:var(--tenue)}
+.ptr .togli{min-height:30px;height:30px;width:28px;padding:0;font-size:1rem}
+#materiali .mat{grid-template-columns:minmax(0,.85fr) minmax(0,1.6fr) 38px 44px 28px;gap:4px;padding:5px;margin-bottom:4px;align-items:start}
+#materiali .mat textarea{min-height:28px;height:28px;resize:none;overflow:hidden;font-size:.74rem;line-height:1.2;padding:5px 5px;word-break:break-word}
+#materiali .mat textarea.cod{grid-column:1;grid-row:1;font-weight:700}
+#materiali .mat textarea.descr{grid-column:2;grid-row:1}
+#materiali .mat input[data-c="um"]{grid-column:3;grid-row:1;min-height:28px;height:28px;padding:0 1px;text-align:center;font-size:.74rem}
+#materiali .mat input[data-c="qta"]{grid-column:4;grid-row:1;min-height:28px;height:28px;padding:0 2px;text-align:center;font-size:.8rem}
+#materiali .mat .togli{grid-column:5;grid-row:1;min-height:28px;height:28px;width:28px;padding:0;font-size:1rem}
 .mat input{padding-left:10px;padding-right:8px}
 .mat .togli{grid-column:4;grid-row:1}
 .analisi{background:var(--foglio);border:1px solid var(--riga);border-radius:10px;padding:12px;margin-bottom:10px}
@@ -2098,12 +2113,20 @@ function righeOrari(){
     <div><label>Alle</label><input type="time" data-orario="${n}" data-c="al" value="${esc(o.al)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|al">Adesso</button>${indPos(o, 'al', n)}</div>
     ${lavoro.orari.length > 1 ? `<button class="togli" type="button" data-togli-orario="${n}" aria-label="Togli questa fascia">×</button>` : '<span></span>'}</div>`).join('');
 }
+function adattaDescr(t){
+  const l = t ? [t.closest('.mat')] : document.querySelectorAll('#materiali .mat');
+  for (let i = 0; i < l.length; i++) {
+    const r = l[i]; if (!r) continue; const tt = r.querySelectorAll('textarea'); let h = 28;
+    for (let k = 0; k < tt.length; k++) { tt[k].style.height = 'auto'; h = Math.max(h, tt[k].scrollHeight + 2); }
+    for (let k = 0; k < tt.length; k++) tt[k].style.height = h + 'px';
+  }
+}
 function righeMateriali(){
-  setTimeout(() => { try { aggiornaImporti(); } catch(e) {} }, 0);
+  setTimeout(() => { try { aggiornaImporti(); } catch(e) {} adattaDescr(); }, 0);
   return lavoro.materiali.map((m, n) => `<div class="mat">
-    <input type="text" data-mat="${n}" data-c="codice" placeholder="Codice" aria-label="Codice" value="${esc(m.codice)}">
+    <textarea class="cod" rows="1" data-mat="${n}" data-c="codice" placeholder="Codice" aria-label="Codice">${esc(m.codice)}</textarea>
     <button class="togli" type="button" data-togli-mat="${n}" aria-label="Togli questo materiale">×</button>
-    <input class="descr" type="text" data-mat="${n}" data-c="descr" placeholder="Descrizione del materiale" aria-label="Descrizione" value="${esc(m.descr)}">
+    <textarea class="descr" rows="1" data-mat="${n}" data-c="descr" placeholder="Descrizione del materiale" aria-label="Descrizione">${esc(m.descr)}</textarea>
     <input type="text" list="lista-um" data-mat="${n}" data-c="um" placeholder="Unità" aria-label="Unità di misura" autocapitalize="none" autocomplete="off" value="${esc(m.um || '')}">
     <input type="text" inputmode="decimal" data-mat="${n}" data-c="qta" placeholder="Q.tà" aria-label="Quantità" value="${esc(m.qta)}"></div>`).join('');
 }
@@ -2517,12 +2540,12 @@ function disegnaScheda(){
     <div class="passo"><h2>Relazione</h2>
       ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
     </div>
-    <div class="passo"><h2>Orari e viaggio</h2><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
+    <details class="passo rcee-blocco" id="or-d"${orApr[ptKey()] === true ? ' open' : ''}><summary><h2>Orari e viaggio</h2><span class="aiuto" id="or-sum">${esc(orariSommario())}</span></summary><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
       <div class="totale" id="ore-tot"></div>
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
-    </div>
+    </details>
     <div class="passo" style="margin-top:20px">${listinoHtml()}</div>
     ${portatoLHtml()}
     <details class="passo rcee-blocco" id="mat-d"${matApr[ptKey()] !== false ? ' open' : ''}><summary><h2>Materiali</h2><span class="aiuto">Cerca, scansiona o detta quello che hai usato</span></summary>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
@@ -2577,9 +2600,18 @@ function minuti(dal, al){
 }
 const fmtOre = m => Math.floor(m/60) + ' h' + (m % 60 ? ' ' + pad(m % 60) + ' min' : '');
 function oreTotali(){ return lavoro.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0); }
+let orApr = {};
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'or-d') orApr[ptKey()] = d.open; }, true);
+function orariSommario(){
+  const w = lavoro; if (!w || !w.orari) return '';
+  const u = w.orari.filter(o => o.dal), t = oreTotali();
+  if (!u.length) return 'Arrivo, fine e km percorsi';
+  return 'dalle ' + u[0].dal + (u[u.length - 1].al ? ' alle ' + u[u.length - 1].al : ' (in corso)') + (t ? ' · ' + fmtOre(t) : '') + (w.km ? ' · ' + w.km + ' km' : '');
+}
 function aggiornaOre(){
   const t = oreTotali();
   const el = $('#ore-tot'); if (el) el.innerHTML = t ? `Ore totali: <b>${fmtOre(t)}</b>` : '';
+  const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario();
 }
 
 /* ---- salvataggio automatico ---- */
@@ -2670,10 +2702,10 @@ function collegaForm(){
   const f = $('#form');
   f.addEventListener('input', e => {
     const t = e.target, d = t.dataset;
-    if (d.k) { lavoro[d.k] = t.value; const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
+    if (d.k) { lavoro[d.k] = t.value; if (d.k === 'km') { const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario(); } const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
       if (d.k === 'email') { const x = $('#inv-email-cli'); if (x && x !== t) x.value = t.value; const o = $('#email-opz'); if (o) o.innerHTML = righeEmailOpz(); } }
     else if (d.orario !== undefined) { lavoro.orari[+d.orario][d.c] = t.value; aggiornaOre(); }
-    else if (d.mat !== undefined) { lavoro.materiali[+d.mat][d.c] = t.value; aggiornaImporti(d.c === 'qta'); }
+    else if (d.mat !== undefined) { lavoro.materiali[+d.mat][d.c] = t.value; if (t.tagName === 'TEXTAREA') adattaDescr(t); aggiornaImporti(d.c === 'qta'); }
     else if (d.an !== undefined) { (lavoro.analisi[d.an] = lavoro.analisi[d.an] || {})[d.c] = t.value; }
     else if (d.extra !== undefined) { lavoro.ops_extra[+d.extra] = t.value; }
     else if (d.fotoc !== undefined) { const f = (lavoro.foto || []).find(x => x.id === d.fotoc); if (f) f.commento = t.value; }
@@ -4864,6 +4896,10 @@ function inserisciDettato(dest, testo){
     const el = $('#mat-cerca'); if (!el) return;
     el.value = String(testo).replace(/[.,;!?]+$/, '').trim(); el.dispatchEvent(new Event('input', {bubbles: true})); setTimeout(fermaDettatura, 0); return;
   }
+  if (dest === 'ptcerca') {                              // materiale portato (appuntamenti): ricerca articoli per la lista
+    const el = $('#pt-cerca'); if (!el) return;
+    el.value = String(testo).replace(/[.,;!?]+$/, '').trim(); el.dispatchEvent(new Event('input', {bubbles: true})); setTimeout(fermaDettatura, 0); return;
+  }
   if (dest === 'cnpcerca') {                             // cantiere: ricerca articoli per la lista portata
     const el = $('#cn-pcerca'); if (!el) return;
     el.value = String(testo).replace(/[.,;!?]+$/, '').trim(); el.dispatchEvent(new Event('input', {bubbles: true})); setTimeout(fermaDettatura, 0); return;
@@ -4903,7 +4939,7 @@ function inserisciDettato(dest, testo){
   }
 }
 function usaTastiera(dest, msg){
-  const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'cnpcerca' ? $('#cn-pcerca') : dest === 'vm' ? $('#vm-testo') : dest === 'rq' ? $('#rq-testo') : dest === 'cn:rel' ? $('#cn-rel')
+  const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'ptcerca' ? $('#pt-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'cnpcerca' ? $('#cn-pcerca') : dest === 'vm' ? $('#vm-testo') : dest === 'rq' ? $('#rq-testo') : dest === 'cn:rel' ? $('#cn-rel')
     : dest.startsWith('cnfoto:') ? document.querySelector('[data-cn-fc="' + dest.slice(7) + '"]') : dest.startsWith('foto:') ? document.querySelector('[data-fotoc="' + dest.slice(5) + '"]')
     : dest.startsWith('k:') ? $('#f-' + dest.slice(2)) : null;
   if (el) { try { el.focus(); } catch(e) {} }
@@ -5062,13 +5098,13 @@ function righePortatoL(){
   const sp = document.getElementById('pt-n'); if (sp) sp.textContent = ptConta(w).replace(/^ · /, '');
   if (!w.portato.length) return '<p class="aiuto" style="margin:4px 0">Ancora nessun articolo. In magazzino fotografa l\'etichetta, scansiona o cerca qui sopra.</p>';
   const usati = w.portato.filter(p => portatoUsato(w, p)).length;
-  return `<p class="aiuto" style="margin:4px 0">${w.portato.length} articoli · usati ${usati}. A fine lavoro tocca «Usato» sui pezzi montati.</p>` + w.portato.map((p, i) => { const u = portatoUsato(w, p);
-    return `<div style="display:grid;grid-template-columns:1fr 58px 90px 34px;gap:6px;margin:6px 0;align-items:center"><div style="min-width:0">${esc(p.descr || p.codice)}${p.codice && p.descr ? `<span class="aiuto" style="display:block">${esc(p.codice)}</span>` : ''}</div><input type="text" inputmode="decimal" data-pt-q="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="btn ${u ? '' : 'sec'} piccolo" type="button" data-pt-us="${i}" aria-pressed="${u}" style="margin:0">${u ? '✓ Usato' : 'Usato'}</button><button class="togli" type="button" data-pt-togli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
+  return `<p class="aiuto" style="margin:4px 0">${w.portato.length} articoli · usati ${usati}. A fine lavoro tocca il quadratino sui pezzi usati.</p>` + w.portato.map((p, i) => { const u = portatoUsato(w, p);
+    return `<div class="ptr${u ? ' usato' : ''}"><div class="ptc">${esc(p.codice || '')}</div><div class="ptd">${esc(p.descr || (p.codice ? '' : '—'))}${ptEtUso(w, p) ? `<span style="display:block;color:var(--tenue)">${esc(ptEtUso(w, p).slice(3))}</span>` : ''}</div><input type="text" inputmode="decimal" data-pt-q="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="ptu" type="button" data-pt-us="${i}" aria-pressed="${u}" aria-label="${u ? 'Usato: tocca per togliere' : 'Segna come usato'}">${u ? '✓' : ''}</button><button class="togli" type="button" data-pt-togli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
 }
 function portatoLHtml(){
   if (!lavoro) return '';
   const nA = leggiArticoli().length, w = lavoro, aperto = ptApr[ptKey()] !== undefined ? ptApr[ptKey()] : (w.portato || []).length > 0;
-  return `<details class="passo rcee-blocco" id="pt-d"${aperto ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="pt-n" class="aiuto">${esc(ptConta(w).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista che fai in magazzino: a fine lavoro tocchi quello che hai usato e passa nei materiali.</p>${nA ? `<div class="cbox"><input type="text" id="pt-cerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista"></div><div id="pt-cerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="pt-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="pt-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="pt-foto-in" accept="image/*" capture="environment" hidden><div id="pt-lista">${righePortatoL()}</div></details>`;
+  return `<details class="passo rcee-blocco" id="pt-d"${aperto ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="pt-n" class="aiuto">${esc(ptConta(w).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista che fai in magazzino: a fine lavoro tocchi quello che hai usato e passa nei materiali.</p>${nA ? `<div class="cbox"><input type="text" id="pt-cerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('ptcerca')}</div><div id="pt-cerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="pt-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="pt-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="pt-foto-in" accept="image/*" capture="environment" hidden><div id="pt-lista">${righePortatoL()}</div></details>`;
 }
 function aggiungiPortatoL(a, q){
   q = q > 0 ? q : 1; const w = lavoro; if (!w) return; w.portato = w.portato || [];
@@ -5078,12 +5114,13 @@ function aggiungiPortatoL(a, q){
   const b = $('#pt-lista'); if (b) b.innerHTML = righePortatoL();
   bozzaModificata();
 }
-function ptUsa(i){
+function ptUsa(i, rigaEl){
   const w = lavoro, pp = (w.portato || [])[i]; if (!pp) return;
   const k = chiavePort(pp), ix = w.materiali.findIndex(m => chiavePort(m) === k);
-  if (ix >= 0) w.materiali.splice(ix, 1);
-  else w.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: pp.qta || '1', um: pp.um || 'pz', prezzo: pp.art ? prezzoArtL(pp.art, listinoCorr()) : (pp.prezzo || '')});
-  $('#pt-lista').innerHTML = righePortatoL(); $('#materiali').innerHTML = righeMateriali(); bozzaModificata();
+  const fine = () => { $('#pt-lista').innerHTML = righePortatoL(); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); };
+  if (ix >= 0) { w.materiali.splice(ix, 1); fine(); return; }
+  const metti = n => { w.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: qtaTesto(n), um: pp.um || 'pz', prezzo: pp.art ? prezzoArtL(pp.art, listinoCorr()) : (pp.prezzo || '')}); fine(); };
+  if (qNum(pp.qta) > 1) usoPannello(rigaEl, pp, metti); else metti(qNum(pp.qta) || 1);
 }
 function avviaPortatoL(){
   document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'pt-d') ptApr[ptKey()] = d.open; }, true);
@@ -5093,7 +5130,7 @@ function avviaPortatoL(){
     if (t.closest('#pt-foto')) { const i = $('#pt-foto-in'); if (i) i.click(); return; }
     const b = t.closest('[data-pt-art],[data-pt-us],[data-pt-togli]'); if (!b) return;
     if (b.dataset.ptArt !== undefined) { const a = leggiArticoli()[+b.dataset.ptArt]; if (a) qtaPannello('#pt-cerca-ris', a, q => aggiungiPortatoL(a, q), '#pt-cerca'); }
-    else if (b.dataset.ptUs !== undefined) ptUsa(+b.dataset.ptUs);
+    else if (b.dataset.ptUs !== undefined) ptUsa(+b.dataset.ptUs, b.closest('.ptr'));
     else if (b.dataset.ptTogli !== undefined) { lavoro.portato.splice(+b.dataset.ptTogli, 1); $('#pt-lista').innerHTML = righePortatoL(); bozzaModificata(); }
   });
   document.addEventListener('input', e => {
@@ -6084,7 +6121,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.60.0 (29/10/2026)';
+const VERSIONE_APP = '1.63.0 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6597,6 +6634,28 @@ function apriCantiere(cid, regId){
 }
 /* ---- materiale portato (cantieri): la lista di stamattina; poi si tocca quello che si installa e passa in «Materiali usati» ---- */
 const chiavePort = p => String(p.codice || p.descr || '').trim().toLowerCase();
+const qNum = x => { const v = parseFloat(String(x == null ? '' : x).replace(',', '.')); return isFinite(v) ? v : 0; };
+const ptUsataQta = (r, p) => (r.materiali || []).reduce((t, m) => t + (chiavePort(m) && chiavePort(m) === chiavePort(p) ? (qNum(m.qta) || 1) : 0), 0);
+const ptResto = (r, p) => Math.max(0, qNum(p.qta) - ptUsataQta(r, p));
+const ptEtUso = (r, p) => { const u = ptUsataQta(r, p), q = qNum(p.qta); return u > 0 && q > 0 && u < q ? ' · usate ' + qtaTesto(u) + ' su ' + qtaTesto(q) : ''; };
+function usoPannello(rigaEl, p, onOk){
+  const old = document.getElementById('uso-box'); if (old) old.remove();
+  if (!rigaEl) { onOk(qNum(p.qta) || 1); return; }
+  const tot = qNum(p.qta) || 1, box = document.createElement('div'); box.id = 'uso-box'; box.className = 'avviso info'; box.style.margin = '4px 0 8px';
+  box.innerHTML = `<strong>${esc(p.descr || p.codice || '')}</strong><small style="display:block;opacity:.8">Portate: ${esc(qtaTesto(tot))}${p.um ? ' ' + esc(p.um) : ''}</small>
+    <div style="margin:8px 0 4px">Quante ne hai usate?</div>
+    <div style="display:flex;gap:8px;align-items:center;margin:4px 0 10px"><button class="btn chiaro" type="button" data-uso="meno" aria-label="Meno">−</button><input type="text" inputmode="decimal" id="uso-q" value="${esc(qtaTesto(tot))}" autocomplete="off" aria-label="Quantità usata" style="width:90px;text-align:center"><button class="btn chiaro" type="button" data-uso="piu" aria-label="Più">+</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pieno" type="button" data-uso="ok" style="margin:0">Conferma</button><button class="btn sec" type="button" data-uso="no" style="margin:0">Annulla</button></div>`;
+  rigaEl.insertAdjacentElement('afterend', box);
+  const q = box.querySelector('#uso-q'), val = () => { const v = qNum(q.value); return v > 0 ? Math.min(v, tot) : 1; };
+  box.querySelector('[data-uso="meno"]').onclick = () => { q.value = qtaTesto(Math.max(1, val() - 1)); };
+  box.querySelector('[data-uso="piu"]').onclick = () => { q.value = qtaTesto(Math.min(tot, val() + 1)); };
+  const ok = () => { const n = val(); box.remove(); onOk(n); };
+  box.querySelector('[data-uso="ok"]').onclick = ok;
+  box.querySelector('[data-uso="no"]').onclick = () => box.remove();
+  q.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } };
+  try { q.focus(); q.select(); } catch(e) {}
+}
 const portatoUsato = (r, p) => (r.materiali || []).some(m => chiavePort(m) && chiavePort(m) === chiavePort(p));
 let portApr = {};                                       // aperto/chiuso del blocco «Materiale portato», per registrazione
 function contaPortato(r){ const n = (r.portato || []).length, u = (r.portato || []).filter(p => portatoUsato(r, p)).length; return n ? ' · ' + n + (n === 1 ? ' articolo' : ' articoli') + (u ? ', installati ' + u : '') : ''; }
@@ -6733,7 +6792,7 @@ function datiCantiere(r, pdf){
   return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, descr: r.descr || '', cli: r.cli, ind: r.ind, sub: r.subn ? {id: '', n: r.subn} : undefined},
     operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
     relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
-    portato: (r.portato || []).filter(pp => !portatoUsato(r, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: pp.qta || '', um: pp.um || '', prezzo: pp.prezzo || ''})),
+    portato: (r.portato || []).filter(pp => ptResto(r, pp) > 0 || !qNum(pp.qta) && !portatoUsato(r, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(r, pp)) : (pp.qta || ''), um: pp.um || '', prezzo: pp.prezzo || ''})),
     nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
 }
 async function filesCantiere(r){
@@ -6824,8 +6883,10 @@ function avviaCantieri(){
     else if (d.cnPus !== undefined) {
       const pp = (r.portato || [])[+d.cnPus]; if (pp) {
         const k = chiavePort(pp), ix = r.materiali.findIndex(m => chiavePort(m) === k);
-        if (ix >= 0) r.materiali.splice(ix, 1); else r.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: pp.qta || '1', um: pp.um || 'pz', prezzo: pp.prezzo || ''});
-        $('#cn-port').innerHTML = righePortato(r); $('#cn-mat').innerHTML = righeMatCn(r); salvaReg();
+        const fine = () => { $('#cn-port').innerHTML = righePortato(r); $('#cn-mat').innerHTML = righeMatCn(r); salvaReg(); };
+        const metti = n => { r.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: qtaTesto(n), um: pp.um || 'pz', prezzo: pp.prezzo || ''}); fine(); };
+        if (ix >= 0) { r.materiali.splice(ix, 1); fine(); }
+        else if (qNum(pp.qta) > 1) usoPannello(b.closest('.cn-port'), pp, metti); else metti(qNum(pp.qta) || 1);
       }
     }
     else if (d.cnPtogli !== undefined) { r.portato.splice(+d.cnPtogli, 1); $('#cn-port').innerHTML = righePortato(r); salvaReg(); }
