@@ -572,6 +572,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 <nav id="nav-uff" aria-label="Sezioni dell'ufficio">
   <button type="button" data-nav="agenda" aria-pressed="true">Agenda</button>
   <button type="button" data-nav="posta" aria-pressed="false">Interventi in arrivo<span class="badge" id="nav-badge" hidden></span></button>
+  <button type="button" data-nav="richieste" aria-pressed="false">Richieste dei tecnici<span class="badge" id="nav-badge-rq" hidden></span></button>
   <button type="button" data-nav="ufficio" aria-pressed="false">Invio ai tecnici<span class="badge" id="nav-badge-inv" hidden></span></button>
   <button type="button" data-nav="incassi" aria-pressed="false">Incassi</button>
   <button type="button" data-nav="impostazioni" aria-pressed="false">Impostazioni</button>
@@ -1024,6 +1025,17 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div id="inc-corpo"></div>
   </section>
 
+  <!-- UFFICIO: RICHIESTE DI CHIAMATE DEI TECNICI -->
+  <section id="v-richieste" class="view">
+    <header class="barra fissa">
+      <button class="btn chiaro piccolo" id="b-indietro-richieste" type="button">Indietro</button>
+      <h1>Richieste dei tecnici</h1>
+    </header>
+    <p class="aiuto" style="margin:0 0 8px">Quando un tecnico è libero e chiede chiamate (dall'app, «Sono libero»), la richiesta arriva qui. Quando hai risposto o assegnato una chiamata, spunta «Gestita».</p>
+    <label class="spunta"><input type="checkbox" id="rq-gestite"> Mostra anche le richieste già gestite</label>
+    <div id="rq-elenco" style="margin-top:12px"></div>
+  </section>
+
   <!-- UFFICIO: POSTA IN ARRIVO -->
   <section id="v-posta" class="view">
     <header class="barra fissa">
@@ -1345,7 +1357,7 @@ function applicaLocale(k, v){
   if (k === 'ass_posta') {
     const prima = new Set((Array.isArray(posta) ? posta : []).map(r => chiavePosta(r)));
     posta = Array.isArray(copia) ? copia : [];
-    if (!inWorker && workerVivo && notificaPostaOk) { const n = posta.filter(r => !r.fatto && !prima.has(chiavePosta(r))).length; if (n) { try { avvisaDesktop('Nuovo intervento in arrivo', n === 1 ? 'Un intervento da registrare.' : n + ' interventi da registrare.'); } catch(e) {} } }
+    if (!inWorker && workerVivo && notificaPostaOk) { const nr = posta.filter(r => !r.fatto && r.rich && !prima.has(chiavePosta(r))).length; if (nr) { try { avvisaDesktop('Un tecnico è libero', nr === 1 ? 'Nuova richiesta di chiamate dai tecnici.' : nr + ' nuove richieste di chiamate dai tecnici.'); } catch(e) {} } const n = posta.filter(r => !r.fatto && !r.rich && !prima.has(chiavePosta(r))).length; if (n) { try { avvisaDesktop('Nuovo intervento in arrivo', n === 1 ? 'Un intervento da registrare.' : n + ' interventi da registrare.'); } catch(e) {} } }
   }
   if (k === 'ass_impostazioni') { impostazioni = Object.assign({azienda: '', tecnico: ''}, copia || {}); try { limiteTecniciCambiato(); } catch(e) {} }
   clearTimeout(sync.ui); sync.ui = setTimeout(rinfresca, 150);
@@ -1564,10 +1576,12 @@ function tabTecnici(elenco){
 let campanelloPrima = null;
 function aggiornaNav(){
   document.body.classList.toggle('uff', !!inUfficio);
-  const att = vistaCorrente === 'posta' ? 'posta' : vistaCorrente === 'ufficio' ? 'ufficio' : vistaCorrente === 'impostazioni' ? 'impostazioni' : vistaCorrente === 'incassi' ? 'incassi' : 'agenda';
+  const att = vistaCorrente === 'posta' ? 'posta' : vistaCorrente === 'ufficio' ? 'ufficio' : vistaCorrente === 'impostazioni' ? 'impostazioni' : vistaCorrente === 'incassi' ? 'incassi' : vistaCorrente === 'richieste' ? 'richieste' : 'agenda';
   document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.setAttribute('aria-pressed', b.dataset.nav === att));
-  const n = posta.filter(r => !r.fatto).length, bd = $('#nav-badge');
+  const n = posta.filter(r => !r.fatto && !r.rich).length, bd = $('#nav-badge');
   if (bd) { bd.hidden = !n; bd.textContent = n; }
+  const nq = posta.filter(r => !r.fatto && r.rich).length, bq = $('#nav-badge-rq');
+  if (bq) { bq.hidden = !nq; bq.textContent = nq; }
   const bi = $('#nav-badge-inv');
   if (bi) { let k = 0; try { if (inUfficio && datiLevante) { const per = costruisciPer(); const inv = leggiInviati(), og = isoGiorno(new Date()); k = Object.keys(per).filter(id => haNovita(id, per, inv, og)).length; } } catch(e) {} bi.hidden = !k; bi.textContent = '🔔 ' + k; bi.title = k + (k === 1 ? ' tecnico con novità da inviare' : ' tecnici con novità da inviare'); if (typeof campanelloPrima === 'number' && k > campanelloPrima && inUfficio) { try { avvisaDesktop('Novità da inviare', k + (k === 1 ? ' tecnico ha' : ' tecnici hanno') + ' novità: apri «Invio ai tecnici».'); } catch(e) {} } campanelloPrima = k; }
 }
@@ -6065,7 +6079,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.58.0 (29/10/2026)';
+const VERSIONE_APP = '1.58.1 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6989,13 +7003,13 @@ let codaOn = false, codaPos = 0;
 function disegnaPosta(){
   etichettaPosta();
   const box = $('#posta-elenco'); if (!box) return;
-  const tutti = $('#posta-fatti').checked, tuttiOrd = posta.map((r, i) => ({r, i})).filter(x => tutti || !x.r.fatto)
+  const tutti = $('#posta-fatti').checked, tuttiOrd = posta.map((r, i) => ({r, i})).filter(x => !x.r.rich && (tutti || !x.r.fatto))
     /* prima quelli da registrare, dai piu' recentemente arrivati in ufficio; a parita' di giorno l'ultimo arrivato sta in alto; i registrati in fondo */
     .sort((a, b) => (a.r.fatto ? 1 : 0) - (b.r.fatto ? 1 : 0) || String(b.r.ricevuto || '').localeCompare(String(a.r.ricevuto || '')) || b.i - a.i);
   const etArrivo = g => { if (!g) return 'Arrivo non registrato'; const o = isoGiorno(new Date()), ie = isoGiorno(new Date(Date.now() - 864e5)); return g === o ? 'Arrivati oggi' : g === ie ? 'Arrivati ieri' : 'Arrivati il ' + dataIT(g); };
   let grPrec = null;
   let lista = tuttiOrd, testa = '';
-  const aperti = tuttiOrd.filter(x => !x.r.fatto && !x.r.rich);
+  const aperti = tuttiOrd.filter(x => !x.r.fatto);
   if (codaOn) {
     if (!aperti.length) { codaOn = false; codaPos = 0; box.innerHTML = '<div class="avviso info"><b>Tutti gli interventi sono registrati.</b>Non c\'è altro da fare qui.</div>'; return; }
     codaPos = Math.max(0, Math.min(codaPos, aperti.length - 1));
@@ -7009,7 +7023,6 @@ function disegnaPosta(){
   const blocco = (tit, t, i, k) => t ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${tit}</b><button class="btn sec piccolo" type="button" data-copia="${i}|${k}">Copia</button></div><div style="white-space:pre-wrap">${esc(t)}</div></div>` : '';
   box.innerHTML = lista.map(({r, i}) => {
     const gr = (r.fatto ? 'F' : 'A') + (r.ricevuto || ''), intest = (!codaOn && gr !== grPrec) ? `<h3 style="margin:14px 0 6px;font-size:15px">${r.fatto ? 'Già registrati · ' : ''}${esc(etArrivo(r.ricevuto))}</h3>` : ''; grPrec = gr;
-    if (r.rich) return intest + schedaRichiesta(r, i);
     if (r.cant) return intest + schedaCantiere(r, i);
     const min = minutiTotali(r), h = min ? fmtOre(min) : '';
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
@@ -7130,7 +7143,7 @@ function scaricaIncassi(){
 }
 const ESITI_BREVI = {concluso: 'Concluso', da_completare: 'Da completare', non_eseguito: 'Non eseguito'};
 async function leggiPosta(files){
-  let nuovi = 0, agg = 0, pdf = 0, altri = 0, nZip = 0, protetti = 0, motivoProt = '';
+  let nuovi = 0, nuoviRq = 0, agg = 0, pdf = 0, altri = 0, nZip = 0, protetti = 0, motivoProt = '';
   if (files.length) {            // i file protetti si aprono col codice di sicurezza; quelli che non si riescono ad aprire restano nella cartella «arrivo»
     const aperti = [];
     for (const f of files) { try { aperti.push(await decifraSeCifrato(f)); } catch(e) { protetti++; motivoProt = e.codice === 'manca' ? 'manca il codice di sicurezza (Impostazioni)' : (e.codice === 'errato' ? 'il codice di sicurezza non corrisponde' : 'file protetto danneggiato'); } }
@@ -7176,12 +7189,13 @@ async function leggiPosta(files){
   for (const {o} of lette) {
     const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
     o.src = Array.from(new Set((i >= 0 ? (posta[i].src || []) : []).concat(o._src || []))); delete o._src;
-    if (i >= 0) { o.ricevuto = posta[i].ricevuto; o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { o.ricevuto = isoGiorno(new Date()); posta.push(o); nuovi++; }
+    if (i >= 0) { o.ricevuto = posta[i].ricevuto; o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { o.ricevuto = isoGiorno(new Date()); posta.push(o); if (o.rich) nuoviRq++; else nuovi++; }
   }
   salvaPosta();
-  $('#posta-msg').textContent = nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.' + (protetti ? ' ⚠ ' + protetti + (protetti === 1 ? ' file protetto non letto' : ' file protetti non letti') + ': ' + motivoProt + '.' : '');
+  $('#posta-msg').textContent = (nuoviRq ? nuoviRq + (nuoviRq === 1 ? ' richiesta di chiamate' : ' richieste di chiamate') + ' (nella sezione Richieste dei tecnici), ' : '') + nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.' + (protetti ? ' ⚠ ' + protetti + (protetti === 1 ? ' file protetto non letto' : ' file protetti non letti') + ': ' + motivoProt + '.' : '');
   disegnaPosta();
-  return {nuovi, agg};
+  try { disegnaRichieste(); } catch(e) {}
+  return {nuovi, agg, rich: nuoviRq};
 }
 let archiviando = false;
 async function archiviaRegistrati(){
@@ -7209,6 +7223,16 @@ function controlliCantiere(r){
   if (!(r.relazione || '').trim()) c.push({t: 'Manca la descrizione dei lavori.', grave: false});
   (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF delle foto non ancora arrivato: ' + n + '.', grave: true}));
   return c;
+}
+function etArrivoRq(g){ if (!g) return 'Arrivo non registrato'; const o = isoGiorno(new Date()), ie = isoGiorno(new Date(Date.now() - 864e5)); return g === o ? 'Arrivate oggi' : g === ie ? 'Arrivate ieri' : 'Arrivate il ' + dataIT(g); }
+function disegnaRichieste(){
+  const box = $('#rq-elenco'); if (!box) return;
+  const tutte = $('#rq-gestite').checked;
+  const L = posta.map((r, i) => ({r, i})).filter(x => x.r.rich && (tutte || !x.r.fatto)).sort((a, b) => (a.r.fatto ? 1 : 0) - (b.r.fatto ? 1 : 0) || String(b.r.ricevuto || b.r.data || '').localeCompare(String(a.r.ricevuto || a.r.data || '')) || b.i - a.i);
+  if (!L.length) { box.innerHTML = '<p class="aiuto">Nessuna richiesta da gestire.</p>'; try { aggiornaNav(); } catch(e) {} return; }
+  let prec = null;
+  box.innerHTML = L.map(({r, i}) => { const g = (r.fatto ? 'F' : 'A') + (r.ricevuto || ''), t = g !== prec ? `<h3 style="margin:14px 0 6px;font-size:15px">${r.fatto ? 'Gestite · ' : ''}${esc(etArrivoRq(r.ricevuto))}</h3>` : ''; prec = g; return t + schedaRichiesta(r, i); }).join('');
+  try { aggiornaNav(); } catch(e) {}
 }
 function schedaRichiesta(r, i){
   const quando = dataIT(r.data) + (r.ora ? ' ' + r.ora : '');
@@ -7247,7 +7271,7 @@ function blobRiepilogoCantieri(){
   const t = righe.map(x => x.join(';')).join('\r\n') + '\r\n';
   return c.win ? new Blob([bytesWin(t)], {type: 'text/csv'}) : new Blob([t], {type: 'text/csv;charset=utf-8'});
 }
-function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const n = posta.filter(r => !r.fatto).length; try { document.title = (inUfficio && n ? '(' + n + ') ' : '') + 'Assistenza impianti'; } catch(e) {} b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); try { aggiornaNav(); } catch(e) {} }
+function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const nt = posta.filter(r => !r.fatto).length, n = posta.filter(r => !r.fatto && !r.rich).length; try { document.title = (inUfficio && nt ? '(' + nt + ') ' : '') + 'Assistenza impianti'; } catch(e) {} b.textContent = 'Posta in arrivo (interventi dei tecnici)' + (n ? ' — ' + n + ' da registrare' : ''); try { aggiornaNav(); } catch(e) {} }
 function avviaPosta(){
   $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
   $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; caricaAllegati(); disegnaPosta(); mostra('posta'); try { if (typeof caricaPostaAuto === 'function' && postaAutoAvviata) caricaPostaAuto(); } catch(e) {} };
@@ -7422,6 +7446,7 @@ async function giroPostaAuto(){
     const ris = await leggiPosta(files.map(x => x.file));
     if (!ris) return;                                   // lettura non riuscita (es. zip non valido): i file restano in «arrivo», non vanno tra gli importati
     for (const x of files) { try { await chiamaJson('posta-fatto', {nome: x.nome}); } catch(e) {} }
+    if (ris && ris.rich) avvisaDesktop('Un tecnico è libero', ris.rich === 1 ? 'Nuova richiesta di chiamate dai tecnici.' : ris.rich + ' nuove richieste di chiamate dai tecnici.');
     if (ris && ris.nuovi) avvisaDesktop('Nuovo intervento in arrivo', ris.nuovi === 1 ? 'Un intervento da registrare.' : ris.nuovi + ' interventi da registrare.');
     if (ris && (ris.nuovi || ris.agg)) mostraAvviso('Posta dei tecnici: ' + (ris.nuovi ? ris.nuovi + (ris.nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') : ris.agg + ' aggiornati') + '.', 'Apri', () => { disegnaPosta(); mostra('posta'); }, 15000);
     try { disegnaAgenda(); } catch(e) {}
@@ -8122,10 +8147,13 @@ function avvia(){
     else if (v === 'posta') $('#b-posta').click();
     else if (v === 'ufficio') $('#b-ufficio').click();
     else if (v === 'incassi') { disegnaIncassi(); mostra('incassi'); }
+    else if (v === 'richieste') { disegnaRichieste(); mostra('richieste'); }
     else $('#b-impostazioni').click();
   });
   $('#b-indietro-scheda').onclick = indietro;
-  $('#b-indietro-incassi').onclick = indietro;
+  $('#b-indietro-incassi').onclick = indietro; $('#b-indietro-richieste').onclick = indietro;
+  $('#rq-gestite').onchange = disegnaRichieste;
+  $('#rq-elenco').addEventListener('change', e => { const d = e.target.dataset; if (d.fatto !== undefined && posta[+d.fatto]) { posta[+d.fatto].fatto = e.target.checked; salvaPosta(); if (e.target.checked) archiviaRegistrati(); setTimeout(disegnaRichieste, 200); } });
   ['#inc-per', '#inc-tec'].forEach(q => { $(q).onchange = disegnaIncassi; });
   $('#b-inc-csv').onclick = scaricaIncassi;
   $('#b-pdf').onclick = creaPdf;
