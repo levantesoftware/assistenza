@@ -842,6 +842,11 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div id="voci-pred"></div>
     </div>
     <div class="solo-uff">
+    <h2 class="giorno" style="margin-top:26px">Tipi di intervento</h2>
+    <p class="aiuto" style="margin:0 0 8px">L'elenco che il tecnico trova nel campo «Tipo di intervento» (uno per riga). Se l'appuntamento di Levante ha già un tipo, parte quello e il tecnico può cambiarlo; con «Altro» può scriverne uno a mano.</p>
+    <textarea id="tipi-int" rows="6" aria-label="Tipi di intervento, uno per riga"></textarea>
+    </div>
+    <div class="solo-uff">
     <h2 class="giorno" style="margin-top:26px">Numero delle ricevute</h2>
     <p class="aiuto" style="margin:0 0 8px">Ogni ricevuta ha un numero progressivo del tecnico, che riparte da 1 ogni anno (esempio RIC-ROSSI-2026-0001). Qui scegliete la sigla di ciascun tecnico; se la lasciate vuota si usa il nome. Non è un numero fiscale.</p>
     <div id="sigle-ric"></div>
@@ -1990,6 +1995,21 @@ function apriSchedaManuale(){
   disegnaScheda(); mostra('scheda'); preparaFirma('');
 }
 
+/* tipo di intervento: elenco deciso dall'ufficio (arriva nel pacchetto) + "Altro" scritto a mano; se l'appuntamento di Levante ha gia' un tipo, parte quello */
+const TIPI_INT_PRED = ['Riparazione', 'Manutenzione', 'Sopralluogo', 'Installazione', 'Collaudo'];
+function tipiIntElenco(){
+  const o = (datiReali && Array.isArray(datiReali.tipiInt) && datiReali.tipiInt.length) ? datiReali.tipiInt : (inUfficio ? (impostazioniTipi()) : TIPI_INT_PRED);
+  return o;
+}
+function impostazioniTipi(){ const t = String(impostazioni.tipiInt == null ? TIPI_INT_PRED.join('\n') : impostazioni.tipiInt).split(/\r?\n/).map(x => x.trim()).filter(Boolean); return t.length ? t : TIPI_INT_PRED; }
+function campoTipoInt(){
+  const el = tipiIntElenco().slice(), cur = String(lavoro.tipo || '');
+  if (cur && !lavoro.tipoLibero && el.indexOf(cur) < 0) el.push(cur);
+  const sel = lavoro.tipoLibero ? '__altro' : cur;
+  return `<div class="campo"><label for="f-tipoSel">Tipo di intervento</label>
+    <select id="f-tipoSel" data-tipo-sel><option value=""${sel === '' ? ' selected' : ''}>— scegli —</option>${el.map(t => `<option value="${esc(t)}"${sel === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}<option value="__altro"${sel === '__altro' ? ' selected' : ''}>Altro (lo scrivo io)</option></select>
+    <input type="text" id="f-tipo" data-k="tipo" value="${lavoro.tipoLibero ? esc(cur) : ''}" placeholder="Per esempio: Sopralluogo per preventivo" style="margin-top:8px"${lavoro.tipoLibero ? '' : ' hidden'}></div>`;
+}
 function campoTesto(k, etichetta, opzioni = {}){
   const v = lavoro[k] || '';
   const tag = opzioni.area
@@ -2447,12 +2467,14 @@ async function costruisciPdfRicevuta(w, c){
 
 function disegnaScheda(){
   const w = lavoro;
+  if (w.tipo === undefined) w.tipo = (w.r && w.r.tp) ? String(w.r.tp) : '';
   $('#form').innerHTML = `
     ${w.inCorso ? '<div class="avviso"><b>Intervento in corso</b>Iniziato alle ' + esc(w.inizioOra || '') + '. Quando scegli l\'esito, l\'ora di fine si registra da sola.</div>' : ''}
     <div class="passo"><h2>Chi e dove</h2>
       ${campoTesto('cliente', 'Cliente')}
       ${campoTesto('indirizzo', 'Indirizzo dell\'intervento')}
       <div class="due">${campoTesto('data', 'Data', {tipo:'date'})}${campoTesto('tecnico', 'Tecnico')}</div>
+      ${campoTipoInt()}
       ${campoTesto('email', 'Email del cliente (per inviargli i documenti)', {tipo:'email', inputmode:'email'})}
       <div id="email-opz">${righeEmailOpz()}</div>
     </div>
@@ -2635,6 +2657,7 @@ function collegaForm(){
   });
   f.addEventListener('change', e => {
     const t = e.target, d = t.dataset;
+    if (d.tipoSel !== undefined) { const x = $('#f-tipo'); if (t.value === '__altro') { lavoro.tipoLibero = true; if (x) { x.hidden = false; x.value = ''; try { x.focus(); } catch(er) {} } lavoro.tipo = ''; } else { lavoro.tipoLibero = false; lavoro.tipo = t.value; if (x) { x.hidden = true; x.value = ''; } } bozzaModificata(); return; }
     if (d.allega !== undefined) { ultimiAllegati[+d.allega][destInvio === 'cli' ? 'onCli' : 'on'] = t.checked; aggiornaPulsantiInvio(); }
     else if (d.dc !== undefined) { lavoro.dc = t.checked; impSincronizzaChiamata(); bozzaModificata(); }
     else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); aggiornaImporti(); }
@@ -2798,6 +2821,7 @@ function costruisciPdf(w, ctx){
   coppia('Cliente', w.cliente, 'Data', dataIT(w.data));
   coppia('Indirizzo', w.indirizzo, 'Tecnico', w.tecnico);
   if (w.levante) coppia('Impianto', w.impianto, 'Rif. Levante', 'Appuntamento N. ' + (w.levante.li || w.levante.mi));
+  if (w.tipo) coppia('Tipo di intervento', w.tipo, '', '');
 
   titolo('Intervento');
   blocco('Richiesta del cliente', w.richiesta);
@@ -3261,7 +3285,7 @@ function composizioneMail(cli){
     testo: 'Buongiorno,\n\nin allegato il rapporto di intervento del ' + d + (lavoro.indirizzo ? ' presso ' + lavoro.indirizzo : '') + '.' + (nomi.some(n => /^RCEE/i.test(n)) ? '\nIn allegato anche il rapporto di controllo di efficienza energetica (RCEE).' : '') + '\n\nCordiali saluti\n' + (lavoro.tecnico || '') + (az ? '\n' + az : '')};
   return {
     oggetto: 'Intervento ' + d + ' - ' + (lavoro.cliente || '') + (lavoro.indirizzo ? ' - ' + lavoro.indirizzo : ''),
-    testo: 'Intervento del ' + d + '\nCliente: ' + (lavoro.cliente || '') + '\nIndirizzo: ' + (lavoro.indirizzo || '') + '\nEsito: ' + (ESITI[lavoro.esito] || '-') + '\nTecnico: ' + (lavoro.tecnico || '') + (oreTotali() ? '\nOre: ' + fmtOre(oreTotali()) : '') + '\n\nAllegati:\n' + nomi.map(n => '- ' + n).join('\n')};
+    testo: 'Intervento del ' + d + '\nCliente: ' + (lavoro.cliente || '') + '\nIndirizzo: ' + (lavoro.indirizzo || '') + '\n' + (lavoro.tipo ? 'Tipo: ' + lavoro.tipo + '\n' : '') + 'Esito: ' + (ESITI[lavoro.esito] || '-') + '\nTecnico: ' + (lavoro.tecnico || '') + (oreTotali() ? '\nOre: ' + fmtOre(oreTotali()) : '') + '\n\nAllegati:\n' + nomi.map(n => '- ' + n).join('\n')};
 }
 function baseAllegati(){
   const l = [];
@@ -5844,7 +5868,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 async function salvaDati(d, leggero){
@@ -5955,7 +5979,7 @@ async function caricaPacchetto(file){
     try { ricImporta(d.ric); } catch(e) {}
     let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
     if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
     { const ids = new Set((d.chiamate || []).map(c => c.id)); store.set('ass_ch_nuove', Array.from(new Set(store.get('ass_ch_nuove', []).concat(chNuove.map(c => c.id)))).filter(x => ids.has(x))); }
@@ -5985,7 +6009,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.56.0 (29/10/2026)';
+const VERSIONE_APP = '1.57.0 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6787,7 +6811,7 @@ function impPerUfficio(w){
 }
 function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
-    li: (w.levante && w.levante.li) || '',
+    li: (w.levante && w.levante.li) || '', tipoInt: w.tipo || '',
     orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})),
     km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: ossUnite(w, 'osservazioni'), raccomandazioni: ossUnite(w, 'raccomandazioni'), prescrizioni: ossUnite(w, 'prescrizioni'), note: w.note || '',
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
@@ -6942,7 +6966,7 @@ function disegnaPosta(){
     const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
     const ctrlChip = r.fatto || !ctrl.length ? '' : ` <span class="chip ${nGravi ? 'urg' : 'bozza'}">${ctrl.length} ${ctrl.length === 1 ? 'controllo' : 'controlli'}</span>`;
     const avanti = codaOn && !r.fatto ? `<button class="btn pieno" type="button" data-coda="avanti" data-i="${i}" style="margin-top:12px">Registrato in Levante: passa al prossimo</button>` : '';
-    return intest + `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
+    return intest + `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.tipoInt ? ' <span class="chip info">' + esc(r.tipoInt) + '</span>' : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
       ${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
@@ -8010,6 +8034,7 @@ function disegnaSigle(){
 }
 function disegnaVociPred(){
   try { disegnaSigle(); } catch(e) {}
+  { const ta = $('#tipi-int'); if (ta) { ta.value = impostazioniTipi().join('\n'); ta.oninput = ta.onchange = () => { impostazioni.tipiInt = ta.value; salvaImpostazioni(); }; } }
   { const bx = $('#voci-pred'); if (bx) { const v = impostazioni.voci = impostazioni.voci || {};
       bx.innerHTML = VOCI_PRED.map(([k, et]) => `<div class="campo"><label>${et}</label><div style="display:flex;gap:8px"><input type="text" inputmode="decimal" data-voce="${k}" data-c="p" placeholder="Prezzo €" aria-label="Prezzo ${esc(et)}" value="${esc((v[k] || {}).p || '')}"><select data-voce="${k}" data-c="iv" aria-label="IVA ${esc(et)}">${ivaOpzioni((v[k] || {}).iv || ivaPredef())}</select></div></div>`).join('');
       const salva = e => { const d = e.target.dataset; if (!d || !d.voce) return; (v[d.voce] = v[d.voce] || {})[d.c] = e.target.value.trim(); salvaImpostazioni(); };
