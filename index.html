@@ -1368,6 +1368,7 @@ function rinfresca(){
   if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) { clearTimeout(sync.ui); sync.ui = setTimeout(rinfresca, 2500); return; }
   try { etichettaPosta(); } catch(e) {}
   try { if (vistaCorrente === 'posta') disegnaPosta(); } catch(e) {}
+  try { if (vistaCorrente === 'richieste') disegnaRichieste(); } catch(e) {}
   try { if (vistaCorrente === 'ufficio' && datiLevante) disegnaUfficio(); } catch(e) {}
   try { disegnaAutoInvio(); } catch(e) {}
   try { if (vistaCorrente === 'agenda') disegnaAgenda(); } catch(e) {}
@@ -6079,7 +6080,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.58.1 (29/10/2026)';
+const VERSIONE_APP = '1.58.2 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
