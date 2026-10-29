@@ -86,6 +86,15 @@ h1,h2,h3,p{margin:0}
 .barra .sotto{font-size:14px;color:var(--tenue);margin-top:3px}
 .barra.fissa{position:-webkit-sticky;position:sticky;top:0;z-index:5;background:var(--carta);border-bottom:1px solid var(--riga);margin:0 -16px 12px;padding:10px 16px}
 .barra.fissa h1{font-size:19px}
+.sz-nav{position:-webkit-sticky;position:sticky;top:58px;z-index:4;display:-webkit-box;display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:-12px -16px 10px;padding:8px 16px;background:var(--carta);border-bottom:1px solid var(--riga)}
+.sz-nav[hidden]{display:none}
+.sz-nav button{-webkit-box-flex:0;flex:none;margin-right:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--riga);background:#fff;color:var(--ink,#13222a);font:inherit;font-weight:700;font-size:14px;white-space:nowrap}
+.sz-nav button.ok{background:#e1f0e6;border-color:#9bcaa8;color:#1d6b3a}
+.sz-nav button.ok:before{content:"\2713\00a0"}
+.sz-nav button.cur{background:#0f5b6b;border-color:#0f5b6b;color:#fff}
+.rcee-sc{display:-webkit-box;display:flex;flex-wrap:wrap;margin:0 -4px}
+.rcee-sc .btn{margin:4px;min-height:44px;padding:6px 12px;text-align:left;line-height:1.2}
+.rcee-sc .btn small{display:block;font-weight:400;font-size:12px;opacity:.8}
 
 /* pulsanti */
 .btn{min-height:48px;padding:0 18px;border-radius:10px;border:1.5px solid var(--petrolio);background:var(--petrolio);color:#fff;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
@@ -688,6 +697,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <button class="btn chiaro piccolo" id="b-indietro-scheda" type="button">Indietro</button>
       <h1>Scheda intervento</h1>
     </header>
+    <nav class="sz-nav" id="sz-nav" aria-label="Sezioni della scheda" hidden></nav>
     <div class="salvato" id="salvato" aria-live="polite"></div>
     <form id="form" autocomplete="off" onsubmit="return false"></form>
     <datalist id="lista-um"><option value="pz"><option value="m"><option value="cm"><option value="mm"><option value="kg"><option value="g"><option value="l"><option value="ml"><option value="mq"><option value="mc"><option value="conf."><option value="set"><option value="kit"><option value="rotolo"><option value="ore"></datalist>
@@ -1404,6 +1414,7 @@ function mostra(vista, push = true){
   document.body.dataset.vista = vista;
   if (push && vista !== vistaCorrente && vista !== 'agenda') { try { history.pushState({v: vista}, ''); storia = true; } catch(e){} }
   vistaCorrente = vista;
+  if (vista === 'scheda') { try { disegnaStriscia(); } catch(e) {} }
   try { aggiornaNav(); } catch(e) {}
   window.scrollTo(0, 0);
   const dx = $('#destra'); if (dx) dx.scrollTop = 0;
@@ -2496,6 +2507,7 @@ function disegnaScheda(){
       <button class="btn chiaro piccolo" id="b-mailpronta" type="button">Mail con destinatario e oggetto già scritti</button></div>`;
   aggiornaOssRcee();
   if (!lavoro.foto) lavoro.foto = [];
+  try { szFirma = ''; disegnaStriscia(); } catch(e) {}
   disegnaFoto();
   aggiornaOre();
   collegaFirma();
@@ -2522,11 +2534,71 @@ function aggiornaOre(){
 
 /* ---- salvataggio automatico ---- */
 let timer = null;
+
+/* ---- striscia delle sezioni della scheda: scorciatoie + spunta verde sulle sezioni compilate ---- */
+const SZ_NOMI = {'Chi e dove': 'Chi e dove', 'Guasto o richiesta': 'Guasto', 'Operazioni eseguite': 'Operazioni', 'Altre operazioni': 'Altre op.', 'Analisi di combustione': 'Analisi', 'Altri rapporti di efficienza energetica': 'RCEE', 'Relazione': 'Relazione', 'Orari e viaggio': 'Orari', 'Materiali': 'Materiali', 'Importi e pagamento': 'Importi', 'Foto': 'Foto', 'Esito': 'Esito', 'Firma del cliente': 'Firma'};
+let szSez = [], szFirma = '';
+function szFatta(n){
+  const w = lavoro; if (!w) return false;
+  const t = v => String(v == null ? '' : v).trim();
+  switch (n) {
+    case 'Chi e dove': return !!(t(w.cliente) && t(w.indirizzo));
+    case 'Guasto o richiesta': return !!t(w.richiesta);
+    case 'Operazioni eseguite': return Object.keys(w.ops || {}).some(k => w.ops[k] && w.ops[k].fatta);
+    case 'Altre operazioni': return (w.ops_extra || []).some(x => t(x));
+    case 'Analisi di combustione': return Object.keys(w.analisi || {}).some(k => Object.keys(w.analisi[k] || {}).some(c => t(w.analisi[k][c])));
+    case 'Relazione': return !!t(w.relazione);
+    case 'Orari e viaggio': return !!(w.orari && w.orari.length && t(w.orari[w.orari.length - 1].al));
+    case 'Materiali': return (w.materiali || []).length > 0;
+    case 'Importi e pagamento': return !!(w.imp && (w.imp.righe || []).length);
+    case 'Foto': return (w.foto || []).length > 0;
+    case 'Esito': return !!w.esito;
+    case 'Firma del cliente': return !!w.firma;
+  }
+  return false;
+}
+function szAltezza(){ const h = document.querySelector('#v-scheda .barra.fissa'), n = $('#sz-nav'); return (h ? h.offsetHeight : 0) + (n && !n.hidden ? n.offsetHeight : 0); }
+function disegnaStriscia(){
+  const nav = $('#sz-nav'); if (!nav) return;
+  const visti = {}; szSez = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#form h2'), h => {
+    const nome = h.textContent.trim(); if (!SZ_NOMI[nome] || visti[nome]) return;
+    const el = h.closest('.passo') || h.closest('details') || h; visti[nome] = 1; szSez.push({nome, el});
+  });
+  const hd = document.querySelector('#v-scheda .barra.fissa'); if (hd) nav.style.top = hd.offsetHeight + 'px';
+  const firma = szSez.map(x => x.nome).join('|');
+  if (firma !== szFirma) {
+    szFirma = firma; nav.hidden = szSez.length < 3;
+    nav.innerHTML = szSez.map((x, i) => `<button type="button" data-sz="${i}">${esc(SZ_NOMI[x.nome])}</button>`).join('');
+  }
+  szAggiorna();
+}
+function szAggiorna(){
+  const nav = $('#sz-nav'); if (!nav || nav.hidden) return;
+  const off = szAltezza() + 24; let cur = 0;
+  szSez.forEach((x, i) => { if (x.el.getBoundingClientRect().top <= off) cur = i; });
+  if (window.innerHeight + window.pageYOffset >= document.documentElement.scrollHeight - 4) cur = szSez.length - 1;
+  Array.prototype.forEach.call(nav.children, (b, i) => {
+    const x = szSez[i]; if (!x) return;
+    b.className = (szFatta(x.nome) ? 'ok ' : '') + (i === cur ? 'cur' : '');
+    if (i === cur && nav.dataset.cur !== String(i)) { nav.dataset.cur = String(i); const l = b.offsetLeft - 16; if (Math.abs(nav.scrollLeft - l) > 4) nav.scrollLeft = l; }
+  });
+}
+let szT = null;
+window.addEventListener('scroll', () => { if (szT) return; szT = setTimeout(() => { szT = null; const v = $('#v-scheda'); if (v && v.classList.contains('attiva') || (v && v.offsetParent)) szAggiorna(); }, 120); }, {passive: true});
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-sz]'); if (!b) return;
+  const x = szSez[+b.dataset.sz]; if (!x) return;
+  if (x.el.tagName === 'DETAILS') x.el.open = true;
+  window.scrollTo(0, Math.max(0, x.el.getBoundingClientRect().top + window.pageYOffset - szAltezza() - 8));
+  setTimeout(szAggiorna, 150);
+});
 function bozzaModificata(senzaInvalidare){      // senzaInvalidare: modifiche che non toccano i PDF gia' creati (come l'email)
   if (!senzaInvalidare) lavoro.stato = 'bozza';
   lavoro.aggiornata = Date.now();
   clearTimeout(timer);
   timer = setTimeout(() => salvaBozza(senzaInvalidare), 400);
+  try { disegnaStriscia(); } catch(e) {}
 }
 function catturaFirma(){
   const c = $('#firma');
@@ -3883,13 +3955,13 @@ function sezioneManuale(i, r, tpl, mappa){
 }
 function sezioneAggiungiLibero(){
   return `<div class="passo"><h2>Altri rapporti di efficienza energetica</h2>
-    <p class="aiuto">Se l'ufficio non ha creato l'allegato in Levante (per esempio un intervento non programmato), o se c'è anche uno scambiatore o un cogeneratore, aggiungi il rapporto qui: parte già compilato con i dati di Levante.</p>
-    <div class="azioni" style="margin:0;grid-template-columns:1fr">
-      <button class="btn sec" type="button" data-add-man="RCEE1">Aggiungi rapporto tipo 1 (gruppi termici)</button>
-      <button class="btn sec" type="button" data-add-man="RCEE1B">Aggiungi rapporto tipo 1B (biomassa)</button>
-      <button class="btn sec" type="button" data-add-man="RCEE2">Aggiungi rapporto tipo 2 (frigo e pompe di calore)</button>
-      <button class="btn sec" type="button" data-add-lib="RCEE3">Aggiungi rapporto tipo 3 (scambiatori)</button>
-      <button class="btn sec" type="button" data-add-lib="RCEE4">Aggiungi rapporto tipo 4 (cogeneratori)</button></div></div>`;
+    <p class="aiuto">Se l'ufficio non ha creato l'allegato in Levante (per esempio un intervento non programmato), o se c'è anche uno scambiatore o un cogeneratore, aggiungi il rapporto qui: parte già compilato con i dati di Levante. Tocca il tipo che serve.</p>
+    <div class="rcee-sc">
+      <button class="btn sec" type="button" data-add-man="RCEE1">Tipo 1<small>gruppi termici</small></button>
+      <button class="btn sec" type="button" data-add-man="RCEE1B">Tipo 1B<small>biomassa</small></button>
+      <button class="btn sec" type="button" data-add-man="RCEE2">Tipo 2<small>frigo e pompe di calore</small></button>
+      <button class="btn sec" type="button" data-add-lib="RCEE3">Tipo 3<small>scambiatori</small></button>
+      <button class="btn sec" type="button" data-add-lib="RCEE4">Tipo 4<small>cogeneratori</small></button></div></div>`;
 }
 /* ---- il PDF ---- */
 function valoreLibero(w, c, r, tot, pag){
@@ -5913,7 +5985,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.55.1 (28/10/2026)';
+const VERSIONE_APP = '1.56.0 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
