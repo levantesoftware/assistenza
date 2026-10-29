@@ -6121,7 +6121,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.63.0 (29/10/2026)';
+const VERSIONE_APP = '1.64.0 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6954,6 +6954,7 @@ function datiIntervento(w, pdf){
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     importi: impPerUfficio(w),
     ric: w.ric || undefined,
+    portato: (w.portato || []).filter(pp => ptResto(w, pp) > 0 || !qNum(pp.qta) && !portatoUsato(w, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(w, pp)) : (pp.qta || ''), um: pp.um || ''})),
     file: pdf || [], inviato: Date.now()};
 }
 let posta = store.get('ass_posta', []);
@@ -7110,6 +7111,7 @@ function disegnaPosta(){
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
       ${conTab ? '' : mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
+      ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc(((pp.qta || '') + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
       <p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
