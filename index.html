@@ -2500,12 +2500,12 @@ function disegnaScheda(){
     <div class="passo"><h2>Chi e dove</h2>
       ${campoTesto('cliente', 'Cliente')}
       ${campoTesto('indirizzo', 'Indirizzo dell\'intervento')}
-      <div class="due">${campoTesto('data', 'Data', {tipo:'date'})}${campoTesto('tecnico', 'Tecnico')}</div>
-      ${campoTipoInt()}
       ${campoTesto('email', 'Email del cliente (per inviargli i documenti)', {tipo:'email', inputmode:'email'})}
       <div id="email-opz">${righeEmailOpz()}</div>
+      <div class="due">${campoTesto('data', 'Data', {tipo:'date'})}${campoTesto('tecnico', 'Tecnico')}</div>
+      ${campoTipoInt()}
+      ${campoTesto('richiesta', 'Cosa ha segnalato il cliente', {area:true})}
     </div>
-    <div class="passo"><h2>Guasto o richiesta</h2>${campoTesto('richiesta', 'Cosa ha segnalato il cliente', {area:true})}</div>
     ${sezioneOperazioni()}
     <div class="passo"><h2>Altre operazioni</h2><p class="aiuto">Lavori fatti che non erano in programma.</p>
       <div id="extra">${sezioneExtra()}</div>
@@ -2522,10 +2522,11 @@ function disegnaScheda(){
       <div class="totale" id="ore-tot"></div>
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
-      <label class="spunta" style="margin-top:6px"><input type="checkbox" data-dc="1"${lavoro.dc ? ' checked' : ''}> Diritto fisso di chiamata</label>
     </div>
-    <div class="passo"><h2>Materiali</h2>${listinoHtml()}${portatoLHtml()}${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
-      <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
+    <div class="passo" style="margin-top:20px">${listinoHtml()}</div>
+    ${portatoLHtml()}
+    <details class="passo rcee-blocco" id="mat-d"${matApr[ptKey()] !== false ? ' open' : ''}><summary><h2>Materiali</h2><span class="aiuto">Cerca, scansiona o detta quello che hai usato</span></summary>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
+      <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></details>
     ${sezioneImporti()}
     <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
       <div id="foto-lista"></div>
@@ -2585,7 +2586,7 @@ function aggiornaOre(){
 let timer = null;
 
 /* ---- striscia delle sezioni della scheda: scorciatoie + spunta verde sulle sezioni compilate ---- */
-const SZ_NOMI = {'Chi e dove': 'Chi e dove', 'Guasto o richiesta': 'Guasto', 'Operazioni eseguite': 'Operazioni', 'Altre operazioni': 'Altre op.', 'Analisi di combustione': 'Analisi', 'Altri rapporti di efficienza energetica': 'RCEE', 'Relazione': 'Relazione', 'Orari e viaggio': 'Orari', 'Materiali': 'Materiali', 'Importi e pagamento': 'Importi', 'Foto': 'Foto', 'Esito': 'Esito', 'Firma del cliente': 'Firma'};
+const SZ_NOMI = {'Chi e dove': 'Chi e dove', 'Guasto o richiesta': 'Guasto', 'Operazioni eseguite': 'Operazioni', 'Altre operazioni': 'Altre op.', 'Analisi di combustione': 'Analisi', 'Altri rapporti di efficienza energetica': 'RCEE', 'Relazione': 'Relazione', 'Orari e viaggio': 'Orari', 'Materiale portato': 'Portato', 'Materiali': 'Materiali', 'Importi e pagamento': 'Importi', 'Foto': 'Foto', 'Esito': 'Esito', 'Firma del cliente': 'Firma'};
 let szSez = [], szFirma = '';
 function szFatta(n){
   const w = lavoro; if (!w) return false;
@@ -2598,6 +2599,7 @@ function szFatta(n){
     case 'Analisi di combustione': return Object.keys(w.analisi || {}).some(k => Object.keys(w.analisi[k] || {}).some(c => t(w.analisi[k][c])));
     case 'Relazione': return !!t(w.relazione);
     case 'Orari e viaggio': return !!(w.orari && w.orari.length && t(w.orari[w.orari.length - 1].al));
+    case 'Materiale portato': return (w.portato || []).length > 0;
     case 'Materiali': return (w.materiali || []).length > 0;
     case 'Importi e pagamento': return !!(w.imp && (w.imp.righe || []).length);
     case 'Foto': return (w.foto || []).length > 0;
@@ -3963,7 +3965,7 @@ function inizialiMan(w, tipo, ap){
     POTENZANOMINALEMAX: pot ? String(+pot.toFixed(2)).replace('.', ',') : ''
   }, datiApparecchioMan(tipo, ap));
 }
-function rcBlocco(){ return rcSupportati(lavoro).length ? sezioneRcee() : '<div class="passo"><h2>Analisi di combustione</h2><div id="analisi">' + schedeAnalisi() + '</div></div>'; }
+function rcBlocco(){ return rcSupportati(lavoro).length ? sezioneRcee() : ''; }          // l'analisi di combustione sta dentro il rapporto RCEE: niente sezione a parte
 function ridisegnaRcee(){ const c = $('#rcee'); if (c) c.innerHTML = rcBlocco(); const l = $('#rcee-lib'); if (l) l.innerHTML = sezioniLibere(); aggiornaOssRcee(); }
 function nuovoRapportoManuale(tipo){
   const m = modelloMan(tipo); if (!m) { alert('Modello non disponibile.'); return; }
@@ -4005,14 +4007,15 @@ function sezioneManuale(i, r, tpl, mappa){
   return h;
 }
 function sezioneAggiungiLibero(){
-  return `<div class="passo"><h2>Altri rapporti di efficienza energetica</h2>
+  const apr = rcApr['altri-rapporti'] === true;
+  return `<details class="passo rcee-blocco" data-rcd="altri-rapporti"${apr ? ' open' : ''}><summary><h2>Altri rapporti di efficienza energetica</h2><span class="aiuto">Tocca per scegliere il tipo di rapporto da aggiungere</span></summary>
     <p class="aiuto">Se l'ufficio non ha creato l'allegato in Levante (per esempio un intervento non programmato), o se c'è anche uno scambiatore o un cogeneratore, aggiungi il rapporto qui: parte già compilato con i dati di Levante. Tocca il tipo che serve.</p>
     <div class="rcee-sc">
       <button class="btn sec" type="button" data-add-man="RCEE1">Tipo 1<small>gruppi termici</small></button>
       <button class="btn sec" type="button" data-add-man="RCEE1B">Tipo 1B<small>biomassa</small></button>
       <button class="btn sec" type="button" data-add-man="RCEE2">Tipo 2<small>frigo e pompe di calore</small></button>
       <button class="btn sec" type="button" data-add-lib="RCEE3">Tipo 3<small>scambiatori</small></button>
-      <button class="btn sec" type="button" data-add-lib="RCEE4">Tipo 4<small>cogeneratori</small></button></div></div>`;
+      <button class="btn sec" type="button" data-add-lib="RCEE4">Tipo 4<small>cogeneratori</small></button></div></details>`;
 }
 /* ---- il PDF ---- */
 function valoreLibero(w, c, r, tot, pag){
@@ -5050,12 +5053,13 @@ function interpretaDaRighe(){
   $('#vm-aggiungi').disabled = !vmRighe.length; $('#vm-aggiungi').textContent = 'Aggiungi ' + vmRighe.length + (vmRighe.length === 1 ? ' materiale' : ' materiali');
 }
 /* ---- materiale portato (appuntamenti): la lista fatta in magazzino; a fine lavoro si tocca quello che si e' usato e passa in «Materiali» col prezzo del listino del cliente ---- */
-let ptApr = {};
+let ptApr = {}, matApr = {};
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'mat-d') matApr[ptKey()] = d.open; }, true);
 const ptKey = () => (lavoro && lavoro.id) || '';
 function ptConta(w){ const n = (w.portato || []).length, u = (w.portato || []).filter(p => portatoUsato(w, p)).length; return n ? ' · ' + n + (n === 1 ? ' articolo' : ' articoli') + (u ? ', usati ' + u : '') : ''; }
 function righePortatoL(){
   const w = lavoro; w.portato = w.portato || [];
-  const sp = document.getElementById('pt-n'); if (sp) sp.textContent = ptConta(w);
+  const sp = document.getElementById('pt-n'); if (sp) sp.textContent = ptConta(w).replace(/^ · /, '');
   if (!w.portato.length) return '<p class="aiuto" style="margin:4px 0">Ancora nessun articolo. In magazzino fotografa l\'etichetta, scansiona o cerca qui sopra.</p>';
   const usati = w.portato.filter(p => portatoUsato(w, p)).length;
   return `<p class="aiuto" style="margin:4px 0">${w.portato.length} articoli · usati ${usati}. A fine lavoro tocca «Usato» sui pezzi montati.</p>` + w.portato.map((p, i) => { const u = portatoUsato(w, p);
@@ -5063,8 +5067,8 @@ function righePortatoL(){
 }
 function portatoLHtml(){
   if (!lavoro) return '';
-  const nA = leggiArticoli().length, w = lavoro, aperto = ptApr[ptKey()] !== undefined ? ptApr[ptKey()] : false;
-  return `<details class="campo" id="pt-d"${aperto ? ' open' : ''} style="margin:0 0 10px"><summary style="font-weight:700;cursor:pointer;padding:6px 0">Materiale portato<span id="pt-n" class="aiuto" style="font-weight:400">${esc(ptConta(w))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista che fai in magazzino: a fine lavoro tocchi quello che hai usato e passa nei materiali.</p>${nA ? `<div class="cbox"><input type="text" id="pt-cerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista"></div><div id="pt-cerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="pt-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="pt-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="pt-foto-in" accept="image/*" capture="environment" hidden><div id="pt-lista">${righePortatoL()}</div></details>`;
+  const nA = leggiArticoli().length, w = lavoro, aperto = ptApr[ptKey()] !== undefined ? ptApr[ptKey()] : (w.portato || []).length > 0;
+  return `<details class="passo rcee-blocco" id="pt-d"${aperto ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="pt-n" class="aiuto">${esc(ptConta(w).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista che fai in magazzino: a fine lavoro tocchi quello che hai usato e passa nei materiali.</p>${nA ? `<div class="cbox"><input type="text" id="pt-cerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista"></div><div id="pt-cerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="pt-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="pt-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="pt-foto-in" accept="image/*" capture="environment" hidden><div id="pt-lista">${righePortatoL()}</div></details>`;
 }
 function aggiungiPortatoL(a, q){
   q = q > 0 ? q : 1; const w = lavoro; if (!w) return; w.portato = w.portato || [];
@@ -6080,7 +6084,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.58.2 (29/10/2026)';
+const VERSIONE_APP = '1.60.0 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6258,7 +6262,7 @@ async function costruisciArt(){
 function riepilogoArticoli(){ const n = (datiLevante && datiLevante.articoli || []).length, nl = (datiLevante && datiLevante.listino || []).length; return n ? `<br>Articoli preferiti: <b>${n}</b>${nl ? ' · listino completo: <b>' + nl.toLocaleString('it-IT') + '</b>' : ''}` : '<br>Articoli preferiti: nessuno nell\'esportazione (controlla articoli_diagnosi.txt).'; }
 function cercaMatHtml(){
   const n = leggiArticoli().length; if (!n) return '';
-  return `<div class="campo" style="margin:0 0 10px"><label for="mat-cerca">Cerca tra i tuoi articoli (${n})</label><div class="cbox"><input type="search" id="mat-cerca" autocomplete="off" placeholder="Codice o parte della descrizione" style="padding-right:56px">${bottoneMic('cerca')}</div><div id="mat-cerca-ris"></div></div>`;
+  return `<div class="campo" style="margin:0 0 10px"><label for="mat-cerca" style="font-size:17px;font-weight:700">Cerca tra i tuoi articoli (${n})</label><div class="cbox"><input type="search" id="mat-cerca" autocomplete="off" placeholder="Codice o descrizione" style="padding-right:64px;min-height:56px;font-size:18px;width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;border:1.5px solid var(--acciaio-s,#9aa9ae);border-radius:12px">${bottoneMic('cerca')}</div><div id="mat-cerca-ris"></div></div>`;
 }
 const normArt = t => String(t == null ? '' : t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const PAROLE_VUOTE = /^(di|da|del|della|dei|delle|in|a|e|con|per|un|uno|una|il|lo|la|le|i|gli|su|tipo)$/;
