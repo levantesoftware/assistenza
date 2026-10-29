@@ -522,9 +522,9 @@ button.pos{margin-top:4px;font-size:13px}
 #dett-barra{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:25;background:var(--inchiostro);color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;max-width:620px;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 #dett-barra[hidden]{display:none}
 #dett-testo{flex:1;min-width:0;overflow-wrap:anywhere}
-#vm-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
-#vm-modale[hidden]{display:none}
-#vm-modale .ed-fogli{max-height:88vh;overflow:auto}
+#vm-modale,#rq-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#vm-modale[hidden],#rq-modale[hidden]{display:none}
+#vm-modale .ed-fogli,#rq-modale .ed-fogli{max-height:88vh;overflow:auto}
 
 /* novita' */
 #nov-prog,#novita-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
@@ -652,6 +652,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
     <div id="lista"></div>
     <div id="da-completare"></div>
     <button class="btn sec pieno solo-tec" id="b-nuovo" type="button" style="margin-top:14px">Nuovo intervento senza appuntamento</button>
+    <button class="btn sec pieno solo-tec" id="b-richiesta" type="button" style="margin-top:10px">Sono libero: chiedi una chiamata all'ufficio</button>
   </section>
 
   <div id="destra">
@@ -681,6 +682,17 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
   <input type="file" id="in-foto" accept="image/*" capture="environment" hidden>
   <input type="file" id="in-foto-gal" accept="image/*" multiple hidden>
   <div id="dett-barra" hidden role="status" aria-live="polite"><span id="dett-testo"></span><button type="button" id="dett-fine" class="btn piccolo">Fine</button></div>
+  <div id="rq-modale" hidden>
+    <div class="ed-fogli">
+      <label for="rq-testo"><b>Richiesta di chiamate per l'ufficio</b></label>
+      <p class="aiuto" style="margin:2px 0 6px">Scrivi o detta, per esempio: «Sono libero dalle 14, mandatemi chiamate vicino a Riccione».</p>
+      <div class="cbox"><textarea id="rq-testo" rows="4" maxlength="500" placeholder="Dove sei e fino a quando sei libero"></textarea><span id="rq-mic-slot"></span></div>
+      <label class="spunta" style="margin:8px 0"><input type="checkbox" id="rq-pos"> Allega la mia posizione attuale</label>
+      <p class="aiuto" id="rq-msg" role="status" style="margin:4px 0"></p>
+      <div id="rq-vecchio"></div>
+      <div class="azioni" style="margin-top:12px"><button class="btn sec" id="rq-annulla" type="button">Chiudi</button><button class="btn" id="rq-invia" type="button">Invia all'ufficio</button></div>
+    </div>
+  </div>
   <div id="vm-modale" hidden>
     <div class="ed-fogli">
       <label for="vm-testo"><b>Materiali a voce</b></label>
@@ -4850,6 +4862,9 @@ function inserisciDettato(dest, testo){
     const max = parseInt(el.getAttribute('maxlength') || '0', 10); let nuovo = el.value + add; if (max) nuovo = nuovo.slice(0, max);
     el.value = nuovo; if (foto) foto.commento = nuovo; else r.relazione = nuovo; salvaReg(); return;
   }
+  if (dest === 'rq') {                                   // richiesta di chiamate: il testo si accoda
+    const el = $('#rq-testo'); if (!el) return; const add = accodaDettato(el.value, testo); if (!add) return; el.value = (el.value + add).slice(0, 500); return;
+  }
   if (dest === 'vm') {                                   // materiali: il testo resta com'e', lo interpreta il riconoscitore di frasi
     const el = $('#vm-testo'); el.value = (el.value + (el.value && !/\s$/.test(el.value) ? ' ' : '') + testo.trim()).trim();
     interpretaDaTesto(); return;
@@ -4870,7 +4885,7 @@ function inserisciDettato(dest, testo){
   }
 }
 function usaTastiera(dest, msg){
-  const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'cnpcerca' ? $('#cn-pcerca') : dest === 'vm' ? $('#vm-testo') : dest === 'cn:rel' ? $('#cn-rel')
+  const el = dest === 'cerca' ? $('#mat-cerca') : dest === 'cncerca' ? $('#cn-cerca') : dest === 'cnpcerca' ? $('#cn-pcerca') : dest === 'vm' ? $('#vm-testo') : dest === 'rq' ? $('#rq-testo') : dest === 'cn:rel' ? $('#cn-rel')
     : dest.startsWith('cnfoto:') ? document.querySelector('[data-cn-fc="' + dest.slice(7) + '"]') : dest.startsWith('foto:') ? document.querySelector('[data-fotoc="' + dest.slice(5) + '"]')
     : dest.startsWith('k:') ? $('#f-' + dest.slice(2)) : null;
   if (el) { try { el.focus(); } catch(e) {} }
@@ -4944,6 +4959,47 @@ function avviaDettatura(dest){
   } else parti();
 }
 
+/* ---- richiesta di chiamate: il tecnico e' libero e lo scrive all'ufficio (un piccolo file dati, come gli interventi) ---- */
+let ultimiRq = [];
+function apriRichiesta(){
+  $('#rq-testo').value = ''; $('#rq-msg').textContent = ''; $('#rq-vecchio').innerHTML = ''; $('#rq-invia').disabled = false;
+  $('#rq-modale').hidden = false; try { $('#rq-testo').focus(); } catch(e) {}
+}
+function chiudiRichiesta(){ if (dett && dett.dest === 'rq') fermaDettatura(); $('#rq-modale').hidden = true; }
+async function inviaRichiesta(){
+  const m = $('#rq-msg'), testo = $('#rq-testo').value.trim();
+  if (!testo) { m.textContent = 'Scrivi due righe: dove sei e fino a quando sei libero.'; return; }
+  const chi = String(nomeOperaioApp() || '').trim();
+  if (!chi) { m.textContent = 'Scrivi prima il tuo nome nelle Impostazioni, così l\'ufficio sa chi sei.'; return; }
+  const ind = String(impostazioni.emailUfficio || '').trim();
+  if (ind && !emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
+  const copiaP = copiaIndirizzo(ind);
+  m.textContent = 'Preparo la richiesta…';
+  let pos = null; if ($('#rq-pos').checked) { pos = await new Promise(ok => leggiPosizione(p => ok(p), () => ok(null))); if (!pos) m.textContent = 'Non sono riuscito a leggere la posizione: invio senza.'; }
+  const ora = new Date(), g = isoGiorno(ora), hm = hhmm(ora);
+  const o = {assist: 'richiesta', v: 1, id: 'rq-' + ora.getTime(), data: g, ora: hm, tecnico: chi, testo, file: []}; if (pos) o.pos = pos;
+  const base = 'Richiesta_' + slugNome(chi) + '_' + g + '_' + hm.replace(':', '');
+  let fl = [new File([JSON.stringify(o)], 'Dati_' + base + '.txt', {type: 'text/plain'})];
+  try { if (protezioneAttiva() && scaricaPossibile) fl = await Promise.all(fl.map(cifraFile)); } catch(e) { m.textContent = 'Non sono riuscito a preparare il file (' + ((e && e.message) || e) + ').'; return; }
+  const oggetto = 'Richiesta chiamata - ' + chi + ' - ' + dataIT(g) + ' ' + hm, corpo = 'Richiesta di chiamate\nTecnico: ' + chi + '\n' + dataIT(g) + ' ' + hm + '\n\n' + testo;
+  const fatto = () => { $('#rq-testo').value = ''; try { mostraAvviso('Richiesta inviata all\'ufficio.'); } catch(e) {} };
+  if (navigator.canShare && navigator.canShare({files: fl})) {
+    try {
+      await navigator.share({files: fl, title: oggetto, text: corpo}); fatto();
+      m.textContent = ind ? ((await copiaP) ? 'Indirizzo copiato (' + ind + '): nella mail, nel campo A, tieni premuto e scegli Incolla.' : 'Indirizzo del destinatario: ' + ind) : 'Inviata.';
+      return;
+    } catch(e) { if (e && e.name === 'AbortError') { m.textContent = ''; return; } }
+  }
+  ultimiRq = fl;
+  if (!scaricaPossibile) {
+    $('#rq-vecchio').innerHTML = 'Questo dispositivo è troppo vecchio per l\'invio automatico' + (protezioneAttiva() ? ' e per la protezione con il codice (il file parte <b>non protetto</b>)' : '') + '. Tocca <b>Apri</b>, poi nel visualizzatore tocca <b>Condividi</b> e scegli <b>Mail</b>. Destinatario: <b>' + esc(ind || 'l\'ufficio') + '</b>.<br>' + fl.map((f, i) => `<button class="btn chiaro piccolo" type="button" data-rq-apri="${i}" style="margin:6px 6px 0 0">Apri ${esc(f.name)}</button>`).join('');
+    m.textContent = ''; return;
+  }
+  if (!ind) { m.textContent = 'Scrivi l\'email dell\'ufficio nelle Impostazioni.'; return; }
+  fl.forEach((f, n) => setTimeout(() => scaricaBlob(f, f.name), n * 400));
+  setTimeout(() => { const a = document.createElement('a'); a.href = 'mailto:' + encodeURIComponent(ind).replace('%40', '@') + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(corpo + '\n\n(Allega il file scaricato.)'); document.body.appendChild(a); a.click(); a.remove(); }, 500 + fl.length * 400);
+  fatto(); m.textContent = 'Ho scaricato il file e aperto la mail per ' + ind + ': allega il file scaricato.';
+}
 /* ---- materiali a voce: si detta (o si scrive) una frase, l'app la trasforma in righe e le fa controllare ---- */
 let vmRighe = [], vmCn = false;
 function apriMaterialiVoce(perCantiere){
@@ -6009,7 +6065,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.57.0 (29/10/2026)';
+const VERSIONE_APP = '1.58.0 (29/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6939,7 +6995,7 @@ function disegnaPosta(){
   const etArrivo = g => { if (!g) return 'Arrivo non registrato'; const o = isoGiorno(new Date()), ie = isoGiorno(new Date(Date.now() - 864e5)); return g === o ? 'Arrivati oggi' : g === ie ? 'Arrivati ieri' : 'Arrivati il ' + dataIT(g); };
   let grPrec = null;
   let lista = tuttiOrd, testa = '';
-  const aperti = tuttiOrd.filter(x => !x.r.fatto);
+  const aperti = tuttiOrd.filter(x => !x.r.fatto && !x.r.rich);
   if (codaOn) {
     if (!aperti.length) { codaOn = false; codaPos = 0; box.innerHTML = '<div class="avviso info"><b>Tutti gli interventi sono registrati.</b>Non c\'è altro da fare qui.</div>'; return; }
     codaPos = Math.max(0, Math.min(codaPos, aperti.length - 1));
@@ -6953,6 +7009,7 @@ function disegnaPosta(){
   const blocco = (tit, t, i, k) => t ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${tit}</b><button class="btn sec piccolo" type="button" data-copia="${i}|${k}">Copia</button></div><div style="white-space:pre-wrap">${esc(t)}</div></div>` : '';
   box.innerHTML = lista.map(({r, i}) => {
     const gr = (r.fatto ? 'F' : 'A') + (r.ricevuto || ''), intest = (!codaOn && gr !== grPrec) ? `<h3 style="margin:14px 0 6px;font-size:15px">${r.fatto ? 'Già registrati · ' : ''}${esc(etArrivo(r.ricevuto))}</h3>` : ''; grPrec = gr;
+    if (r.rich) return intest + schedaRichiesta(r, i);
     if (r.cant) return intest + schedaCantiere(r, i);
     const min = minutiTotali(r), h = min ? fmtOre(min) : '';
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
@@ -7093,7 +7150,8 @@ async function leggiPosta(files){
     if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name.normalize('NFC')] = f; salvaAllegato(f); pdfLetti.push(f); pdf++; continue; }
     try {
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
-      if (!o || (o.assist !== 'intervento' && o.assist !== 'cantiere')) { altri++; continue; }
+      if (!o || (o.assist !== 'intervento' && o.assist !== 'cantiere' && o.assist !== 'richiesta')) { altri++; continue; }
+      if (o.assist === 'richiesta') { o.rich = true; o.cliente = 'Richiesta chiamate · ' + (o.tecnico || 'tecnico'); o.indirizzo = ''; o.esito = ''; o.file = []; lette.push({o, origine: f.origine || '', arrivo: f.arrivo || ''}); continue; }
       if (o.ric) { try { ricRegistra(o.ric); } catch(e) {} }
       if (o.assist === 'cantiere') {               // la registrazione di un operaio su un cantiere: sta nella posta, accanto agli interventi
         const cn = o.cantiere || {}; o.cant = true; o.cliente = ((cn.cod ? cn.cod + ' · ' : '') + (cn.descr || cn.nome || 'Cantiere') + (cn.descr && cn.nome ? ' (' + cn.nome + ')' : '')).trim(); o.indirizzo = [cn.cli, cn.ind].filter(Boolean).join(' · ');
@@ -7151,6 +7209,13 @@ function controlliCantiere(r){
   if (!(r.relazione || '').trim()) c.push({t: 'Manca la descrizione dei lavori.', grave: false});
   (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF delle foto non ancora arrivato: ' + n + '.', grave: true}));
   return c;
+}
+function schedaRichiesta(r, i){
+  const quando = dataIT(r.data) + (r.ora ? ' ' + r.ora : '');
+  return `<details open data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<span class="chip tec">Richiesta chiamate</span> <b>${esc(r.tecnico || '')}</b> · ${esc(quando)}${r.fatto ? ' <span class="chip pdf">Gestita</span>' : ''}</summary>
+      <p style="margin:8px 0;white-space:pre-wrap;font-size:17px">${esc(r.testo || '')}</p>
+      ${r.pos ? `<p style="margin:8px 0"><a class="aiuto pos" href="${linkMappa(r.pos)}" target="_blank" rel="noopener">Posizione del tecnico${r.pos.pr ? ' (±' + esc(r.pos.pr) + ' m)' : ''}</a></p>` : ''}
+      <div class="azioni" style="grid-template-columns:auto;justify-content:start;margin-top:10px"><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Gestita (ho assegnato o risposto)</label></div></details>`;
 }
 function schedaCantiere(r, i){
   const ctrl = controlliCantiere(r), nGravi = ctrl.filter(x => x.grave).length, op = r.operaio, man = csvImp().man, mc = op && man[op.op] && man[op.op].cod ? man[op.op] : null;
@@ -7514,7 +7579,7 @@ function cercaTutto(q){
   const adesso = Date.now();
   const ag = appuntamenti.filter(a => ok([a.titolo, a.luogo, a.tecnico_nome, a.messaggio, a.r && a.r.li, a.r && a.r.c && [a.r.c.n, a.r.c.t, a.r.c.m].join(' '), a.r && a.r.i && [a.r.i.u, a.r.i.d].join(' ')].join(' ')))
     .sort((x, y) => Math.abs(x.inizio - adesso) - Math.abs(y.inizio - adesso));
-  const pt = posta.map((r, i) => ({r, i})).filter(x => ok([x.r.cliente, x.r.indirizzo, x.r.li, x.r.tecnico, x.r.relazione, x.r.data].join(' ')))
+  const pt = posta.map((r, i) => ({r, i})).filter(x => ok([x.r.cliente, x.r.indirizzo, x.r.li, x.r.tecnico, x.r.relazione, x.r.testo, x.r.data].join(' ')))
     .sort((x, y) => String(y.r.data).localeCompare(String(x.r.data)));
   return {ag, pt};
 }
@@ -8128,6 +8193,11 @@ function avvia(){
   registraServiceWorker(); setTimeout(controllaNuovaVersione, 4000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(controllaNuovaVersione, 1500); });
   $('#vm-mic-slot').outerHTML = bottoneMic('vm');
+  $('#rq-mic-slot').outerHTML = bottoneMic('rq');
+  $('#b-richiesta').onclick = apriRichiesta; $('#rq-annulla').onclick = chiudiRichiesta; $('#rq-invia').onclick = inviaRichiesta;
+  $('#rq-modale').addEventListener('click', e => { const b = e.target.closest('[data-mic],[data-rq-apri]'); if (!b) return;
+    if (b.dataset.mic) avviaDettatura('rq');
+    else { const f = ultimiRq[+b.dataset.rqApri]; if (f) { const x = mostraFile(f, f.name, f.type); if (x.html) $('#rq-vecchio').insertAdjacentHTML('beforeend', '<br>' + x.testo); } } });
   $('#in-foto').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length && lavoro) await aggiungiFoto(fl); };
   $('#in-foto-gal').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length && lavoro) await aggiungiFoto(fl); };
   $('#dett-fine').onclick = fermaDettatura;
