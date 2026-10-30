@@ -6267,7 +6267,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.65.0 (30/10/2026)';
+const VERSIONE_APP = '1.66.0 (30/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6746,6 +6746,7 @@ function oreDaOrari(r){                      // dal/al meno la pausa -> ore (sol
 let timerReg = null;
 function salvaReg(subito){
   const r = regCorr; if (!r) return;
+  try { cnAggSomm(); } catch(e) {}
   const pieno = r.ore || (r.relazione || '').trim() || r.materiali.length || r.foto.length;
   const vai = () => {
     const L = leggiRegCant(), i = L.findIndex(x => x.id === r.id);
@@ -6814,7 +6815,7 @@ let portApr = {};                                       // aperto/chiuso del blo
 function contaPortato(r){ const n = (r.portato || []).length, u = (r.portato || []).filter(p => portatoUsato(r, p)).length; return n ? ' · ' + n + (n === 1 ? ' articolo' : ' articoli') + (u ? ', installati ' + u : '') : ''; }
 function righePortato(r){
   r.portato = r.portato || [];
-  const sp = document.getElementById('cn-port-n'); if (sp) sp.textContent = contaPortato(r);
+  const sp = document.getElementById('cn-port-n'); if (sp) sp.textContent = contaPortato(r).replace(/^ · /, '');
   if (!r.portato.length) return '<p class="aiuto" style="margin:4px 0">Ancora nessun articolo. Fotografa l\'etichetta, scansiona o cerca qui sopra.</p>';
   const usati = r.portato.filter(p => portatoUsato(r, p)).length;
   return `<p class="aiuto" style="margin:4px 0">${r.portato.length} articoli · installati ${usati}. Tocca «Installato» sui pezzi che hai montato.</p>` + r.portato.map((p, i) => { const u = portatoUsato(r, p);
@@ -6835,6 +6836,25 @@ function righeMatCn(r){
 function fotoCn(r){
   return (r.foto || []).map((x, n) => `<div class="fotocard"><img src="${x.thumb}" alt="Foto ${n + 1}"><div class="fotodati"><div class="fototesta"><strong>Foto ${n + 1}</strong><button class="togli" type="button" data-cn-ftogli="${esc(x.id)}" aria-label="Togli la foto ${n + 1}">×</button></div><div class="cbox"><textarea rows="2" data-cn-fc="${esc(x.id)}" maxlength="300" placeholder="Commento (per esempio: tubazione montata al piano terra)" aria-label="Commento foto ${n + 1}">${esc(x.commento || '')}</textarea>${bottoneMic('cnfoto:' + x.id)}</div></div></div>`).join('');
 }
+let cnApr = {};
+function cnDet(r, k, titolo, somm, corpo, aperto){
+  const st = cnApr[r.id + '|' + k], ap = st !== undefined ? st : aperto;
+  return `<details class="passo rcee-blocco" data-cnk="${k}"${ap ? ' open' : ''}><summary><h2>${esc(titolo)}</h2><span class="aiuto" id="cns-${k}">${esc(somm)}</span></summary>${corpo}</details>`;
+}
+function cnSomm(r){
+  const so = [r.s1, r.s2, r.s3, r.st !== undefined ? r.st : (r.subn || '')].filter(Boolean).join(' › ');
+  const ore = [dataIT(r.data), r.dal || r.al ? (r.dal || '—') + '–' + (r.al || '—') : '', r.ore ? r.ore + ' h' : ''].filter(Boolean).join(' · ');
+  const rel = (r.relazione || '').trim().replace(/\s+/g, ' '), voc = typeof vocDati === 'function' && vocDati('cn:' + r.id);
+  const nm = (r.materiali || []).length, nf = (r.foto || []).length;
+  return {sub: so || 'nessuno', ore, rel: (rel ? rel.slice(0, 40) + (rel.length > 40 ? '…' : '') : 'da scrivere') + (voc ? ' · con messaggio vocale' : ''),
+    mat: nm ? nm + (nm === 1 ? ' materiale' : ' materiali') : 'nessuno', foto: nf ? nf + (nf === 1 ? ' foto' : ' foto') : 'nessuna', email: impostazioni.emailUfficio || 'da scrivere'};
+}
+function cnAggSomm(){
+  const r = regCorr; if (!r) return; const o = cnSomm(r);
+  Object.keys(o).forEach(k => { const el = document.getElementById('cns-' + k); if (el) el.textContent = o[k]; });
+}
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.cnk && regCorr) cnApr[regCorr.id + '|' + d.dataset.cnk] = d.open; }, true);
+document.addEventListener('input', () => { setTimeout(() => { try { cnAggSomm(); } catch(e) {} }, 0); }, true);
 function disegnaCantiere(){
   const r = regCorr, box = $('#v-cantiere'); if (!r || !box) return;
   const tipi = (datiReali && datiReali.tipiOre) || [], op = operaioApp(), nA = leggiArticoli().length;
@@ -6844,17 +6864,18 @@ function disegnaCantiere(){
     ${(() => { const c = elencoCantieri().filter(x => x.id === r.cid)[0], liste = (c && c.sub3) || [[], [], []];
       const sel = (n, nome) => liste[n].length ? `<div class="campo"><label for="cn-s${n + 1}">${nome}</label><select id="cn-s${n + 1}" data-liv="${n + 1}"><option value="">— scegli —</option>${liste[n].map(x => `<option value="${esc(x)}"${x === r['s' + (n + 1)] ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></div>` : '';
       const ha = liste.some(l => l.length);
-      return sel(0, 'Sottocantiere 1') + sel(1, 'Sottocantiere 2') + sel(2, 'Sottocantiere 3')
-        + `<div class="campo"><label for="cn-subt">${ha ? 'Altro sottocantiere' : 'Sottocantiere'} <span class="aiuto">(facoltativo${ha ? ': se non è nell\'elenco, scrivilo' : ': scrivilo se serve'})</span></label><input id="cn-subt" type="text" autocomplete="off" maxlength="120" value="${esc(r.st !== undefined ? r.st : (r.subn && !r.s1 && !r.s2 && !r.s3 ? r.subn : ''))}" placeholder="Per esempio: Piano terra, Bagno, Copertura"></div>`; })()}
-    <div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
+      const inner = sel(0, 'Sottocantiere 1') + sel(1, 'Sottocantiere 2') + sel(2, 'Sottocantiere 3')
+        + `<div class="campo"><label for="cn-subt">${ha ? 'Altro sottocantiere' : 'Sottocantiere'} <span class="aiuto">(facoltativo${ha ? ': se non è nell\'elenco, scrivilo' : ': scrivilo se serve'})</span></label><input id="cn-subt" type="text" autocomplete="off" maxlength="120" value="${esc(r.st !== undefined ? r.st : (r.subn && !r.s1 && !r.s2 && !r.s3 ? r.subn : ''))}" placeholder="Per esempio: Piano terra, Bagno, Copertura"></div>`;
+      return cnDet(r, 'sub', 'Sottocantiere', cnSomm(r).sub, inner, ha && !(r.s1 || r.s2 || r.s3 || r.st || r.subn)); })()}
+    ${cnDet(r, 'ore', 'Giorno e ore', cnSomm(r).ore, `<div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
     <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"><div class="aiuto" id="cn-ore-min" style="margin-top:4px">${esc(oreInMinuti(r.ore) ? '= ' + oreInMinuti(r.ore) : '')}</div></div>
-    ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
-    <div class="campo"><label for="cn-rel">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div>${vocPossibile() ? `<div style="margin-top:8px"><label style="display:block;margin:0 0 4px;font-weight:700">Messaggio vocale per l'ufficio</label>${vocaleHtml('cn:' + r.id)}</div>` : ''}</div>
-    <details class="campo" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary style="font-weight:700;cursor:pointer;padding:6px 0">Materiale portato<span id="cn-port-n" class="aiuto" style="font-weight:400">${esc(contaPortato(r))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
-    <div class="campo"><label>Materiali usati</label>${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
-    <div class="campo"><label>Foto</label><div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p></div>
-    <div class="campo"><label for="cn-email">Email dell'ufficio <span class="aiuto">(serve se il telefono non apre il menu di condivisione)</span></label><input id="cn-email" type="email" autocomplete="off" autocapitalize="none" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@esempio.it"></div>
+    ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}`, true)}
+    ${cnDet(r, 'rel', 'Cosa hai fatto', cnSomm(r).rel, `<div class="campo"><label for="cn-rel" style="display:none">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div>${vocPossibile() ? `<div style="margin-top:8px"><label style="display:block;margin:0 0 4px;font-weight:700">Messaggio vocale per l'ufficio</label>${vocaleHtml('cn:' + r.id)}</div>` : ''}</div>`, true)}
+    <details class="passo rcee-blocco" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="cn-port-n" class="aiuto">${esc(contaPortato(r).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
+    ${cnDet(r, 'mat', 'Materiali usati', cnSomm(r).mat, `${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div>`, true)}
+    ${cnDet(r, 'foto', 'Foto', cnSomm(r).foto, `<div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p>`, (r.foto || []).length > 0)}
+    ${cnDet(r, 'email', "Email dell'ufficio", cnSomm(r).email, `<div class="campo"><label for="cn-email">Email dell'ufficio <span class="aiuto">(serve se il telefono non apre il menu di condivisione)</span></label><input id="cn-email" type="email" autocomplete="off" autocapitalize="none" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@esempio.it"></div>`, !impostazioni.emailUfficio)}
     <div class="azioni" style="margin-top:14px"><button class="btn" type="button" id="cn-invia">Invia in ufficio</button><button class="btn sec" type="button" id="cn-salva">Salva e torna indietro</button></div>
     <p class="aiuto" style="margin:8px 0 4px">Dal menu di condivisione l'indirizzo e l'oggetto non si possono compilare da soli (lo vieta il telefono): l'indirizzo viene copiato, da incollare nel campo A. Se vuoi la mail già con destinatario e oggetto:</p>
     <button class="btn chiaro piccolo" type="button" id="cn-mailpronta">Mail con destinatario e oggetto già scritti</button>
