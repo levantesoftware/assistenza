@@ -6267,7 +6267,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.66.1 (30/10/2026)';
+const VERSIONE_APP = '1.66.2 (30/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6874,7 +6874,7 @@ function disegnaCantiere(){
     ${cnDet(r, 'rel', 'Cosa hai fatto', cnSomm(r).rel, `<div class="campo"><label for="cn-rel" style="display:none">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div>${vocPossibile() ? `<div style="margin-top:8px"><label style="display:block;margin:0 0 4px;font-weight:700">Messaggio vocale per l'ufficio</label>${vocaleHtml('cn:' + r.id)}</div>` : ''}</div>`, true)}
     <details class="passo rcee-blocco" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="cn-port-n" class="aiuto">${esc(contaPortato(r).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
     ${cnDet(r, 'mat', 'Materiali usati', cnSomm(r).mat, `${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div>`, true)}
-    ${cnDet(r, 'foto', 'Foto', cnSomm(r).foto, `<div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p>`, (r.foto || []).length > 0)}
+    ${cnDet(r, 'foto', 'Foto', cnSomm(r).foto, `<div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><input type="file" id="cn-foto-cam" accept="image/*" capture="environment" hidden><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-foto-scatta" style="margin:0 8px 8px 0">Scatta una foto</button><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin:0 8px 8px 0">Dalla galleria</button></div><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p>`, (r.foto || []).length > 0)}
     ${cnDet(r, 'email', "Email dell'ufficio", cnSomm(r).email, `<div class="campo"><label for="cn-email">Email dell'ufficio <span class="aiuto">(serve se il telefono non apre il menu di condivisione)</span></label><input id="cn-email" type="email" autocomplete="off" autocapitalize="none" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@esempio.it"></div>`, !impostazioni.emailUfficio)}
     <div class="azioni" style="margin-top:14px"><button class="btn" type="button" id="cn-invia">Invia in ufficio</button><button class="btn sec" type="button" id="cn-salva">Salva e torna indietro</button></div>
     <p class="aiuto" style="margin:8px 0 4px">Dal menu di condivisione l'indirizzo e l'oggetto non si possono compilare da soli (lo vieta il telefono): l'indirizzo viene copiato, da incollare nel campo A. Se vuoi la mail già con destinatario e oggetto:</p>
@@ -7054,6 +7054,7 @@ function avviaCantieri(){
     else if (b.id === 'cn-mat-agg') { r.materiali.unshift({descr: '', codice: '', qta: '', um: 'pz'}); $('#cn-mat').innerHTML = righeMatCn(r); const ins = $('#cn-mat').querySelectorAll('input[data-cn-mf^="descr"]'); if (ins.length) ins[0].focus(); }
     else if (d.cnMtogli !== undefined) { r.materiali.splice(+d.cnMtogli, 1); $('#cn-mat').innerHTML = righeMatCn(r); salvaReg(); }
     else if (b.id === 'cn-foto-agg') $('#cn-foto-in').click();
+    else if (b.id === 'cn-foto-scatta') $('#cn-foto-cam').click();
     else if (d.cnFtogli !== undefined) { if (!confirm('Tolgo questa foto?')) return; r.foto = r.foto.filter(x => x.id !== d.cnFtogli); try { await cancellaFotoChiave(chiaveFoto('cant-' + r.id, d.cnFtogli)); } catch(x) {} $('#cn-foto').innerHTML = fotoCn(r); salvaReg(true); }
     else if (d.cnApri !== undefined) { const f = ultimiCn[+d.cnApri]; if (f) { const x = mostraFile(f, f.name, f.type), m = $('#cn-msg'); if (x.html && m) m.insertAdjacentHTML('beforeend', '<br>' + x.testo); } }
     else if (d.cnPart !== undefined) { const a = leggiArticoli()[+d.cnPart]; if (a) qtaPannello('#cn-pcerca-ris', a, q => aggiungiPortato(a, q), '#cn-pcerca'); }
@@ -7114,7 +7115,7 @@ function avviaCantieri(){
     const t = e.target, r = regCorr; if (!r) return;
     if (t.id === 'cn-tipo') { r.tipo = t.value; salvaReg(); }
     else if (/^cn-s[123]$/.test(t.id)) { r['s' + t.dataset.liv] = t.value; aggiornaSubn(r); salvaReg(); }
-    else if (t.id === 'cn-foto-in') { const fl = [...t.files]; t.value = ''; if (fl.length) aggiungiFotoCn(fl); }
+    else if (t.id === 'cn-foto-in' || t.id === 'cn-foto-cam') { const fl = [...t.files]; t.value = ''; if (fl.length) aggiungiFotoCn(fl); }
   });
 }
 
