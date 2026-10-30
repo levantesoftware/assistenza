@@ -703,6 +703,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
       <label for="rq-testo"><b>Richiesta di chiamate per l'ufficio</b></label>
       <p class="aiuto" style="margin:2px 0 6px">Scrivi o detta, per esempio: «Sono libero dalle 14, mandatemi chiamate vicino a Riccione».</p>
       <div class="cbox"><textarea id="rq-testo" rows="4" maxlength="500" placeholder="Dove sei e fino a quando sei libero"></textarea><span id="rq-mic-slot"></span></div>
+      <div id="rq-voc"></div>
       <label class="spunta" style="margin:8px 0"><input type="checkbox" id="rq-pos"> Allega la mia posizione attuale</label>
       <p class="aiuto" id="rq-msg" role="status" style="margin:4px 0"></p>
       <div id="rq-vecchio"></div>
@@ -2539,6 +2540,7 @@ function disegnaScheda(){
     <div class="passo" id="oss-rcee" hidden></div>
     <div class="passo"><h2>Relazione</h2>
       ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
+      ${vocPossibile() ? `<div class="campo"><label>Messaggio vocale per l'ufficio</label>${vocaleHtml('int:' + w.id)}</div>` : ''}
     </div>
     <details class="passo rcee-blocco" id="or-d"${orApr[ptKey()] === true ? ' open' : ''}><summary><h2>Orari e viaggio</h2><span class="aiuto" id="or-sum">${esc(orariSommario())}</span></summary><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
@@ -3048,6 +3050,7 @@ function creaPdf(){
   $('#pdf-fatto').scrollIntoView({behavior:'smooth', block:'center'});
 }
 async function registraInUfficio(w, files){
+  try { await vocCarica('int:' + w.id); } catch(e) {}
   /* intervento chiuso in ufficio (solo dal server, con l'opzione di emergenza): entra direttamente fra quelli ricevuti, visibili a tutte le postazioni */
   try {
     const dd = datiIntervento(w, files.map(f => f.nome)); if (!dd.tecnico) dd.tecnico = (corrente && corrente.tecnico_nome) || impostazioni.tecnico || '';
@@ -3379,6 +3382,7 @@ function disegnaInvio(){
   aggiornaPulsantiInvio();
 }
 async function preparaAllegati(){
+  try { await vocCarica('int:' + lavoro.id); } catch(e) {}
   const docs = ((corrente && corrente.docs) || []).filter(d => !d.altro);
   const lista = baseAllegati(); ultimiAllegati = lista; disegnaInvio();
   const nf = (lavoro.foto || []).length;
@@ -5017,12 +5021,149 @@ function avviaDettatura(dest){
 let ultimiRq = [];
 function apriRichiesta(){
   $('#rq-testo').value = ''; $('#rq-msg').textContent = ''; $('#rq-vecchio').innerHTML = ''; $('#rq-invia').disabled = false;
+  vocScarta('rq'); $('#rq-voc').innerHTML = vocPossibile() ? '<label style="display:block;margin:10px 0 4px;font-weight:700">Oppure lascia un messaggio vocale</label>' + vocaleHtml('rq') : '';
   $('#rq-modale').hidden = false; try { $('#rq-testo').focus(); } catch(e) {}
 }
-function chiudiRichiesta(){ if (dett && dett.dest === 'rq') fermaDettatura(); $('#rq-modale').hidden = true; }
+function chiudiRichiesta(){ if (dett && dett.dest === 'rq') fermaDettatura(); if (vocReg && vocReg.chiave === 'rq') vocFerma(); $('#rq-modale').hidden = true; }
+/* ---- messaggio vocale per l'ufficio (intervento, cantiere, richiesta chiamate) ----
+   Telefoni recenti: MediaRecorder (file piccolo). iPad vecchi (iOS 12): niente MediaRecorder, si registra col Web Audio e si salva un WAV leggero (mono, 11 kHz).
+   Il messaggio viaggia dentro il file dati (base64); l'ufficio lo estrae e lo salva fra gli allegati. Massimo 2 minuti. */
+const VOC_MAX = 120;
+const vocCache = {};                       // chiave ('int:<id>', 'cn:<id>', 'rq') -> {mime, b64, sec, url}
+let vocReg = null;                         // registrazione in corso
+const vocTempo = sec => { sec = Math.max(0, Math.floor(sec || 0)); return Math.floor(sec / 60) + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60); };
+function vocPossibile(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.MediaRecorder || window.AudioContext || window.webkitAudioContext)); }
+function vocInterno(chiave){
+  if (vocReg && vocReg.chiave === chiave) return `<p class="aiuto" style="margin:0 0 6px"><b style="color:var(--rosso)">● Sto registrando</b> <span data-voc-t>${vocTempo(vocReg.sec)}</span> / ${vocTempo(VOC_MAX)}</p><button class="btn pieno" type="button" data-voc-az="stop" style="margin:0">■ Ferma</button>`;
+  if (vocReg) return '<p class="aiuto" style="margin:0">Un\'altra registrazione è in corso.</p>';
+  const v = vocCache[chiave];
+  if (v) return `<audio controls preload="metadata" src="${v.url}" style="width:100%"></audio><p class="aiuto" style="margin:4px 0 6px">Messaggio di ${vocTempo(v.sec)}: parte con l'invio.</p><button class="btn chiaro piccolo" type="button" data-voc-az="rifai">Rifai</button><button class="btn sec piccolo" type="button" data-voc-az="del">Elimina</button>`;
+  return '<button class="btn chiaro" type="button" data-voc-az="rec" style="margin:0">● Registra messaggio vocale</button>';
+}
+function vocDisegna(chiave){ document.querySelectorAll('.voc').forEach(el => { if (el.dataset.voc === chiave) el.innerHTML = vocInterno(chiave); }); }
+function vocaleHtml(chiave){
+  if (!vocPossibile()) return '';
+  if (!vocCache[chiave] && chiave !== 'rq') vocCarica(chiave).then(v => { if (v) vocDisegna(chiave); });
+  return `<div class="voc" data-voc="${esc(chiave)}">${vocInterno(chiave)}</div>`;
+}
+async function vocCarica(chiave){
+  if (vocCache[chiave]) return vocCache[chiave];
+  if (chiave === 'rq') return null;
+  try {
+    const rec = await leggiFotoRec('voce|' + chiave);
+    if (rec && rec.b64 && !vocCache[chiave]) vocCache[chiave] = {mime: rec.mime, b64: rec.b64, sec: rec.sec || 0, url: URL.createObjectURL(new Blob([bytesDaB64(rec.b64)], {type: rec.mime}))};
+  } catch(e) {}
+  return vocCache[chiave] || null;
+}
+const vocDati = chiave => { const v = vocCache[chiave]; return v ? {mime: v.mime, sec: v.sec, b64: v.b64} : undefined; };
+function vocScarta(chiave){
+  const v = vocCache[chiave]; if (v) { try { URL.revokeObjectURL(v.url); } catch(e) {} delete vocCache[chiave]; }
+  if (chiave !== 'rq') { try { cancellaFotoChiave('voce|' + chiave).catch(() => {}); } catch(e) {} }
+}
+function vocWav(pcm, rate){
+  let n = 0; pcm.forEach(c => { n += c.length; });
+  const tutto = new Float32Array(n); let o = 0; pcm.forEach(c => { tutto.set(c, o); o += c.length; });
+  const tr = 11025, rapp = rate / tr, m = Math.max(1, Math.floor(n / rapp)), buf = new ArrayBuffer(44 + m * 2), dv = new DataView(buf);
+  const sc = (off, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(off + i, t.charCodeAt(i)); };
+  sc(0, 'RIFF'); dv.setUint32(4, 36 + m * 2, true); sc(8, 'WAVE'); sc(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, tr, true); dv.setUint32(28, tr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); sc(36, 'data'); dv.setUint32(40, m * 2, true);
+  for (let i = 0; i < m; i++) {
+    const a = Math.floor(i * rapp), b = Math.max(a + 1, Math.floor((i + 1) * rapp)); let t = 0, k = a;
+    for (; k < b && k < n; k++) t += tutto[k];
+    let v = t / Math.max(1, k - a); v = Math.max(-1, Math.min(1, v * 1.6));
+    dv.setInt16(44 + i * 2, v < 0 ? v * 32768 : v * 32767, true);
+  }
+  return new Blob([buf], {type: 'audio/wav'});
+}
+async function vocAvvia(chiave){
+  if (vocReg) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let ctx = null; if (!window.MediaRecorder && AC) { try { ctx = new AC(); if (ctx.resume) ctx.resume(); } catch(e) { ctx = null; } }   // su iOS il contesto audio va creato subito dopo il tocco
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({audio: true}); }
+  catch(e) { try { mostraAvviso('Non riesco ad usare il microfono: controlla il permesso per questa pagina.', '', null, 6000); } catch(x) {} return; }
+  const reg = {chiave, stream, sec: 0, t0: Date.now(), parti: [], tipo: '', timer: null}; vocReg = reg;
+  try {
+    if (window.MediaRecorder) {
+      const pref = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+      const tipo = pref.filter(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t))[0] || '';
+      reg.mr = tipo ? new MediaRecorder(stream, {mimeType: tipo}) : new MediaRecorder(stream);
+      reg.tipo = (reg.mr.mimeType || tipo || 'audio/webm').split(';')[0] === 'audio/webm' && tipo ? tipo : (reg.mr.mimeType || tipo || 'audio/webm');
+      reg.mr.ondataavailable = e => { if (e.data && e.data.size) reg.parti.push(e.data); };
+      reg.mr.onstop = () => vocFine(reg);
+      reg.mr.start();
+    } else {
+      if (!ctx) throw new Error('nessun registratore');
+      reg.ctx = ctx; reg.pcm = []; reg.rate = ctx.sampleRate; reg.tipo = 'audio/wav';
+      reg.src = ctx.createMediaStreamSource(stream); reg.proc = ctx.createScriptProcessor(4096, 1, 1);
+      reg.proc.onaudioprocess = e => { reg.pcm.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+      reg.src.connect(reg.proc); reg.proc.connect(ctx.destination);
+    }
+  } catch(e) { stream.getTracks().forEach(t => t.stop()); vocReg = null; vocDisegna(chiave); try { mostraAvviso('Non riesco a registrare su questo dispositivo.', '', null, 6000); } catch(x) {} return; }
+  reg.timer = setInterval(() => {
+    reg.sec = (Date.now() - reg.t0) / 1000;
+    document.querySelectorAll('.voc [data-voc-t]').forEach(el => { el.textContent = vocTempo(reg.sec); });
+    if (reg.sec >= VOC_MAX) vocFerma();
+  }, 400);
+  vocDisegna(chiave);
+}
+function vocFerma(){
+  const reg = vocReg; if (!reg) return;
+  clearInterval(reg.timer);
+  if (reg.mr) { try { if (reg.mr.state !== 'inactive') reg.mr.stop(); else vocFine(reg); } catch(e) { vocFine(reg); } }
+  else { try { reg.proc.disconnect(); reg.src.disconnect(); } catch(e) {} vocFine(reg); }
+}
+function vocFine(reg){
+  if (vocReg !== reg) return; clearInterval(reg.timer);
+  try { reg.stream.getTracks().forEach(t => t.stop()); } catch(e) {}
+  try { if (reg.ctx && reg.ctx.close) reg.ctx.close(); } catch(e) {}
+  const chiave = reg.chiave, sec = Math.round((Date.now() - reg.t0) / 1000);
+  vocReg = null;
+  const blob = reg.mr ? new Blob(reg.parti, {type: reg.tipo}) : (reg.pcm && reg.pcm.length ? vocWav(reg.pcm, reg.rate) : null);
+  if (!blob || !blob.size || sec < 1) { vocDisegna(chiave); try { mostraAvviso('Messaggio troppo corto: riprova.', '', null, 4000); } catch(e) {} return; }
+  const fr = new FileReader();
+  fr.onload = () => {
+    const b64 = String(fr.result).split(',')[1] || ''; if (!b64) { vocDisegna(chiave); return; }
+    vocScarta(chiave);
+    const mime = (blob.type || reg.tipo || 'audio/webm').split(';')[0];
+    vocCache[chiave] = {mime, b64, sec, url: URL.createObjectURL(blob)};
+    if (chiave !== 'rq') { try { scriviFoto('voce|' + chiave, {mime, b64, sec}).catch(() => {}); } catch(e) {} }
+    vocDisegna(chiave); try { bozzaModificata && chiave.indexOf('int:') === 0 && bozzaModificata(); } catch(e) {}
+  };
+  fr.readAsDataURL(blob);
+}
+document.addEventListener('click', e => {
+  const b = e.target && e.target.closest && e.target.closest('[data-voc-az]'); if (!b) return;
+  const w = b.closest('.voc'); if (!w) return; const chiave = w.dataset.voc, az = b.dataset.vocAz;
+  if (az === 'rec') vocAvvia(chiave);
+  else if (az === 'stop') vocFerma();
+  else if (az === 'del') { vocScarta(chiave); vocDisegna(chiave); }
+  else if (az === 'rifai') { vocScarta(chiave); vocDisegna(chiave); vocAvvia(chiave); }
+});
+/* ufficio: riceve il messaggio vocale dal file dati, lo salva fra gli allegati e lascia nella scheda solo il riferimento */
+const vociPosta = {}, vociUrl = {};
+function vocRicevi(o){
+  if (!o || !o.voce) return;
+  const v = o.voce; if (!v.b64) return;
+  try {
+    const mime = String(v.mime || 'audio/webm'), ext = /mp4|aac|m4a/i.test(mime) ? 'm4a' : /webm/i.test(mime) ? 'webm' : /ogg/i.test(mime) ? 'ogg' : /wav/i.test(mime) ? 'wav' : 'webm';
+    const nome = ('Voce_' + slugNome(o.cliente || o.tecnico || 'messaggio') + '_' + String(o.id || Date.now()).replace(/[^A-Za-z0-9-]/g, '') + '.' + ext).normalize('NFC');
+    const f = new File([bytesDaB64(v.b64)], nome, {type: mime}); vociPosta[nome] = f; salvaAllegato(f);
+    o.voce = {nome, mime, sec: v.sec || 0};
+  } catch(e) { delete o.voce; }
+}
+function vocLettore(r){
+  if (!r || !r.voce || !r.voce.nome) return '';
+  const n = r.voce.nome; let src = '';
+  if (vociPosta[n]) { if (!vociUrl[n]) vociUrl[n] = URL.createObjectURL(vociPosta[n]); src = vociUrl[n]; }
+  else src = 'posta-allegato?nome=' + encodeURIComponent(n);
+  return `<div style="margin:8px 0"><b>Messaggio vocale</b>${r.voce.sec ? ' <span class="aiuto">(' + esc(vocTempo(r.voce.sec)) + ')</span>' : ''}<audio controls preload="none" src="${esc(src)}" style="display:block;width:100%;max-width:420px;margin-top:4px"></audio></div>`;
+}
 async function inviaRichiesta(){
   const m = $('#rq-msg'), testo = $('#rq-testo').value.trim();
-  if (!testo) { m.textContent = 'Scrivi due righe: dove sei e fino a quando sei libero.'; return; }
+  if (vocReg) { m.textContent = 'Ferma prima la registrazione.'; return; }
+  const voceRq = vocDati('rq');
+  if (!testo && !voceRq) { m.textContent = 'Scrivi due righe (o registra un messaggio): dove sei e fino a quando sei libero.'; return; }
   const chi = String(nomeOperaioApp() || '').trim();
   if (!chi) { m.textContent = 'Scrivi prima il tuo nome nelle Impostazioni, così l\'ufficio sa chi sei.'; return; }
   const ind = String(impostazioni.emailUfficio || '').trim();
@@ -5031,12 +5172,12 @@ async function inviaRichiesta(){
   m.textContent = 'Preparo la richiesta…';
   let pos = null; if ($('#rq-pos').checked) { pos = await new Promise(ok => leggiPosizione(p => ok(p), () => ok(null))); if (!pos) m.textContent = 'Non sono riuscito a leggere la posizione: invio senza.'; }
   const ora = new Date(), g = isoGiorno(ora), hm = hhmm(ora);
-  const o = {assist: 'richiesta', v: 1, id: 'rq-' + ora.getTime(), data: g, ora: hm, tecnico: chi, testo, file: []}; if (pos) o.pos = pos;
+  const o = {assist: 'richiesta', v: 1, id: 'rq-' + ora.getTime(), data: g, ora: hm, tecnico: chi, testo, file: []}; if (pos) o.pos = pos; if (voceRq) o.voce = voceRq;
   const base = 'Richiesta_' + slugNome(chi) + '_' + g + '_' + hm.replace(':', '');
   let fl = [new File([JSON.stringify(o)], 'Dati_' + base + '.txt', {type: 'text/plain'})];
   try { if (protezioneAttiva() && scaricaPossibile) fl = await Promise.all(fl.map(cifraFile)); } catch(e) { m.textContent = 'Non sono riuscito a preparare il file (' + ((e && e.message) || e) + ').'; return; }
-  const oggetto = 'Richiesta chiamata - ' + chi + ' - ' + dataIT(g) + ' ' + hm, corpo = 'Richiesta di chiamate\nTecnico: ' + chi + '\n' + dataIT(g) + ' ' + hm + '\n\n' + testo;
-  const fatto = () => { $('#rq-testo').value = ''; try { mostraAvviso('Richiesta inviata all\'ufficio.'); } catch(e) {} };
+  const oggetto = 'Richiesta chiamata - ' + chi + ' - ' + dataIT(g) + ' ' + hm, corpo = 'Richiesta di chiamate\nTecnico: ' + chi + '\n' + dataIT(g) + ' ' + hm + '\n\n' + (testo || '(messaggio vocale)');
+  const fatto = () => { $('#rq-testo').value = ''; vocScarta('rq'); $('#rq-voc').innerHTML = ''; try { mostraAvviso('Richiesta inviata all\'ufficio.'); } catch(e) {} };
   if (navigator.canShare && navigator.canShare({files: fl})) {
     try {
       await navigator.share({files: fl, title: oggetto, text: corpo}); fatto();
@@ -5131,7 +5272,12 @@ function avviaPortatoL(){
     const b = t.closest('[data-pt-art],[data-pt-us],[data-pt-togli]'); if (!b) return;
     if (b.dataset.ptArt !== undefined) { const a = leggiArticoli()[+b.dataset.ptArt]; if (a) qtaPannello('#pt-cerca-ris', a, q => aggiungiPortatoL(a, q), '#pt-cerca'); }
     else if (b.dataset.ptUs !== undefined) ptUsa(+b.dataset.ptUs, b.closest('.ptr'));
-    else if (b.dataset.ptTogli !== undefined) { lavoro.portato.splice(+b.dataset.ptTogli, 1); $('#pt-lista').innerHTML = righePortatoL(); bozzaModificata(); }
+    else if (b.dataset.ptTogli !== undefined) {
+      const i = +b.dataset.ptTogli, pp = lavoro.portato[i]; if (!pp) return;
+      const via = conMateriali => { if (conMateriali) { const k = chiavePort(pp); lavoro.materiali = lavoro.materiali.filter(m => chiavePort(m) !== k); $('#materiali').innerHTML = righeMateriali(); } lavoro.portato.splice(i, 1); $('#pt-lista').innerHTML = righePortatoL(); bozzaModificata(); };
+      if (ptUsataQta(lavoro, pp) > 0) sceltaPannello(b.closest('.ptr'), pp.descr || pp.codice || 'Articolo', 'È già nei Materiali. Lo togli anche da lì?', [['Togli da entrambi', () => via(true), 'pieno'], ['Solo dal portato', () => via(false)], ['Annulla', null, 'sec']]);
+      else via(false);
+    }
   });
   document.addEventListener('input', e => {
     const t = e.target; if (!t || !lavoro) return;
@@ -6121,7 +6267,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.64.0 (29/10/2026)';
+const VERSIONE_APP = '1.65.0 (30/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6638,6 +6784,13 @@ const qNum = x => { const v = parseFloat(String(x == null ? '' : x).replace(',',
 const ptUsataQta = (r, p) => (r.materiali || []).reduce((t, m) => t + (chiavePort(m) && chiavePort(m) === chiavePort(p) ? (qNum(m.qta) || 1) : 0), 0);
 const ptResto = (r, p) => Math.max(0, qNum(p.qta) - ptUsataQta(r, p));
 const ptEtUso = (r, p) => { const u = ptUsataQta(r, p), q = qNum(p.qta); return u > 0 && q > 0 && u < q ? ' · usate ' + qtaTesto(u) + ' su ' + qtaTesto(q) : ''; };
+function sceltaPannello(rigaEl, titolo, sotto, scelte){      // scelte: [[testo, funzione, 'pieno'|'chiaro'|'sec']]
+  const old = document.getElementById('uso-box'); if (old) old.remove();
+  const box = document.createElement('div'); box.id = 'uso-box'; box.className = 'avviso info'; box.style.margin = '4px 0 8px';
+  box.innerHTML = `<strong>${esc(titolo)}</strong><small style="display:block;opacity:.85;margin:4px 0 10px">${esc(sotto)}</small><div style="display:flex;gap:8px;flex-wrap:wrap"></div>`;
+  scelte.forEach(([t, f, k]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + (k || 'chiaro'); b.style.margin = '0'; b.textContent = t; b.onclick = () => { box.remove(); if (f) f(); }; box.lastChild.appendChild(b); });
+  rigaEl.insertAdjacentElement('afterend', box);
+}
 function usoPannello(rigaEl, p, onOk){
   const old = document.getElementById('uso-box'); if (old) old.remove();
   if (!rigaEl) { onOk(qNum(p.qta) || 1); return; }
@@ -6697,7 +6850,7 @@ function disegnaCantiere(){
     <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
     <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"><div class="aiuto" id="cn-ore-min" style="margin-top:4px">${esc(oreInMinuti(r.ore) ? '= ' + oreInMinuti(r.ore) : '')}</div></div>
     ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
-    <div class="campo"><label for="cn-rel">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div></div>
+    <div class="campo"><label for="cn-rel">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div>${vocPossibile() ? `<div style="margin-top:8px"><label style="display:block;margin:0 0 4px;font-weight:700">Messaggio vocale per l'ufficio</label>${vocaleHtml('cn:' + r.id)}</div>` : ''}</div>
     <details class="campo" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary style="font-weight:700;cursor:pointer;padding:6px 0">Materiale portato<span id="cn-port-n" class="aiuto" style="font-weight:400">${esc(contaPortato(r))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
     <div class="campo"><label>Materiali usati</label>${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></div>
     <div class="campo"><label>Foto</label><div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin-top:6px">Scatta o scegli le foto</button><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p></div>
@@ -6791,7 +6944,7 @@ function datiCantiere(r, pdf){
   const op = operaioApp();
   return {assist: 'cantiere', v: 1, id: r.id, data: r.data, cantiere: {id: r.cid, cod: r.cod, nome: r.nome, descr: r.descr || '', cli: r.cli, ind: r.ind, sub: r.subn ? {id: '', n: r.subn} : undefined},
     operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
-    relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
+    voce: vocDati('cn:' + r.id), relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     portato: (r.portato || []).filter(pp => ptResto(r, pp) > 0 || !qNum(pp.qta) && !portatoUsato(r, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(r, pp)) : (pp.qta || ''), um: pp.um || '', prezzo: pp.prezzo || ''})),
     nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
 }
@@ -6817,7 +6970,8 @@ async function filesCantiere(r){
 }
 async function mailProntaCantiere(){
   const r = regCorr, m = $('#cn-msg'); if (!r || !m) return;
-  if (!numOre(r.ore) && !(r.relazione || '').trim() && !(r.foto || []).length) { m.textContent = 'Scrivi almeno le ore o cosa hai fatto.'; return; }
+  try { await vocCarica('cn:' + r.id); } catch(e) {}
+  if (!numOre(r.ore) && !(r.relazione || '').trim() && !(r.foto || []).length && !vocDati('cn:' + r.id)) { m.textContent = 'Scrivi almeno le ore o cosa hai fatto.'; return; }
   salvaReg(true); m.textContent = 'Preparo i file…';
   let fl; try { fl = await filesCantiere(r); } catch(e) { m.textContent = 'Non sono riuscito a preparare i file (' + ((e && e.message) || e) + ').'; return; }
   const d = dataIT(r.data), oggetto = 'Intervento cantiere ' + (r.cod ? r.cod + ' ' : '') + titoloCn(r) + ' del ' + d;
@@ -6826,7 +6980,9 @@ async function mailProntaCantiere(){
 }
 async function inviaCantiere(){
   const r = regCorr, m = $('#cn-msg'); if (!r || !m) return;
-  if (!numOre(r.ore) && !(r.relazione || '').trim() && !(r.foto || []).length) { m.textContent = 'Scrivi almeno le ore o cosa hai fatto.'; return; }
+  try { await vocCarica('cn:' + r.id); } catch(e) {}
+  if (vocReg) { m.textContent = 'Ferma prima la registrazione del messaggio vocale.'; return; }
+  if (!numOre(r.ore) && !(r.relazione || '').trim() && !(r.foto || []).length && !vocDati('cn:' + r.id)) { m.textContent = 'Scrivi almeno le ore o cosa hai fatto.'; return; }
   if (!numOre(r.ore) && !confirm('Non hai scritto le ore. Invio lo stesso?')) return;
   const ind = String(impostazioni.emailUfficio || '').trim();
   if (ind && !emailValida(ind)) { m.textContent = 'L\'indirizzo "' + ind + '" non sembra valido: controlla la chiocciola e il dominio.'; return; }
@@ -6889,7 +7045,12 @@ function avviaCantieri(){
         else if (qNum(pp.qta) > 1) usoPannello(b.closest('.cn-port'), pp, metti); else metti(qNum(pp.qta) || 1);
       }
     }
-    else if (d.cnPtogli !== undefined) { r.portato.splice(+d.cnPtogli, 1); $('#cn-port').innerHTML = righePortato(r); salvaReg(); }
+    else if (d.cnPtogli !== undefined) {
+      const i = +d.cnPtogli, pp = r.portato[i]; if (!pp) return;
+      const via = conMateriali => { if (conMateriali) { const k = chiavePort(pp); r.materiali = r.materiali.filter(m => chiavePort(m) !== k); $('#cn-mat').innerHTML = righeMatCn(r); } r.portato.splice(i, 1); $('#cn-port').innerHTML = righePortato(r); salvaReg(); };
+      if (ptUsataQta(r, pp) > 0) sceltaPannello(b.closest('.cn-port'), pp.descr || pp.codice || 'Articolo', 'È già nei Materiali. Lo togli anche da lì?', [['Togli da entrambi', () => via(true), 'pieno'], ['Solo dal portato', () => via(false)], ['Annulla', null, 'sec']]);
+      else via(false);
+    }
     else if (d.cnArt !== undefined) {
       const a = leggiArticoli()[+d.cnArt]; if (!a) return;
       qtaPannello('#cn-cerca-ris', a, q => aggiungiArticoloCn(a, q), '#cn-cerca');
@@ -6953,7 +7114,7 @@ function datiIntervento(w, pdf){
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     importi: impPerUfficio(w),
-    ric: w.ric || undefined,
+    ric: w.ric || undefined, voce: vocDati('int:' + w.id),
     portato: (w.portato || []).filter(pp => ptResto(w, pp) > 0 || !qNum(pp.qta) && !portatoUsato(w, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(w, pp)) : (pp.qta || ''), um: pp.um || ''})),
     file: pdf || [], inviato: Date.now()};
 }
@@ -7059,7 +7220,7 @@ function controlliIntervento(r){
   if (r.esito === 'da_completare') c.push({t: 'Il tecnico lo ha lasciato «Da completare»: l\'intervento non è chiuso.', grave: false});
   if (nonEseg) c.push({t: 'Segnato «Non eseguito».', grave: false});
   if (!nonEseg && !min) c.push({t: 'Mancano gli orari: nessuna ora da registrare.', grave: true});
-  if (!nonEseg && !r.relazione && !r.osservazioni) c.push({t: 'Manca la relazione del tecnico.', grave: false});
+  if (!nonEseg && !r.relazione && !r.osservazioni && !r.voce) c.push({t: 'Manca la relazione del tecnico.', grave: false});
   if (r.importi && r.importi.modo && r.importi.modo !== 'fattura' && r.importi.residuo > 0.004) c.push({t: 'Il cliente non ha pagato tutto: restano ' + euro(r.importi.residuo) + ' € da incassare.', grave: false});
   if (!(r.file || []).length) c.push({t: 'Nessun PDF del rapporto indicato.', grave: false});
   else (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF non ancora arrivato: ' + n + '.', grave: true}));
@@ -7109,7 +7270,7 @@ function disegnaPosta(){
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
       ${impUffHtml(r)}
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
-      ${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
+      ${vocLettore(r)}${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
       ${conTab ? '' : mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc(((pp.qta || '') + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
@@ -7232,13 +7393,13 @@ async function leggiPosta(files){
     try {
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
       if (!o || (o.assist !== 'intervento' && o.assist !== 'cantiere' && o.assist !== 'richiesta')) { altri++; continue; }
-      if (o.assist === 'richiesta') { o.rich = true; o.cliente = 'Richiesta chiamate · ' + (o.tecnico || 'tecnico'); o.indirizzo = ''; o.esito = ''; o.file = []; lette.push({o, origine: f.origine || '', arrivo: f.arrivo || ''}); continue; }
+      if (o.assist === 'richiesta') { o.rich = true; o.cliente = 'Richiesta chiamate · ' + (o.tecnico || 'tecnico'); o.indirizzo = ''; o.esito = ''; o.file = []; vocRicevi(o); lette.push({o, origine: f.origine || '', arrivo: f.arrivo || ''}); continue; }
       if (o.ric) { try { ricRegistra(o.ric); } catch(e) {} }
       if (o.assist === 'cantiere') {               // la registrazione di un operaio su un cantiere: sta nella posta, accanto agli interventi
         const cn = o.cantiere || {}; o.cant = true; o.cliente = ((cn.cod ? cn.cod + ' · ' : '') + (cn.descr || cn.nome || 'Cantiere') + (cn.descr && cn.nome ? ' (' + cn.nome + ')' : '')).trim(); o.indirizzo = [cn.cli, cn.ind].filter(Boolean).join(' · ');
         if (!o.tecnico && o.operaio) o.tecnico = o.operaio.n;
       }
-      o.file = (o.file || []).map(n => String(n).normalize('NFC'));
+      o.file = (o.file || []).map(n => String(n).normalize('NFC')); vocRicevi(o);
       lette.push({o, origine: f.origine || '', arrivo: f.arrivo || ''});
     } catch(e) { altri++; }
   }
@@ -7288,7 +7449,7 @@ function controlliCantiere(r){
   const c = [];
   if (!(numOre(r.ore) > 0)) c.push({t: 'Mancano le ore: non c\'è niente da registrare.', grave: true});
   if (!r.operaio) c.push({t: 'Non so a quale dipendente appartengono queste ore (il tecnico non è abbinato a un dipendente in Levante): scrivilo tu.', grave: false});
-  if (!(r.relazione || '').trim()) c.push({t: 'Manca la descrizione dei lavori.', grave: false});
+  if (!(r.relazione || '').trim() && !r.voce) c.push({t: 'Manca la descrizione dei lavori.', grave: false});
   (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF delle foto non ancora arrivato: ' + n + '.', grave: true}));
   return c;
 }
@@ -7305,7 +7466,7 @@ function disegnaRichieste(){
 function schedaRichiesta(r, i){
   const quando = dataIT(r.data) + (r.ora ? ' ' + r.ora : '');
   return `<details open data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<span class="chip tec">Richiesta chiamate</span> <b>${esc(r.tecnico || '')}</b> · ${esc(quando)}${r.fatto ? ' <span class="chip pdf">Gestita</span>' : ''}</summary>
-      <p style="margin:8px 0;white-space:pre-wrap;font-size:17px">${esc(r.testo || '')}</p>
+      <p style="margin:8px 0;white-space:pre-wrap;font-size:17px">${esc(r.testo || '')}</p>${vocLettore(r)}
       ${r.pos ? `<p style="margin:8px 0"><a class="aiuto pos" href="${linkMappa(r.pos)}" target="_blank" rel="noopener">Posizione del tecnico${r.pos.pr ? ' (±' + esc(r.pos.pr) + ' m)' : ''}</a></p>` : ''}
       <div class="azioni" style="grid-template-columns:auto;justify-content:start;margin-top:10px"><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Gestita (ho assegnato o risposto)</label></div></details>`;
 }
@@ -7323,7 +7484,7 @@ function schedaCantiere(r, i){
       <p style="margin:8px 0">${esc(r.indirizzo || '')}</p>
       ${r.cantiere && r.cantiere.sub && r.cantiere.sub.n ? `<p style="margin:8px 0"><b>Sottocantiere:</b> ${esc(r.cantiere.sub.n)}</p>` : ''}
       <p style="margin:8px 0"><b>Ore:</b> ${ore ? '<b>' + esc(fmtOreDec(ore)) + ' h</b>' : '—'}${r.dal || r.al ? ' (' + esc(r.dal || '—') + ' – ' + esc(r.al || '—') + (r.pausa ? ', pausa ' + esc(r.pausa) + ' min' : '') + ')' : ''}${r.tipo ? ' · ' + esc(r.tipo) : ''}${mc ? ' · manodopera <b>' + esc(mc.cod) + '</b>' + (mc.desc ? ' (' + esc(mc.desc) + ')' : '') : (op ? ' · indice manodopera ' + esc(op.op) + ' (imposta i codici nel CSV per Levante)' : '')}</p>
-      ${rel}
+      ${rel}${vocLettore(r)}
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc((pp.qta + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${r.nfoto ? `<p style="margin:8px 0">${r.nfoto} ${r.nfoto === 1 ? 'foto' : 'foto'}</p>` : ''}<p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
