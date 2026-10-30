@@ -6267,7 +6267,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.66.0 (30/10/2026)';
+const VERSIONE_APP = '1.66.1 (30/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -6818,8 +6818,8 @@ function righePortato(r){
   const sp = document.getElementById('cn-port-n'); if (sp) sp.textContent = contaPortato(r).replace(/^ · /, '');
   if (!r.portato.length) return '<p class="aiuto" style="margin:4px 0">Ancora nessun articolo. Fotografa l\'etichetta, scansiona o cerca qui sopra.</p>';
   const usati = r.portato.filter(p => portatoUsato(r, p)).length;
-  return `<p class="aiuto" style="margin:4px 0">${r.portato.length} articoli · installati ${usati}. Tocca «Installato» sui pezzi che hai montato.</p>` + r.portato.map((p, i) => { const u = portatoUsato(r, p);
-    return `<div class="cn-port" style="display:grid;grid-template-columns:1fr 58px 96px 34px;gap:6px;margin:6px 0;align-items:center"><div style="min-width:0">${esc(p.descr || p.codice)}${p.codice && p.descr ? `<span class="aiuto" style="display:block">${esc(p.codice)}</span>` : ''}</div><input type="text" inputmode="decimal" data-cn-pq="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="btn ${u ? '' : 'sec'} piccolo" type="button" data-cn-pus="${i}" aria-pressed="${u}" style="margin:0">${u ? '✓ Installato' : 'Installato'}</button><button class="togli" type="button" data-cn-ptogli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
+  return `<p class="aiuto" style="margin:4px 0">${r.portato.length} articoli · installati ${usati}. Tocca il quadratino sui pezzi che hai montato.</p>` + r.portato.map((p, i) => { const u = portatoUsato(r, p);
+    return `<div class="ptr${u ? ' usato' : ''}"><div class="ptc">${esc(p.codice || '')}</div><div class="ptd">${esc(p.descr || (p.codice ? '' : '—'))}${ptEtUso(r, p) ? `<span style="display:block;color:var(--tenue)">${esc(ptEtUso(r, p).slice(3))}</span>` : ''}</div><input type="text" inputmode="decimal" data-cn-pq="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="ptu" type="button" data-cn-pus="${i}" aria-pressed="${u}" aria-label="${u ? 'Installato: tocca per togliere' : 'Segna come installato'}">${u ? '✓' : ''}</button><button class="togli" type="button" data-cn-ptogli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
 }
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'cn-port-d') portApr[d.dataset.rid] = d.open; }, true);
 function aggiungiPortato(a, q){
@@ -7063,13 +7063,13 @@ function avviaCantieri(){
         const fine = () => { $('#cn-port').innerHTML = righePortato(r); $('#cn-mat').innerHTML = righeMatCn(r); salvaReg(); };
         const metti = n => { r.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: qtaTesto(n), um: pp.um || 'pz', prezzo: pp.prezzo || ''}); fine(); };
         if (ix >= 0) { r.materiali.splice(ix, 1); fine(); }
-        else if (qNum(pp.qta) > 1) usoPannello(b.closest('.cn-port'), pp, metti); else metti(qNum(pp.qta) || 1);
+        else if (qNum(pp.qta) > 1) usoPannello(b.closest('.ptr'), pp, metti); else metti(qNum(pp.qta) || 1);
       }
     }
     else if (d.cnPtogli !== undefined) {
       const i = +d.cnPtogli, pp = r.portato[i]; if (!pp) return;
       const via = conMateriali => { if (conMateriali) { const k = chiavePort(pp); r.materiali = r.materiali.filter(m => chiavePort(m) !== k); $('#cn-mat').innerHTML = righeMatCn(r); } r.portato.splice(i, 1); $('#cn-port').innerHTML = righePortato(r); salvaReg(); };
-      if (ptUsataQta(r, pp) > 0) sceltaPannello(b.closest('.cn-port'), pp.descr || pp.codice || 'Articolo', 'È già nei Materiali. Lo togli anche da lì?', [['Togli da entrambi', () => via(true), 'pieno'], ['Solo dal portato', () => via(false)], ['Annulla', null, 'sec']]);
+      if (ptUsataQta(r, pp) > 0) sceltaPannello(b.closest('.ptr'), pp.descr || pp.codice || 'Articolo', 'È già nei Materiali. Lo togli anche da lì?', [['Togli da entrambi', () => via(true), 'pieno'], ['Solo dal portato', () => via(false)], ['Annulla', null, 'sec']]);
       else via(false);
     }
     else if (d.cnArt !== undefined) {
