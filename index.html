@@ -3638,7 +3638,8 @@ function baseAllegati(){
   (ultimoPdf || []).forEach(f => {
     if (f.titolo === 'Rapportino') l.push({id: 'rapporto', nome: f.nome, blob: f.blob, blobCli: ultimoPdfCliente ? ultimoPdfCliente.blob : null, mime: 'application/pdf', base: true, on: true, onCli: true,
       etichetta: 'Rapporto di intervento', etichettaCli: 'Rapporto di intervento (copia per il cliente, senza note interne)'});
-    else l.push({id: 'rcee', nome: f.nome, blob: f.blob, mime: 'application/pdf', base: true, on: true, onCli: true, etichetta: 'RCEE (rapporto di controllo di efficienza energetica)'});
+    else if (f.titolo === 'RCEE') l.push({id: 'rcee', nome: f.nome, blob: f.blob, mime: 'application/pdf', base: true, on: true, onCli: true, etichetta: 'RCEE (rapporto di controllo di efficienza energetica)'});
+    else l.push({id: 'ctrl:' + f.nome, nome: f.nome, blob: f.blob, mime: 'application/pdf', base: true, on: true, onCli: true, etichetta: f.titolo || f.nome});
   });
   try { l.push({id: 'dati', nome: nomeDati(lavoro), blob: new Blob([JSON.stringify(datiIntervento(lavoro, (ultimoPdf || []).map(f => f.nome)))], {type: 'text/plain'}), mime: 'text/plain', base: true, on: true, onCli: false, etichetta: 'Dati dell\'intervento (per la posta in arrivo dell\'ufficio)'}); } catch(e) {}
   return l;
@@ -6549,7 +6550,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.68.5 (31/10/2026)';
+const VERSIONE_APP = '1.68.6 (31/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
