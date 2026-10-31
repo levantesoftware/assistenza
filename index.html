@@ -596,6 +596,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 #ctrl-d .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}#ctrl-d .cw{grid-column:1/-1}
 #ctrl-d label{display:block;font-size:13px;color:#5b6d75}#ctrl-d label input,#ctrl-d label select,#ctrl-d label textarea,#ctrl-d .cnote{width:100%;box-sizing:border-box;font-size:16px;padding:7px;margin-top:2px}
 #ctrl-d .cadds{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margin-top:8px;border:1.5px solid #0e5a6b;border-radius:8px;background:#fff;color:#0e5a6b;font-weight:700}#ctrl-d .cnote{margin:2px 0 6px}#ctrl-d .cadd{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#esf-d .esf-h{font-size:16px;margin:16px 0 6px;color:#14232b}
 </style>
 </head>
 <body>
@@ -2422,6 +2423,7 @@ let impApr = false;
 function sezioneImporti(){
   impDi(lavoro); const c = impCalcola(lavoro);
   return `<details class="passo rcee-blocco" id="imp-box"${impApr ? ' open' : ''}><summary><h2>Importi e pagamento</h2><span class="aiuto" id="imp-sum">${impSommario(c)}</span></summary>
+    ${listinoHtml()}
     <p class="aiuto" style="margin:4px 0 8px">Prezzi senza IVA. Serve per il riepilogo da lasciare al cliente: non è un documento fiscale, la fattura la emette l'ufficio.</p>
     <div id="imp-righe">${impRigheHtml(c)}</div>
     <div class="azioni" style="display:flex;flex-wrap:wrap;margin:6px 0 0">
@@ -2565,7 +2567,6 @@ function disegnaScheda(){
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
     </details>
-    <div class="passo" style="margin-top:20px">${listinoHtml()}</div>
     ${portatoLHtml()}
     <details class="passo rcee-blocco" id="mat-d"${matApr[ptKey()] !== false ? ' open' : ''}><summary><h2>Materiali</h2><span class="aiuto">Cerca, scansiona o detta quello che hai usato</span></summary>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
       <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></details>
@@ -2574,15 +2575,17 @@ function disegnaScheda(){
       <div id="foto-lista"></div>
       <div class="azioni" style="margin:8px 0"><button class="btn" type="button" data-foto-scatta>Scatta una foto</button><button class="btn sec" type="button" data-foto-galleria>Dalla galleria</button></div>
       <p class="aiuto" id="foto-msg" role="status"></p></div>
-    <div class="passo"><h2>Esito</h2>
+    <details class="passo rcee-blocco" id="esf-d"${esfApr ? ' open' : ''}><summary><h2>Esito e firma</h2><span class="aiuto" id="esf-sum">${esc(esfSomm(w))}</span></summary>
+    <h3 class="esf-h" style="margin-top:4px">Esito</h3><div>
       ${ESITI_TILE.map(([v, t, s, k]) => `<label class="tile ${k}"><input type="radio" name="esito" value="${v}"${w.esito === v ? ' checked' : ''}><span>${t}${s ? `<small>${s}</small>` : ''}</span></label>`).join('')}
       ${campoTesto('note', 'Note per l\'ufficio', {area:true, ph:'Per esempio: serve un ricambio, il cliente chiede di spostare, non era in casa.'})}
     </div>
-    <div class="passo"><h2>Firma del cliente</h2>
+    <h3 class="esf-h">Firma del cliente</h3><div>
       <div class="firma"><canvas id="firma"></canvas><div class="linea"></div></div>
       <div class="strumenti"><span>Il cliente firma con il dito</span><button class="btn chiaro piccolo" id="b-cancella-firma" type="button">Cancella firma</button></div>
       <div style="margin-top:12px">${campoTesto('firmaNome', 'Nome di chi firma')}</div>
     </div>
+    </details>
     <div class="fatto" id="pdf-fatto" hidden>
       <p><strong id="pdf-titolo">PDF creato.</strong></p><div id="pdf-lista"></div>
       <p style="margin:16px 0 6px"><strong>Invia i documenti</strong></p>
@@ -2637,7 +2640,7 @@ function aggiornaOre(){
 let timer = null;
 
 /* ---- striscia delle sezioni della scheda: scorciatoie + spunta verde sulle sezioni compilate ---- */
-const SZ_NOMI = {'Chi e dove': 'Chi e dove', 'Guasto o richiesta': 'Guasto', 'Operazioni eseguite': 'Operazioni', 'Altre operazioni': 'Altre op.', 'Analisi di combustione': 'Analisi', 'Altri rapporti di efficienza energetica': 'RCEE', 'Controlli e verifiche': 'Controlli', 'Relazione': 'Relazione', 'Orari e viaggio': 'Orari', 'Materiale portato': 'Portato', 'Materiali': 'Materiali', 'Importi e pagamento': 'Importi', 'Foto': 'Foto', 'Esito': 'Esito', 'Firma del cliente': 'Firma'};
+const SZ_NOMI = {'Chi e dove': 'Chi e dove', 'Guasto o richiesta': 'Guasto', 'Operazioni eseguite': 'Operazioni', 'Altre operazioni': 'Altre op.', 'Analisi di combustione': 'Analisi', 'Altri rapporti di efficienza energetica': 'RCEE', 'Controlli e verifiche': 'Controlli', 'Relazione': 'Relazione', 'Orari e viaggio': 'Orari', 'Materiale portato': 'Portato', 'Materiali': 'Materiali', 'Importi e pagamento': 'Importi', 'Foto': 'Foto', 'Esito e firma': 'Esito e firma'};
 let szSez = [], szFirma = '';
 function szFatta(n){
   const w = lavoro; if (!w) return false;
@@ -2655,8 +2658,7 @@ function szFatta(n){
     case 'Materiali': return (w.materiali || []).length > 0;
     case 'Importi e pagamento': return !!(w.imp && (w.imp.righe || []).length);
     case 'Foto': return (w.foto || []).length > 0;
-    case 'Esito': return !!w.esito;
-    case 'Firma del cliente': return !!w.firma;
+    case 'Esito e firma': return !!(w.esito && w.firma);
   }
   return false;
 }
@@ -2719,7 +2721,7 @@ function salvaBozza(mantieniPannello){
 
 /* ---- gestione dei campi (un solo ascoltatore) ---- */
 function collegaForm(){
-  const f = $('#form'); try { collegaCtrl(); } catch(e) {}
+  const f = $('#form'); try { collegaCtrl(); collegaEsf(); } catch(e) {}
   f.addEventListener('input', e => {
     const t = e.target, d = t.dataset;
     if (d.k) { lavoro[d.k] = t.value; if (d.k === 'km') { const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario(); } const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
@@ -2810,9 +2812,18 @@ function disegnaOrari(){
 
 /* ---- firma ---- */
 let firmaHaInchiostro = false, firmaDisegna = false, ctxFirma = null;
+let esfApr = true;
+function esfSomm(w){ const e = (typeof ESITI_TILE !== 'undefined' ? ESITI_TILE : []).find(x => x[0] === w.esito); return (e ? e[1] : 'Esito da scegliere') + ' · ' + (w.firma ? 'firmato' : 'da firmare'); }
+function esfAgg(){ const sm = $('#esf-sum'); if (sm && lavoro) { catturaFirma(); sm.textContent = esfSomm(lavoro); } }
+function collegaEsf(){
+  const f = $('#form'); if (!f) return;
+  f.addEventListener('toggle', e => { if (e.target.id !== 'esf-d') return; esfApr = e.target.open; if (e.target.open && lavoro && !ultimaLarghezzaFirma) preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH); }, true);
+  ['change', 'pointerup'].forEach(ev => f.addEventListener(ev, e => { if (e.target.closest && e.target.closest('#esf-d')) setTimeout(esfAgg, 50); }));
+}
+
 function preparaFirma(dataUrl, ow, oh){
   const c = $('#firma'), ratio = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-  ultimaLarghezzaFirma = w;
+  ultimaLarghezzaFirma = w; if (!w) return;       // sezione chiusa: si prepara quando si apre
   c.width = Math.round(w * ratio); c.height = Math.round(h * ratio);
   ctxFirma = c.getContext('2d'); ctxFirma.scale(ratio, ratio);
   ctxFirma.lineWidth = 2.6; ctxFirma.lineCap = 'round'; ctxFirma.lineJoin = 'round'; ctxFirma.strokeStyle = '#14232B';
@@ -6532,7 +6543,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.68.3 (31/10/2026)';
+const VERSIONE_APP = '1.68.4 (31/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
