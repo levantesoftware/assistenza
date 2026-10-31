@@ -595,7 +595,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 #ctrl-d .cbad{margin-left:8px;background:#fde8e8;color:#b91c1c;border-radius:10px;padding:1px 8px;font-size:13px;font-weight:700}
 #ctrl-d .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}#ctrl-d .cw{grid-column:1/-1}
 #ctrl-d label{display:block;font-size:13px;color:#5b6d75}#ctrl-d label input,#ctrl-d label select,#ctrl-d label textarea,#ctrl-d .cnote{width:100%;box-sizing:border-box;font-size:16px;padding:7px;margin-top:2px}
-#ctrl-d .cnote{margin:2px 0 6px}#ctrl-d .cadd{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#ctrl-d .cadds{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margin-top:8px;border:1.5px solid #0e5a6b;border-radius:8px;background:#fff;color:#0e5a6b;font-weight:700}#ctrl-d .cnote{margin:2px 0 6px}#ctrl-d .cadd{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -3107,7 +3107,7 @@ function ctrlBloccoUno(c){
     <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     <div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>
-    <div class="cadd">${m.tipi.map(t => `<button type="button" class="btn sec piccolo" data-cadd="${esc(c.id + '|' + t[0])}">+ ${esc(t[1])}</button>`).join('')}<button type="button" class="btn sec piccolo" data-cadd="${esc(c.id + '|altro')}">+ Altro apparecchio</button></div>
+    <select class="cadds" data-cadds="${esc(c.id)}" aria-label="Aggiungi un apparecchio"><option value="">+ Aggiungi un ${m.app}…</option>${m.tipi.map(t => `<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}<option value="altro">Altro (scrivi il nome)</option></select>
     <label class="cw" style="display:block;margin-top:10px">Note<textarea data-cn="${esc(c.id)}" data-f="note" rows="2">${esc(c.note || '')}</textarea></label>
     <label class="cw" style="display:block;margin-top:8px;max-width:220px">Prossimo controllo<input type="date" data-cn="${esc(c.id)}" data-f="prossimo" value="${esc(c.prossimo || '')}"></label>
     <button type="button" class="btn chiaro piccolo" data-cdel="${esc(c.id)}" style="margin-top:10px">Togli questo controllo</button></div>`;
@@ -3140,6 +3140,7 @@ function collegaCtrl(){
     else if (b.dataset.cdel) { if (confirm('Togliere tutto questo controllo?')) { lavoro.ctrl = (lavoro.ctrl || []).filter(x => x.id !== b.dataset.cdel); ctrlRidisegna(); bozzaModificata(); } }
   });
   const agg = e => { const t = e.target, ds = t.dataset || {}; if (!t.closest || !t.closest('#ctrl-d')) return;
+    if (ds.cadds !== undefined) { if (e.type !== 'change' || !t.value) return; const c = (lavoro.ctrl || []).find(x => x.id === ds.cadds); if (!c) return; const n = {id: ctrlId(), tipo: t.value, matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); return; }
     if (ds.cfoto) { const fl = [...(t.files || [])]; t.value = ''; if (fl.length) ctrlFoto(ds.cfoto, fl); return; }
     if (ds.ci) { const q = ctrlTrova(ds.ci); if (!q || !q.i) return; q.i[ds.f] = t.value; if (ds.f === 'tipo' || ds.f === 'matr' || ds.f === 'pos' || ds.f === 'tn') { if (e.type === 'change') ctrlRidisegna(); else { const s = t.closest('details').querySelector('summary b'); } } bozzaModificata(); }
     else if (ds.cg) { const q = ds.cg.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c && c.gest && c.gest[q[1]]) { c.gest[q[1]].n = t.value; bozzaModificata(); } }
@@ -6531,7 +6532,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.68.2 (31/10/2026)';
+const VERSIONE_APP = '1.68.3 (31/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
