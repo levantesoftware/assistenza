@@ -3089,9 +3089,12 @@ const ctrlM = k => ctrlMods()[k];
 const ctrlApr = {};
 const ctrlId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const ctrlTipo = (m, k, i) => m.tipi.find(t => t[0] === k) || (k === 'altro' ? ['altro', (i && i.tn) || 'Altro apparecchio', (i && i.tn) || 'Altro', Object.keys(m.voci)] : m.tipi[0]);
+/* Tutti gli apparecchi mostrano tutte le voci: quelle che per quel tipo di solito non servono partono su «n.a.» (grigio) e si attivano con un tocco su ✓ o ✕ */
+const ctrlStato = (m, t, i, v) => (i.es || {})[v] || (t[3].indexOf(v) >= 0 ? 'ok' : 'na');
+const ctrlKo = (m, t, i) => Object.keys(m.voci).filter(v => (i.es || {})[v] === 'ko');
 function ctrlNegativi(m, c){            // elenco dei negativi: gestione e apparecchi
   const g = m.gest.filter(x => c.gest && c.gest[x[0]] && c.gest[x[0]].e === 'ko').map(x => ({v: x[1], n: c.gest[x[0]].n || ''}));
-  const a = (c.idr || []).map(i => ({i, ko: ctrlTipo(m, i.tipo, i)[3].filter(v => (i.es || {})[v] === 'ko').map(v => m.voci[v][0])})).filter(x => x.ko.length);
+  const a = (c.idr || []).map(i => ({i, ko: ctrlKo(m, null, i).map(v => m.voci[v][0])})).filter(x => x.ko.length);
   return {g, a};
 }
 function ctrlSomm(w){
@@ -3101,14 +3104,14 @@ function ctrlSomm(w){
 }
 const ctrlSt = (att, v, d, extra) => `<button type="button" class="cs ${v}${att === v ? ' su' : ''}" data-cs="${esc(d)}" data-v="${v}" aria-pressed="${att === v}" aria-label="${v === 'ok' ? 'Positivo' : v === 'ko' ? 'Negativo' : 'Non applicabile'}">${v === 'ok' ? '✓' : v === 'ko' ? '✕' : 'n.a.'}</button>`;
 function ctrlCard(m, c, i){
-  const t = ctrlTipo(m, i.tipo, i), ko = t[3].filter(v => (i.es || {})[v] === 'ko').length, k = c.id + '|' + i.id;
+  const t = ctrlTipo(m, i.tipo, i), ko = ctrlKo(m, t, i).length, k = c.id + '|' + i.id;
   const apr = ctrlApr[k] === true;
   return `<details class="ci" data-ck="${esc(k)}"${apr ? ' open' : ''}><summary><b>${esc(t[1])}</b> · n. ${esc(i.matr || '—')}${i.pos ? ' · ' + esc(i.pos) : ''}${ko ? `<span class="cbad">${ko} ✕</span>` : ''}</summary>
     <div class="cgrid"><label>Tipo<select data-ci="${esc(k)}" data-f="tipo">${m.tipi.map(x => `<option value="${x[0]}"${x[0] === i.tipo ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}<option value="altro"${i.tipo === 'altro' ? ' selected' : ''}>Altro (scrivi il nome)</option></select></label>
     ${i.tipo === 'altro' ? `<label class="cw">Nome del tipo<input type="text" data-ci="${esc(k)}" data-f="tn" value="${esc(i.tn || '')}" placeholder="Per esempio: idrante a colonna" autocomplete="off"></label>` : ''}
     <label>Matricola / n.<input type="text" data-ci="${esc(k)}" data-f="matr" value="${esc(i.matr || '')}" autocomplete="off"></label>
     <label class="cw">Posizione<input type="text" data-ci="${esc(k)}" data-f="pos" value="${esc(i.pos || '')}" placeholder="Per esempio: scala B, piano 1" autocomplete="off"></label></div>
-    ${t[3].map(v => `<div class="cv"><span>${esc(m.voci[v][0])}</span><span class="cb">${['ok', 'ko', 'na'].map(s => ctrlSt((i.es || {})[v] || 'ok', s, k + '|' + v)).join('')}</span></div>`).join('')}
+    ${Object.keys(m.voci).map(v => `<div class="cv"><span>${esc(m.voci[v][0])}</span><span class="cb">${['ok', 'ko', 'na'].map(s => ctrlSt(ctrlStato(m, t, i, v), s, k + '|' + v)).join('')}</span></div>`).join('')}
     ${ko ? `<label class="cw">Cosa non va<textarea data-ci="${esc(k)}" data-f="nota" rows="2" placeholder="Per esempio: manichetta con taglio, da sostituire">${esc(i.nota || '')}</textarea></label>
     <div class="cadd"><button type="button" class="btn piccolo" data-cfs="${esc(k)}">Scatta una foto</button><button type="button" class="btn sec piccolo" data-cfg="${esc(k)}">Dalla galleria</button>${i.nf ? `<span class="aiuto" style="align-self:center">${i.nf} foto</span>` : ''}</div>
     <input type="file" accept="image/*" capture="environment" hidden data-cfoto="${esc(k)}" data-cam="1"><input type="file" accept="image/*" multiple hidden data-cfoto="${esc(k)}">` : ''}
@@ -3146,7 +3149,7 @@ function collegaCtrl(){
     else if (b.dataset.cadd) { const q = b.dataset.cadd.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (!c) return; const n = {id: ctrlId(), tipo: q[1], matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cs) { const t = ctrlTrova(b.dataset.cs), v = b.dataset.v; if (!t) return;
       if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; if (v === 'ok') delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: 'ko', n: (t.c.gest[t.q[2]] || {}).n || ''}; }
-      else if (t.i) { t.i.es = t.i.es || {}; if (v === 'ok') delete t.i.es[t.q[2]]; else t.i.es[t.q[2]] = v; }
+      else if (t.i) { t.i.es = t.i.es || {}; const tp = ctrlTipo(ctrlM(t.c.mod), t.i.tipo, t.i), def = tp[3].indexOf(t.q[2]) >= 0 ? 'ok' : 'na'; if (v === def) delete t.i.es[t.q[2]]; else t.i.es[t.q[2]] = v; }
       ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cscan) { ctrlQrDest = b.dataset.cscan; scanCn = false; scanApri(); }
     else if (b.dataset.cfoglio) ctrlFoglioEtichette(b.dataset.cfoglio);
@@ -3225,7 +3228,7 @@ function ctrlDaQr(testo){          // ASS1|IDR|tipo|matricola|posizione|impianto
 }
 async function ctrlFoto(k, files){
   const t = ctrlTrova(k); if (!t || !t.i) return; const m = ctrlM(t.c.mod), tp = ctrlTipo(m, t.i.tipo, t.i);
-  const kos = tp[3].filter(v => (t.i.es || {})[v] === 'ko').map(v => m.voci[v][0]).join(', ');
+  const kos = ctrlKo(m, tp, t.i).map(v => m.voci[v][0]).join(', ');
   lavoro.foto = lavoro.foto || []; let fatte = 0;
   for (const f of [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|webp)$/i.test(f.name))) {
     if (lavoro.foto.length >= FOTO_MAX_NUMERO) { alert('Puoi aggiungere al massimo ' + FOTO_MAX_NUMERO + ' foto per intervento.'); break; }
@@ -3275,7 +3278,7 @@ function costruisciPdfCtrl(w, c){
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text(m.apps.toUpperCase() + ' (' + (c.idr || []).length + ')', M, y + 3); y += 5; testaM();
   (c.idr || []).forEach(i => { const t = ctrlTipo(m, i.tipo, i); if (y + 7 > H - 12) { nuova(); testaM(); }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8); col(INK); doc.text(t[1] + ' · n. ' + (i.matr || '—'), M + 1.5, y + 3); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(doc.splitTextToSize(i.pos || '', cw1 - 3)[0] || '', M + 1.5, y + 6.2);
-    chv.forEach((v, n) => { const cx = M + cw1 + n * cw + cw / 2; let s = '·', cl = [170, 180, 184]; if (t[3].indexOf(v) >= 0) { const e = (i.es || {})[v] || 'ok'; s = e === 'ok' ? 'OK' : e === 'ko' ? 'NEG' : 'n.a.'; cl = e === 'ko' ? ROSSO : e === 'na' ? GR : INK; }
+    chv.forEach((v, n) => { const cx = M + cw1 + n * cw + cw / 2; const e = ctrlStato(m, t, i, v); const s = e === 'ok' ? 'OK' : e === 'ko' ? 'NEG' : 'n.a.', cl = e === 'ko' ? ROSSO : e === 'na' ? [150, 160, 165] : INK;
       doc.setFont('helvetica', s === 'NEG' ? 'bold' : 'normal'); doc.setFontSize(7.5); col(cl); doc.text(s, cx, y + 4.6, {align: 'center'}); });
     doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 7.4, W - M, y + 7.4); y += 7.6; });
   /* negativi */
@@ -3943,8 +3946,18 @@ function testiZone(doc,tpl,rec){
   });
 }
 function firme(doc,tpl,opz){
-  const put=(img,x,w)=>{ if(!img) return; try{ const p=doc.getImageProperties(img), k=Math.min(w/p.width,34/p.height); doc.addImage(img,'PNG',x+(w-p.width*k)/2,658-p.height*k,p.width*k,p.height*k);}catch(e){} };
-  put(opz.firmaTecnico,95,182); put(opz.firmaCliente,377,176);
+  /* le firme vanno sopra le righe dei due spazi «Firma leggibile ...»: la posizione si ricava dal modello (cambia da una Regione all'altra e fra le versioni) */
+  const put=(img,testo,xOld,wOld)=>{ if(!img) return;
+    try{
+      const p=doc.getImageProperties(img);
+      const L=(tpl.items||[]).find(i=>i.t==='label'&&String(i.text).indexOf(testo)===0);
+      const c=L?(tpl.items||[]).filter(i=>i.t==='shape'&&i.shape==='hline'&&i.y>L.y&&i.y-L.y<45&&i.x+i.w>L.x&&i.x<L.x+260).sort((u,v)=>(u.y-v.y)||(u.x-v.x))[0]:null;
+      if(!c) return;                       // spazio non trovato: meglio nessuna firma che una firma nel posto sbagliato
+      const x=c.x, w=c.w, yb=c.y+(c.h||0)/2-1, k=Math.min(w/p.width,34/p.height);
+      doc.addImage(img,'PNG',x+(w-p.width*k)/2,yb-p.height*k,p.width*k,p.height*k);
+    }catch(e){} };
+  put(opz.firmaTecnico,'Firma leggibile del tecnico');
+  put(opz.firmaCliente,'Firma leggibile, per presa visione');
 }
 root.rceeRender=render; root.rceeTesti=testiZone; root.rceeFirme=firme;
 
@@ -6550,7 +6563,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.68.6 (31/10/2026)';
+const VERSIONE_APP = '1.69.1 (31/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
