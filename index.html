@@ -2601,7 +2601,8 @@ function disegnaScheda(){
       <button class="btn chiaro pieno" id="b-stampa" type="button" style="margin-top:8px">Stampa il rapporto (per il cliente)</button>
       <button class="btn chiaro pieno" id="b-stampa-ric" type="button" style="margin-top:8px" hidden>Stampa la ricevuta degli importi (per il cliente)</button>
       <p class="aiuto" style="margin:8px 0 4px">Dal menu di condivisione l'indirizzo e l'oggetto non si possono compilare da soli (lo vieta il telefono): l'indirizzo viene copiato, da incollare nel campo A. Se vuoi la mail già con destinatario e oggetto:</p>
-      <button class="btn chiaro piccolo" id="b-mailpronta" type="button">Mail con destinatario e oggetto già scritti</button></div>`;
+      <button class="btn chiaro piccolo" id="b-mailpronta" type="button">Mail con destinatario e oggetto già scritti</button></div>
+    ${w.manuale ? '<div id="el-box" style="margin:28px 0 8px;padding-top:14px;border-top:1px solid #d5dcdf"><button class="btn chiaro pieno" id="b-elimina-int" type="button" style="color:#b91c1c;border-color:#e3b3b3"' + ((w.inviatoUff || w.giaInviato) ? ' hidden' : '') + '>Elimina questo intervento</button><p class="aiuto" id="el-msg" style="margin:6px 0 0">' + ((w.inviatoUff || w.giaInviato) ? 'Già inviato in ufficio: non si può più eliminare da qui.' : 'Per gli interventi creati senza appuntamento, se hai sbagliato. Dopo l\'invio in ufficio non si potrà più eliminare.') + '</p></div>' : ''}`;
   aggiornaOssRcee();
   if (!lavoro.foto) lavoro.foto = [];
   try { szFirma = ''; disegnaStriscia(); } catch(e) {}
@@ -2712,6 +2713,19 @@ function catturaFirma(){
   lavoro.firma = (firmaHaInchiostro && c) ? c.toDataURL('image/png') : '';
   lavoro.firmaW = c ? c.clientWidth : 0; lavoro.firmaH = c ? c.clientHeight : 0;
 }
+async function eliminaIntervento(){
+  const w = lavoro; if (!w || !w.manuale) return;
+  if (w.inviatoUff || w.giaInviato) { alert('Questo intervento è già stato inviato in ufficio: non si può più eliminare da qui.'); return; }
+  if (!confirm('Elimino questo intervento' + (w.cliente ? ' (' + w.cliente + ')' : '') + '?\n\nFoto, firma e messaggio vocale vanno persi e non si può annullare.')) return;
+  clearTimeout(timer); timer = null; const id = w.id;
+  for (const f of (w.foto || [])) { try { await cancellaFotoChiave(chiaveFoto(id, f.id)); } catch(e) {} }
+  try { await cancellaFotoChiave('voce|int:' + id); } catch(e) {}
+  try { if (typeof vocCache === 'object') delete vocCache['int:' + id]; } catch(e) {}
+  delete bozze[id]; lavoro = null; salvaBozze();
+  try { indietro(); } catch(e) { mostra('agenda'); }
+  try { disegnaAgenda(); } catch(e) {}
+  try { mostraAvviso('Intervento eliminato.'); } catch(e) {}
+}
 function salvaBozza(mantieniPannello){
   timer = null;
   if (!lavoro) return;
@@ -2797,6 +2811,7 @@ function collegaForm(){
     else if (d.togliExtra !== undefined) { lavoro.ops_extra.splice(+d.togliExtra, 1); $('#extra').innerHTML = sezioneExtra(); bozzaModificata(); }
     else if (d.togliAn !== undefined) { delete lavoro.analisi[d.togliAn]; $('#analisi').innerHTML = schedeAnalisi(); bozzaModificata(); }
     else if (b.id === 'b-cancella-firma') { preparaFirma(''); bozzaModificata(); }
+    else if (b.id === 'b-elimina-int') eliminaIntervento();
     else if (d.apri !== undefined) apriPdf(+d.apri);
     else if (d.apriAll !== undefined) apriAllegato(+d.apriAll);
     else if (b.id === 'b-condividi') condividiPdf();
@@ -3341,7 +3356,7 @@ async function registraInUfficio(w, files){
     const dd = datiIntervento(w, files.map(f => f.nome)); if (!dd.tecnico) dd.tecnico = (corrente && corrente.tecnico_nome) || impostazioni.tecnico || '';
     const dati = new File([JSON.stringify(dd)], nomeDati(w), {type: 'text/plain'});
     await leggiPosta([dati].concat(files.map(f => new File([f.blob], f.nome, {type: 'application/pdf'}))));
-    w.inviatoUff = Date.now(); w.aggiornata = Date.now(); bozze[w.id] = w; salvaBozze(); aggiornaElencoSeLargo();
+    w.inviatoUff = Date.now(); w.giaInviato = true; w.aggiornata = Date.now(); bozze[w.id] = w; salvaBozze(); aggiornaElencoSeLargo();
     mostraAvviso('Intervento registrato fra quelli ricevuti: lo vedono tutte le postazioni.', '', null, 6000);
   } catch(e) { mostraAvviso('Non sono riuscito a inserirlo fra gli interventi ricevuti: ' + (e.message || e), '', null, 8000); }
 }
@@ -3614,6 +3629,7 @@ function componentiDaInviare(){
 }
 const blobDi = a => (destInvio === 'cli' && a.blobCli) ? a.blobCli : a.blob;
 function aggiornaPulsantiInvio(){
+  { const be = $('#b-elimina-int'), me = $('#el-msg'); if (be && lavoro && (lavoro.inviatoUff || lavoro.giaInviato)) { be.hidden = true; if (me) me.textContent = 'Già inviato in ufficio: non si può più eliminare da qui.'; } }
   const cli = destInvio === 'cli', fl = filesDaInviare();
   if (!cli) cifraLista(listaScarico());
   const b = $('#b-condividi'), sc = $('#b-scarica'); if (!b) return;
@@ -3758,7 +3774,7 @@ async function condividiPdf(){
   segnaInviato(cli);
   m.textContent = 'Ho scaricato ' + (fl.length === 1 ? 'il file' : 'i file') + ' e aperto la mail per ' + ind + ': allega ' + (fl.length === 1 ? 'il file scaricato' : 'i file scaricati') + '.';
 }
-function segnaInviato(cli){ if (!lavoro) return; lavoro[cli ? 'inviatoCli' : 'inviatoUff'] = Date.now(); try { salvaBozza(true); } catch(e){} }
+function segnaInviato(cli){ if (!lavoro) return; lavoro[cli ? 'inviatoCli' : 'inviatoUff'] = Date.now(); if (!cli) lavoro.giaInviato = true; try { salvaBozza(true); } catch(e){} try { aggiornaPulsantiInvio(); } catch(e){} }
 function slugNome(t){ return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'intervento'; }
 async function cancellaFotoInviate(){
   if (!confirm('Hai già inviato le foto? Le cancello da questo dispositivo (restano nel PDF e nei file che hai inviato).')) return;
@@ -6563,7 +6579,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.69.1 (31/10/2026)';
+const VERSIONE_APP = '1.69.3 (31/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
