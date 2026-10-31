@@ -2539,12 +2539,14 @@ function disegnaScheda(){
   if (w.tipo === undefined) w.tipo = (w.r && w.r.tp) ? String(w.r.tp) : '';
   $('#form').innerHTML = `
     ${w.inCorso ? '<div class="avviso"><b>Intervento in corso</b>Iniziato alle ' + esc(w.inizioOra || '') + '. Quando scegli l\'esito, l\'ora di fine si registra da sola.</div>' : ''}
-    <div class="passo"><h2>Chi e dove</h2>
+    <details class="passo rcee-blocco" id="chi-d"${chiApr[ptKey()] !== undefined ? (chiApr[ptKey()] ? ' open' : '') : (w.cliente && w.indirizzo ? '' : ' open')}><summary><h2>Chi e dove</h2><span class="aiuto" id="chi-sum">${esc(chiSomm(w))}</span></summary>
       ${campoTesto('cliente', 'Cliente')}
       ${campoTesto('indirizzo', 'Indirizzo dell\'intervento')}
       ${campoTesto('email', 'Email del cliente (per inviargli i documenti)', {tipo:'email', inputmode:'email'})}
       <div id="email-opz">${righeEmailOpz()}</div>
       <div class="due">${campoTesto('data', 'Data', {tipo:'date'})}${campoTesto('tecnico', 'Tecnico')}</div>
+    </details>
+    <div class="passo" style="padding-top:0">
       ${campoTipoInt()}
       ${campoTesto('richiesta', 'Cosa ha segnalato il cliente', {area:true})}
     </div>
@@ -2812,6 +2814,8 @@ function disegnaOrari(){
 
 /* ---- firma ---- */
 let firmaHaInchiostro = false, firmaDisegna = false, ctxFirma = null;
+const chiApr = {};
+function chiSomm(w){ return [w.cliente, w.indirizzo, w.data ? dataIT(w.data) : '', w.tecnico].map(x => String(x || '').trim()).filter(Boolean).join(' · ') || 'Cliente, indirizzo, data e tecnico'; }
 let esfApr = true;
 function esfSomm(w){ const e = (typeof ESITI_TILE !== 'undefined' ? ESITI_TILE : []).find(x => x[0] === w.esito); return (e ? e[1] : 'Esito da scegliere') + ' · ' + (w.firma ? 'firmato' : 'da firmare'); }
 function esfAgg(){ const sm = $('#esf-sum'); if (sm && lavoro) { catturaFirma(); sm.textContent = esfSomm(lavoro); } }
@@ -2819,6 +2823,8 @@ function collegaEsf(){
   const f = $('#form'); if (!f) return;
   f.addEventListener('toggle', e => { if (e.target.id !== 'esf-d') return; esfApr = e.target.open; if (e.target.open && lavoro && !ultimaLarghezzaFirma) preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH); }, true);
   ['change', 'pointerup'].forEach(ev => f.addEventListener(ev, e => { if (e.target.closest && e.target.closest('#esf-d')) setTimeout(esfAgg, 50); }));
+  f.addEventListener('toggle', e => { if (e.target.id === 'chi-d' && lavoro) chiApr[ptKey()] = e.target.open; }, true);
+  ['input', 'change'].forEach(ev => f.addEventListener(ev, e => { if (e.target.closest && e.target.closest('#chi-d')) { const sm = $('#chi-sum'); if (sm && lavoro) sm.textContent = chiSomm(lavoro); } }));
 }
 
 function preparaFirma(dataUrl, ow, oh){
@@ -3296,7 +3302,7 @@ function creaPdf(){
   if (!window.jspdf) { alert('La libreria per creare il PDF non si è caricata. Controlla la connessione e riprova.'); return; }
   clearTimeout(timer); timer = null;
   catturaFirma();
-  if (!lavoro.cliente.trim()) { alert('Scrivi il nome del cliente prima di creare il PDF.'); $('#f-cliente').focus(); return; }
+  if (!lavoro.cliente.trim()) { alert('Scrivi il nome del cliente prima di creare il PDF.'); const dc = $('#chi-d'); if (dc) dc.open = true; $('#f-cliente').focus(); return; }
   if (!lavoro.esito) { alert('Scegli l\'esito dell\'intervento.'); return; }
   if (!lavoro.firma && !confirm('Manca la firma del cliente. Creo il PDF lo stesso?')) return;
   const ultOra = lavoro.orari[lavoro.orari.length - 1];                       // ora di fine mancante: si propone "adesso" solo se si compila lo stesso giorno
@@ -6543,7 +6549,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.68.4 (31/10/2026)';
+const VERSIONE_APP = '1.68.5 (31/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
