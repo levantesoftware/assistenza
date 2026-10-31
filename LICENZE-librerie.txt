@@ -6,3 +6,4 @@ Servono per creare, leggere e modificare i PDF direttamente sul dispositivo.
 - ZXing library 0.21.3 (zxing.min.js) - licenza Apache 2.0 - https://github.com/zxing-js/library  (lettura dei codici a barre)
 
 pako 2.1.0 - (C) 2014-2017 Vitaly Puzrin and Andrei Tuputcyn - licenza MIT + zlib (compressione dei dati)
+- qrcode-generator 2.0 (qrcode.js) - licenza MIT - Kazuhiko Arase, https://github.com/kazuhikoarase/qrcode-generator  (creazione dei QR per le etichette)  "QR Code" e' un marchio registrato di DENSO WAVE INCORPORATED

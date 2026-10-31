@@ -581,6 +581,21 @@ html.no-flexgap .frasi>*{margin-right:6px}
 #avviso-basso[hidden]{display:none}
 #avviso-testo{flex:1;min-width:0;overflow-wrap:anywhere}
 html.no-flexgap #avviso-basso>*+*{margin-left:10px}
+
+#ctrl-d .cm{border:1px solid var(--bordo,#d5dcdf);border-radius:10px;padding:10px;margin:8px 0}
+#ctrl-d .cmt{display:flex;flex-direction:column;margin-bottom:4px}#ctrl-d .cmt small{color:#5b6d75}
+#ctrl-d .cv{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e6ebed;font-size:15px}
+#ctrl-d .cv small{display:block;color:#5b6d75;font-size:12px;font-weight:400}
+#ctrl-d .cb{display:flex;gap:6px;flex:none}
+#ctrl-d .cs{min-width:44px;height:38px;border:1.5px solid #c3ccd0;border-radius:8px;background:#fff;color:#5b6d75;font-size:16px;font-weight:700;padding:0 6px}
+#ctrl-d .cs.ok.su{background:#e3f4e8;border-color:#2e8b4f;color:#1e6b3a}#ctrl-d .cs.ko.su{background:#fde8e8;border-color:#b91c1c;color:#b91c1c}#ctrl-d .cs.na.su{background:#eceff1;border-color:#7a8a91;color:#3d4d54}
+#ctrl-d .cs.na{font-size:12px}
+#ctrl-d details.ci{border:1px solid #d5dcdf;border-radius:8px;padding:6px 8px;margin:6px 0;background:#fbfcfc}
+#ctrl-d details.ci>summary{cursor:pointer;font-size:15px}
+#ctrl-d .cbad{margin-left:8px;background:#fde8e8;color:#b91c1c;border-radius:10px;padding:1px 8px;font-size:13px;font-weight:700}
+#ctrl-d .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}#ctrl-d .cw{grid-column:1/-1}
+#ctrl-d label{display:block;font-size:13px;color:#5b6d75}#ctrl-d label input,#ctrl-d label select,#ctrl-d label textarea,#ctrl-d .cnote{width:100%;box-sizing:border-box;font-size:16px;padding:7px;margin-top:2px}
+#ctrl-d .cnote{margin:2px 0 6px}#ctrl-d .cadd{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -2019,6 +2034,7 @@ function nuovaScheda(a){
   (r.o || []).forEach(o => { w.ops[o.id] = {fatta:false, nota:''}; });
   // analisi di combustione preparata per gli apparecchi con "analisi fumi" da fare
   (r.o || []).filter(o => o.f && o.a && /(\.AF$|ANALISI FUMI)/i.test(o.c + ' ' + o.d)).forEach(o => { w.analisi[o.a] = {}; });
+  try { ctrlDaOperazioni(w, r); } catch(e) {}
   return w;
 }
 function apriScheda(a){
@@ -2553,6 +2569,7 @@ function disegnaScheda(){
     <details class="passo rcee-blocco" id="mat-d"${matApr[ptKey()] !== false ? ' open' : ''}><summary><h2>Materiali</h2><span class="aiuto">Cerca, scansiona o detta quello che hai usato</span></summary>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
       <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></details>
     ${sezioneImporti()}
+    ${ctrlHtml(w)}
     <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
       <div id="foto-lista"></div>
       <div class="azioni" style="margin:8px 0"><button class="btn" type="button" data-foto-scatta>Scatta una foto</button><button class="btn sec" type="button" data-foto-galleria>Dalla galleria</button></div>
@@ -2701,7 +2718,7 @@ function salvaBozza(mantieniPannello){
 
 /* ---- gestione dei campi (un solo ascoltatore) ---- */
 function collegaForm(){
-  const f = $('#form');
+  const f = $('#form'); try { collegaCtrl(); } catch(e) {}
   f.addEventListener('input', e => {
     const t = e.target, d = t.dataset;
     if (d.k) { lavoro[d.k] = t.value; if (d.k === 'km') { const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario(); } const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
@@ -3017,6 +3034,239 @@ function nomePdf(w){
   const s = (w.cliente || 'intervento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
   return `Rapporto_${s}_${w.data || isoGiorno(new Date())}.pdf`;
 }
+/* ==================================================================
+   CONTROLLI E VERIFICHE (motore generico dei moduli di controllo)
+   Ogni modulo e' solo un elenco di dati: gestione (voci generali), tipi di apparecchio e voci da controllare per tipo.
+   Il primo modulo e' il «Controllo rete idranti» (UNI 10779 · UNI EN 671/3). Per aggiungerne un altro basta aggiungere una voce qui sotto.
+   Nell'intervento: lavoro.ctrl = [{id, mod, idr:[{id, tipo, matr, pos, es:{voce:'ko'|'na'}, nota}], gest:{voce:{e:'ko', n}}, note, prossimo}]
+   Quello che non e' toccato vale «positivo»: il tecnico segna solo le eccezioni.
+   ================================================================== */
+const MODULI_CTRL = {
+  idranti: {
+    parole: /idrant|naspo|naspi|rete antincendio/i, nome: 'Controllo rete idranti', rif: 'UNI 10779:2014 · UNI EN 671/3:2009', app: 'idrante', apps: 'idranti',
+    gest: [['registro', 'Registro antincendio', 'Presente, regolarmente compilato'], ['centralina', 'Centralina antincendio', 'Correttamente funzionante, nessuna segnalazione o guasto, presidiata'],
+      ['attrezzatura', 'Attrezzatura addetti al servizio', 'Progetto presente, conformità, manuali d\'uso e manutenzione, chiavi dei locali facilmente reperibili'],
+      ['valvole', 'Valvole di intercettazione', 'Segnalate, pozzetti apribili e segnalati'], ['autopompa', 'Attacco autopompa', 'Accessibile, segnalato']],
+    voci: {cassetta: ['Integrità cassetta', 'Cassetta'], manichetta: ['Manichetta / naspo', 'Manich.'], lancia: ['Lancia', 'Lancia'], sella: ['Sella', 'Sella'], rubinetto: ['Rubinetto', 'Rubin.'], lastra: ['Lastra', 'Lastra'],
+      raccordi: ['Raccordi collegati', 'Raccordi'], cartello: ['Cartello di segnalazione', 'Cartello'], cartellino: ['Cartellino di manutenzione', 'Cartell.manut.'], sigillo: ['Sigillo', 'Sigillo'],
+      chiave: ['Chiave di manovra', 'Chiave'], tappi: ['Tappi di protezione', 'Tappi'], collo: ['Collo di cigno', 'Collo cigno'], pozzetto: ['Coperchio pozzetto', 'Pozzetto']},
+    tipi: [['muro45', 'Idrante a muro UNI 45', 'UNI 45', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'lastra', 'raccordi', 'cartello', 'cartellino', 'sigillo']],
+      ['muro70', 'Idrante a muro UNI 70', 'UNI 70', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'lastra', 'raccordi', 'cartello', 'cartellino', 'sigillo']],
+      ['naspo25', 'Naspo a muro UNI 25', 'Naspo 25', ['cassetta', 'manichetta', 'lancia', 'rubinetto', 'lastra', 'raccordi', 'cartello', 'cartellino', 'sigillo']],
+      ['sopra', 'Idrante sopra suolo', 'Sopra suolo', ['rubinetto', 'raccordi', 'cartello', 'cartellino', 'sigillo', 'chiave', 'tappi', 'collo']],
+      ['sotto', 'Idrante sotto suolo', 'Sotto suolo', ['rubinetto', 'cartello', 'cartellino', 'chiave', 'tappi', 'collo', 'pozzetto']]]
+  }
+};
+const ctrlApr = {};
+const ctrlId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const ctrlTipo = (m, k) => m.tipi.find(t => t[0] === k) || m.tipi[0];
+function ctrlNegativi(m, c){            // elenco dei negativi: gestione e apparecchi
+  const g = m.gest.filter(x => c.gest && c.gest[x[0]] && c.gest[x[0]].e === 'ko').map(x => ({v: x[1], n: c.gest[x[0]].n || ''}));
+  const a = (c.idr || []).map(i => ({i, ko: ctrlTipo(m, i.tipo)[3].filter(v => (i.es || {})[v] === 'ko').map(v => m.voci[v][0])})).filter(x => x.ko.length);
+  return {g, a};
+}
+function ctrlSomm(w){
+  const l = w.ctrl || []; if (!l.length) return 'Rete idranti e altri controlli';
+  return l.map(c => { const m = MODULI_CTRL[c.mod]; if (!m) return ''; const n = ctrlNegativi(m, c), k = n.g.length + n.a.reduce((s, x) => s + x.ko.length, 0);
+    return m.nome + ': ' + (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ', tutto positivo'); }).filter(Boolean).join(' · ');
+}
+const ctrlSt = (att, v, d, extra) => `<button type="button" class="cs ${v}${att === v ? ' su' : ''}" data-cs="${esc(d)}" data-v="${v}" aria-pressed="${att === v}" aria-label="${v === 'ok' ? 'Positivo' : v === 'ko' ? 'Negativo' : 'Non applicabile'}">${v === 'ok' ? '✓' : v === 'ko' ? '✕' : 'n.a.'}</button>`;
+function ctrlCard(m, c, i){
+  const t = ctrlTipo(m, i.tipo), ko = t[3].filter(v => (i.es || {})[v] === 'ko').length, k = c.id + '|' + i.id;
+  const apr = ctrlApr[k] === true;
+  return `<details class="ci" data-ck="${esc(k)}"${apr ? ' open' : ''}><summary><b>${esc(t[2])}</b> · n. ${esc(i.matr || '—')}${i.pos ? ' · ' + esc(i.pos) : ''}${ko ? `<span class="cbad">${ko} ✕</span>` : ''}</summary>
+    <div class="cgrid"><label>Tipo<select data-ci="${esc(k)}" data-f="tipo">${m.tipi.map(x => `<option value="${x[0]}"${x[0] === i.tipo ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}</select></label>
+    <label>Matricola / n.<input type="text" data-ci="${esc(k)}" data-f="matr" value="${esc(i.matr || '')}" autocomplete="off"></label>
+    <label class="cw">Posizione<input type="text" data-ci="${esc(k)}" data-f="pos" value="${esc(i.pos || '')}" placeholder="Per esempio: scala B, piano 1" autocomplete="off"></label></div>
+    ${t[3].map(v => `<div class="cv"><span>${esc(m.voci[v][0])}</span><span class="cb">${['ok', 'ko', 'na'].map(s => ctrlSt((i.es || {})[v] || 'ok', s, k + '|' + v)).join('')}</span></div>`).join('')}
+    ${ko ? `<label class="cw">Cosa non va<textarea data-ci="${esc(k)}" data-f="nota" rows="2" placeholder="Per esempio: manichetta con taglio, da sostituire">${esc(i.nota || '')}</textarea></label>
+    <div class="cadd"><button type="button" class="btn piccolo" data-cfs="${esc(k)}">Scatta una foto</button><button type="button" class="btn sec piccolo" data-cfg="${esc(k)}">Dalla galleria</button>${i.nf ? `<span class="aiuto" style="align-self:center">${i.nf} foto</span>` : ''}</div>
+    <input type="file" accept="image/*" capture="environment" hidden data-cfoto="${esc(k)}" data-cam="1"><input type="file" accept="image/*" multiple hidden data-cfoto="${esc(k)}">` : ''}
+    ${i.qr ? `<p class="aiuto" style="margin:6px 0 0">Letto col QR alle ${esc(i.qr)}</p>` : ''}
+    <div class="cadd"><button type="button" class="btn sec piccolo" data-cqr="${esc(k)}">Etichetta QR</button><button type="button" class="btn chiaro piccolo" data-cdel-i="${esc(k)}">Togli questo ${m.app}</button></div></details>`;
+}
+function ctrlBloccoUno(c){
+  const m = MODULI_CTRL[c.mod]; if (!m) return '';
+  c.gest = c.gest || {}; c.idr = c.idr || [];
+  return `<div class="cm" data-cm="${esc(c.id)}"><div class="cmt"><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small></div>
+    <p class="aiuto" style="margin:6px 0 4px">Gestione · tocca ✕ solo dove c'è un problema</p>
+    ${m.gest.map(g => { const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b><small>${esc(g[2])}</small></span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va" autocomplete="off">` : ''}`; }).join('')}
+    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>
+    ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
+    <div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>
+    <div class="cadd">${m.tipi.map(t => `<button type="button" class="btn sec piccolo" data-cadd="${esc(c.id + '|' + t[0])}">+ ${esc(t[2])}</button>`).join('')}</div>
+    <label class="cw" style="display:block;margin-top:10px">Note<textarea data-cn="${esc(c.id)}" data-f="note" rows="2">${esc(c.note || '')}</textarea></label>
+    <label class="cw" style="display:block;margin-top:8px;max-width:220px">Prossimo controllo<input type="date" data-cn="${esc(c.id)}" data-f="prossimo" value="${esc(c.prossimo || '')}"></label>
+    <button type="button" class="btn chiaro piccolo" data-cdel="${esc(c.id)}" style="margin-top:10px">Togli questo controllo</button></div>`;
+}
+function ctrlHtml(w){
+  const l = w.ctrl || [];
+  return `<details class="passo rcee-blocco" id="ctrl-d" data-ck0="1"${ctrlApr[w.id] === true ? ' open' : ''}><summary><h2>Controlli e verifiche</h2><span class="aiuto" id="ctrl-sum">${esc(ctrlSomm(w))}</span></summary>
+    <div id="ctrl-box">${l.map(ctrlBloccoUno).join('')}</div>
+    <div class="cadd">${Object.keys(MODULI_CTRL).map(k => `<button type="button" class="btn sec piccolo" data-cnew="${k}">Aggiungi: ${esc(MODULI_CTRL[k].nome)}</button>`).join('')}</div></details>`;
+}
+function ctrlRidisegna(){ const b = $('#ctrl-box'); if (!b) return; b.innerHTML = (lavoro.ctrl || []).map(ctrlBloccoUno).join(''); const s = $('#ctrl-sum'); if (s) s.textContent = ctrlSomm(lavoro); }
+function ctrlTrova(k){ const q = k.split('|'); const c = (lavoro.ctrl || []).find(x => x.id === q[0]); return c ? {c, i: q[1] && q[1] !== 'G' ? (c.idr || []).find(x => x.id === q[1]) : null, q} : null; }
+function collegaCtrl(){
+  const d = $('#form'); if (!d) return;       // il modulo si ridisegna a ogni intervento: gli ascoltatori stanno sul contenitore fisso
+  d.addEventListener('toggle', e => { if (e.target.id === 'ctrl-d') ctrlApr[lavoro.id] = e.target.open; else if (e.target.dataset && e.target.dataset.ck) ctrlApr[e.target.dataset.ck] = e.target.open; }, true);
+  d.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !b.closest('#ctrl-d')) return;
+    if (b.dataset.cnew) { const m = MODULI_CTRL[b.dataset.cnew]; (lavoro.ctrl = lavoro.ctrl || []).push({id: ctrlId(), mod: b.dataset.cnew, idr: [], gest: {}, note: '', prossimo: ''}); ctrlApr[lavoro.id] = true; ctrlRidisegna(); bozzaModificata(); }
+    else if (b.dataset.cadd) { const q = b.dataset.cadd.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (!c) return; const n = {id: ctrlId(), tipo: q[1], matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); }
+    else if (b.dataset.cs) { const t = ctrlTrova(b.dataset.cs), v = b.dataset.v; if (!t) return;
+      if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; if (v === 'ok') delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: 'ko', n: (t.c.gest[t.q[2]] || {}).n || ''}; }
+      else if (t.i) { t.i.es = t.i.es || {}; if (v === 'ok') delete t.i.es[t.q[2]]; else t.i.es[t.q[2]] = v; }
+      ctrlRidisegna(); bozzaModificata(); }
+    else if (b.dataset.cscan) { ctrlQrDest = b.dataset.cscan; scanCn = false; scanApri(); }
+    else if (b.dataset.cfoglio) ctrlFoglioEtichette(b.dataset.cfoglio);
+    else if (b.dataset.cqr) ctrlMostraEtichetta(b.dataset.cqr);
+    else if (b.dataset.cfs) { const x = b.closest('details').querySelector('input[data-cam]'); if (x) x.click(); }
+    else if (b.dataset.cfg) { const x = b.closest('details').querySelector('input[data-cfoto]:not([data-cam])'); if (x) x.click(); }
+    else if (b.dataset.cdelI) { const t = ctrlTrova(b.dataset.cdelI); if (t && t.i && confirm('Togliere questo apparecchio dal controllo?')) { t.c.idr = t.c.idr.filter(x => x !== t.i); ctrlRidisegna(); bozzaModificata(); } }
+    else if (b.dataset.cdel) { if (confirm('Togliere tutto questo controllo?')) { lavoro.ctrl = (lavoro.ctrl || []).filter(x => x.id !== b.dataset.cdel); ctrlRidisegna(); bozzaModificata(); } }
+  });
+  const agg = e => { const t = e.target, ds = t.dataset || {}; if (!t.closest || !t.closest('#ctrl-d')) return;
+    if (ds.cfoto) { const fl = [...(t.files || [])]; t.value = ''; if (fl.length) ctrlFoto(ds.cfoto, fl); return; }
+    if (ds.ci) { const q = ctrlTrova(ds.ci); if (!q || !q.i) return; q.i[ds.f] = t.value; if (ds.f === 'tipo' || ds.f === 'matr' || ds.f === 'pos') { if (e.type === 'change') ctrlRidisegna(); else { const s = t.closest('details').querySelector('summary b'); } } bozzaModificata(); }
+    else if (ds.cg) { const q = ds.cg.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c && c.gest && c.gest[q[1]]) { c.gest[q[1]].n = t.value; bozzaModificata(); } }
+    else if (ds.cn) { const c = (lavoro.ctrl || []).find(x => x.id === ds.cn); if (c) { c[ds.f] = t.value; bozzaModificata(); } } };
+  d.addEventListener('input', agg); d.addEventListener('change', agg);
+}
+function ctrlUfficioHtml(r){
+  return (r.ctrl || []).map(c => { const n = c.neg || {g: [], a: []}, k = n.g.length + n.a.length;
+    return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.n} ${c.n === 1 ? 'apparecchio' : 'apparecchi'} · ${k ? '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : 'tutto positivo'}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
+      (k ? '<ul style="margin:0;padding-left:20px">' + n.g.map(x => `<li>Gestione · ${esc(x.v)}${x.n ? ' — ' + esc(x.n) : ''}</li>`).join('') + n.a.map(x => `<li>${esc(x.t)} n. ${esc(x.matr || '—')}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${esc(x.v.join(', '))}${x.nota ? ' — ' + esc(x.nota) : ''}</li>`).join('') + '</ul>' : ''); }).join('');
+}
+/* ---- QR sugli apparecchi: etichetta, lettura, foto sugli esiti negativi ---- */
+let ctrlQrDest = '';            // controllo che sta ricevendo gli apparecchi letti col QR
+async function ctrlQrLib(){ if (window.qrcode) return; await caricaScript(['qrcode.js']); if (window.qrcode && qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8']; }
+const ctrlImpId = w => String((w.r && w.r.i && w.r.i.id) || '');
+const ctrlQrTesto = (w, c, i) => ['ASS1', 'IDR', i.tipo, String(i.matr || '').replace(/\|/g, '/'), String(i.pos || '').replace(/\|/g, '/'), ctrlImpId(w)].join('|');
+function ctrlRighe(x, testo, larg){ const out = []; let r = ''; String(testo).split(/\s+/).forEach(p => { const t = r ? r + ' ' + p : p; if (x.measureText(t).width > larg && r) { out.push(r); r = p; } else r = t; }); if (r) out.push(r); return out; }
+function ctrlEtichetta(w, c, i){
+  const m = MODULI_CTRL[c.mod], t = ctrlTipo(m, i.tipo), q = qrcode(0, 'M'); q.addData(ctrlQrTesto(w, c, i), 'Byte'); q.make();
+  const n = q.getModuleCount(), px = Math.max(2, Math.floor(300 / (n + 8))), cv = document.createElement('canvas'); cv.width = 600; cv.height = 360;
+  const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 600, 360); x.strokeStyle = '#000'; x.lineWidth = 3; x.strokeRect(3, 3, 594, 354);
+  const ox = 20 + Math.floor((310 - px * (n + 8)) / 2) + 4 * px, oy = 30 + 4 * px; x.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect(ox + k * px, oy + r * px, px, px);
+  x.textBaseline = 'top'; const X = 340, L = 240; let y = 28;
+  x.font = 'bold 34px Arial, sans-serif'; ctrlRighe(x, t[1], L).slice(0, 2).forEach(r => { x.fillText(r, X, y); y += 38; });
+  y += 4; x.font = 'bold 50px Arial, sans-serif'; ctrlRighe(x, 'n. ' + (i.matr || '—'), L).slice(0, 1).forEach(r => { x.fillText(r, X, y, L); y += 56; });
+  x.font = '28px Arial, sans-serif'; ctrlRighe(x, i.pos || '', L).slice(0, 3).forEach(r => { x.fillText(r, X, y); y += 33; });
+  x.fillStyle = '#333'; x.font = '22px Arial, sans-serif'; const az = impostazioni.azienda || '';
+  x.fillText(m.nome, X, 288, L); if (az) { x.font = 'bold 22px Arial, sans-serif'; x.fillText(az, X, 316, L); }
+  return cv;
+}
+const cvBlob = cv => new Promise(ok => cv.toBlob(ok, 'image/png'));
+async function ctrlMostraEtichetta(k){
+  const t = ctrlTrova(k); if (!t || !t.i) return;
+  if (!t.i.matr) { alert('Scrivi prima la matricola (o un numero) dell\'apparecchio: serve per riconoscerlo.'); return; }
+  try { await ctrlQrLib(); } catch(e) { alert('La libreria dei QR non si è ancora caricata: serve la connessione una volta sola.'); return; }
+  const cv = ctrlEtichetta(lavoro, t.c, t.i), blob = await cvBlob(cv), nome = 'Etichetta_' + String(t.i.matr).replace(/[^A-Za-z0-9]+/g, '_') + '.png';
+  let ov = $('#ctrl-qr'); if (ov) ov.remove(); ov = document.createElement('div'); ov.id = 'ctrl-qr';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = `<div style="background:#fff;border-radius:12px;padding:14px;max-width:420px;width:100%"><img alt="Etichetta con QR" src="${cv.toDataURL('image/png')}" style="width:100%;border:1px dashed #999"><p class="aiuto" style="margin:8px 0">Etichetta da 50 × 30 mm. Stampala (anche dal PDF con tutte le etichette) e attaccala all'apparecchio: la prossima volta basta inquadrarla.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn" type="button" id="cq-salva">Salva l'immagine</button><button class="btn sec" type="button" id="cq-cond">Condividi</button><button class="btn chiaro" type="button" id="cq-chiudi">Chiudi</button></div></div>`;
+  document.body.appendChild(ov);
+  $('#cq-chiudi').onclick = () => ov.remove(); $('#cq-salva').onclick = () => scaricaBlob(blob, nome);
+  $('#cq-cond').onclick = async () => { try { const f = new File([blob], nome, {type: 'image/png'}); if (navigator.canShare && navigator.canShare({files: [f]})) await navigator.share({files: [f]}); else scaricaBlob(blob, nome); } catch(e) {} };
+}
+async function ctrlFoglioEtichette(cid){
+  const c = (lavoro.ctrl || []).find(x => x.id === cid); if (!c) return; const l = (c.idr || []).filter(i => i.matr);
+  if (!l.length) { alert('Aggiungi gli apparecchi (con la matricola) e poi crea le etichette.'); return; }
+  try { await ctrlQrLib(); } catch(e) { alert('La libreria dei QR non si è ancora caricata: serve la connessione una volta sola.'); return; }
+  const { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', compress: true}), LW = 50, LH = 30, X0 = 5, Y0 = 13.5;
+  l.forEach((i, n) => { if (n && n % 36 === 0) doc.addPage(); const p = n % 36; doc.addImage(ctrlEtichetta(lavoro, c, i).toDataURL('image/png'), 'PNG', X0 + (p % 4) * LW, Y0 + Math.floor(p / 4) * LH, LW, LH); });
+  scaricaBlob(doc.output('blob'), 'Etichette_QR_' + String(lavoro.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30) + '.pdf');
+}
+function ctrlDaQr(testo){          // ASS1|IDR|tipo|matricola|posizione|impianto
+  const p = String(testo).split('|'); const c = (lavoro.ctrl || []).find(x => x.id === ctrlQrDest) || (lavoro.ctrl || []).find(x => x.mod === 'idranti');
+  if (!c) { scanMsg('Aggiungi prima il controllo della rete idranti, poi inquadra il QR.', true); return; }
+  const m = MODULI_CTRL[c.mod], tipo = m.tipi.some(t => t[0] === p[2]) ? p[2] : m.tipi[0][0], imp = ctrlImpId(lavoro);
+  if (p[5] && imp && p[5] !== imp && !confirm('Questo QR appartiene a un altro impianto. Lo aggiungo lo stesso a questo controllo?')) return;
+  const ora = hhmm(new Date()), ex = c.idr.find(i => i.tipo === tipo && i.matr === p[3]);
+  if (ex) { ex.qr = ora; ctrlApr[c.id + '|' + ex.id] = true; scanMsg('Già nella lista: ' + ctrlTipo(m, tipo)[2] + ' n. ' + p[3] + '. Inquadra il prossimo o tocca Chiudi.'); }
+  else { const n = {id: ctrlId(), tipo, matr: p[3] || '', pos: p[4] || '', es: {}, nota: '', qr: ora}; c.idr.push(n); scanMsg('Aggiunto: ' + ctrlTipo(m, tipo)[2] + ' n. ' + n.matr + (n.pos ? ' (' + n.pos + ')' : '') + '. Inquadra il prossimo o tocca Chiudi.'); }
+  ctrlRidisegna(); bozzaModificata();
+  const ult = scanUltimo; setTimeout(() => { if (scanUltimo === ult) scanUltimo = ''; }, 2500);
+  if (!scanAttivo && scanModoFoto) { const f = $('#scan-foto'); if (f) { try { f.click(); } catch(e) {} } }
+}
+async function ctrlFoto(k, files){
+  const t = ctrlTrova(k); if (!t || !t.i) return; const m = MODULI_CTRL[t.c.mod], tp = ctrlTipo(m, t.i.tipo);
+  const kos = tp[3].filter(v => (t.i.es || {})[v] === 'ko').map(v => m.voci[v][0]).join(', ');
+  lavoro.foto = lavoro.foto || []; let fatte = 0;
+  for (const f of [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|webp)$/i.test(f.name))) {
+    if (lavoro.foto.length >= FOTO_MAX_NUMERO) { alert('Puoi aggiungere al massimo ' + FOTO_MAX_NUMERO + ' foto per intervento.'); break; }
+    try { const r = await elaboraImmagine(f), id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      await scriviFoto(chiaveFoto(lavoro.id, id), {tipo: 'image/jpeg', dati: r.dati, w: r.w, h: r.h});
+      lavoro.foto.push({id, commento: tp[2] + ' n. ' + (t.i.matr || '—') + (kos ? ': ' + kos : ''), thumb: r.thumb, w: r.w, h: r.h}); t.i.nf = (t.i.nf || 0) + 1; fatte++; }
+    catch(e) { alert('Non sono riuscito a leggere la foto (' + e.message + ').'); }
+  }
+  if (fatte) { disegnaFoto(); ctrlRidisegna(); bozzaModificata(); mostraAvviso(fatte === 1 ? 'Foto aggiunta (la trovi anche nella sezione Foto).' : fatte + ' foto aggiunte.'); }
+}
+function ctrlDaOperazioni(w, r){          // le operazioni pianificate di questa visita (da Levante) aprono il modulo giusto, come l'analisi fumi
+  (r.o || []).filter(o => o.f).forEach(o => Object.keys(MODULI_CTRL).forEach(k => { const m = MODULI_CTRL[k];
+    if (m.parole && m.parole.test(o.c + ' ' + o.d) && !(w.ctrl || []).some(c => c.mod === k)) { (w.ctrl = w.ctrl || []).push({id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: '', da: o.d}); ctrlApr[w.id] = true; } }));
+}
+function ctrlDati(w){ return (w.ctrl || []).filter(c => MODULI_CTRL[c.mod]).map(c => { const m = MODULI_CTRL[c.mod], n = ctrlNegativi(m, c);
+  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo)[2], matr: x.i.matr || '', pos: x.i.pos || '', v: x.ko, nota: x.i.nota || ''}))}}; }); }
+function nomePdfCtrl(w, c){ const m = MODULI_CTRL[c.mod]; const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+  return `Controllo_${c.mod === 'idranti' ? 'Idranti' : c.mod}_${s}_${w.data || isoGiorno(new Date())}.pdf`; }
+function costruisciPdfCtrl(w, c){
+  const m = MODULI_CTRL[c.mod], { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', orientation: 'landscape', compress: true});
+  const M = 10, W = 297, H = 210, INK = [20, 35, 43], GR = [91, 109, 117], PET = [14, 90, 107], ROSSO = [185, 28, 28];
+  const col = x => doc.setTextColor(x[0], x[1], x[2]);
+  const az = impostazioni.azienda || (datiReali && datiReali.azienda && datiReali.azienda.RAGIONESOCIALE) || '';
+  let y = M, pag = 1;
+  const testa = () => { doc.setFont('helvetica', 'bold'); doc.setFontSize(14); col(INK); doc.text(az || m.nome, M, y + 5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); col(GR); doc.text(m.nome + ' · ' + m.rif, W - M, y + 5, {align: 'right'}); y += 8; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.5); doc.line(M, y, W - M, y); y += 4; };
+  const piede = () => { doc.setFontSize(7.5); col(GR); doc.text(az + (impostazioni.aziendaTel ? ' · ' + impostazioni.aziendaTel : ''), M, H - 5); doc.text('Pag. ' + pag, W - M, H - 5, {align: 'right'}); };
+  const nuova = () => { piede(); doc.addPage(); pag++; y = M; testa(); };
+  testa();
+  doc.setFontSize(10); col(INK);
+  [['Cliente', w.cliente], ['Indirizzo', w.indirizzo], ['Data', dataIT(w.data)], ['Tecnico', w.tecnico]].forEach((r, n) => { const x = M + (n % 2) * 140, yy = y + Math.floor(n / 2) * 6;
+    doc.setFont('helvetica', 'normal'); col(GR); doc.setFontSize(8); doc.text(r[0], x, yy + 3); doc.setFontSize(10); col(INK); doc.setFont('helvetica', 'bold'); doc.text(String(r[1] || ''), x + 18, yy + 3.2); });
+  y += 14;
+  /* gestione */
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('GESTIONE', M, y + 3); y += 5;
+  m.gest.forEach(g => { const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko'; if (y > H - 20) nuova();
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(doc.splitTextToSize(g[2], 120)[0], M + 62, y + 3.4);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(ko ? ROSSO : INK); doc.text(ko ? 'NEGATIVO' : 'POSITIVO', W - M - 70, y + 3.4);
+    if (ko && c.gest[g[0]].n) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text(doc.splitTextToSize(c.gest[g[0]].n, 45)[0], W - M - 50, y + 3.4); }
+    doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 5, W - M, y + 5); y += 5.6; });
+  y += 4;
+  /* matrice apparecchi x controlli */
+  const chv = Object.keys(m.voci), cw1 = 62, cw = (W - 2 * M - cw1) / chv.length, HT = 24;
+  const testaM = () => { doc.setFillColor(238, 242, 243); doc.rect(M, y, W - 2 * M, HT, 'F'); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); col(INK); doc.text(m.apps[0].toUpperCase() + m.apps.slice(1).toLowerCase(), M + 1.5, y + HT - 2);
+    chv.forEach((v, n) => doc.text(m.voci[v][1], M + cw1 + n * cw + cw / 2 + 1.2, y + HT - 2, {angle: 90})); y += HT; };
+  if (y + HT + 12 > H - 12) nuova();
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text(m.apps.toUpperCase() + ' (' + (c.idr || []).length + ')', M, y + 3); y += 5; testaM();
+  (c.idr || []).forEach(i => { const t = ctrlTipo(m, i.tipo); if (y + 7 > H - 12) { nuova(); testaM(); }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); col(INK); doc.text(t[2] + ' · n. ' + (i.matr || '—'), M + 1.5, y + 3); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(doc.splitTextToSize(i.pos || '', cw1 - 3)[0] || '', M + 1.5, y + 6.2);
+    chv.forEach((v, n) => { const cx = M + cw1 + n * cw + cw / 2; let s = '·', cl = [170, 180, 184]; if (t[3].indexOf(v) >= 0) { const e = (i.es || {})[v] || 'ok'; s = e === 'ok' ? 'OK' : e === 'ko' ? 'NEG' : 'n.a.'; cl = e === 'ko' ? ROSSO : e === 'na' ? GR : INK; }
+      doc.setFont('helvetica', s === 'NEG' ? 'bold' : 'normal'); doc.setFontSize(7.5); col(cl); doc.text(s, cx, y + 4.6, {align: 'center'}); });
+    doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 7.4, W - M, y + 7.4); y += 7.6; });
+  /* negativi */
+  const ng = ctrlNegativi(m, c);
+  if (ng.a.length || ng.g.length) {
+    if (y + 20 > H - 12) nuova(); y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(ROSSO); doc.text('ESITI NEGATIVI', M, y + 3); y += 6;
+    const riga = (tit, txt) => { const ls = doc.splitTextToSize(txt, W - 2 * M - 70); if (y + ls.length * 4 + 2 > H - 12) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(doc.splitTextToSize(tit, 66), M + 1, y + 3.2); doc.setFont('helvetica', 'normal'); doc.text(ls, M + 70, y + 3.2); y += Math.max(5, ls.length * 4) + 1.5; };
+    ng.g.forEach(x => riga('Gestione · ' + x.v, x.n || 'Negativo'));
+    ng.a.forEach(x => riga(ctrlTipo(m, x.i.tipo)[2] + ' n. ' + (x.i.matr || '—') + (x.i.pos ? ' · ' + x.i.pos : ''), x.ko.join(', ') + (x.i.nota ? ' — ' + x.i.nota : '')));
+  }
+  if (c.note || c.prossimo) { if (y + 24 > H - 12) nuova(); y += 4;
+    if (c.note) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('NOTE', M, y + 3); y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); col(INK); const ls = doc.splitTextToSize(c.note, W - 2 * M); ls.forEach(r => { if (y > H - 14) nuova(); doc.text(r, M, y + 3); y += 4.4; }); y += 2; }
+    if (c.prossimo) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(INK); doc.text('Prossimo controllo: ' + dataIT(c.prossimo), M, y + 3); y += 6; } }
+  /* firme */
+  if (y + 30 > H - 12) nuova(); y += 4; doc.setDrawColor(GR[0], GR[1], GR[2]); doc.setLineWidth(0.3);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); col(GR); doc.text('Il tecnico' + (w.tecnico ? ': ' + w.tecnico : ''), M, y + 3); doc.text('Per il cliente' + (w.firmaNome ? ': ' + w.firmaNome : ''), M + 140, y + 3);
+  try { if (impostazioni.firmaTecnico) doc.addImage(impostazioni.firmaTecnico, 'PNG', M, y + 4, 40, 16); } catch(e) {}
+  try { if (w.firma) doc.addImage(w.firma, 'PNG', M + 140, y + 4, 40, 16); } catch(e) {}
+  doc.line(M, y + 22, M + 80, y + 22); doc.line(M + 140, y + 22, M + 220, y + 22);
+  piede();
+  return doc.output('blob');
+}
 function creaPdf(){
   if (!window.jspdf) { alert('La libreria per creare il PDF non si è caricata. Controlla la connessione e riprova.'); return; }
   clearTimeout(timer); timer = null;
@@ -3031,6 +3281,7 @@ function creaPdf(){
   }
   registraMatUsati(lavoro.materiali);
   const files = [{blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda}), nome: nomePdf(lavoro), titolo: 'Rapportino'}];
+  (lavoro.ctrl || []).forEach(c => { if (!MODULI_CTRL[c.mod]) return; try { files.push({blob: costruisciPdfCtrl(lavoro, c), nome: nomePdfCtrl(lavoro, c), titolo: MODULI_CTRL[c.mod].nome}); } catch(e) { alert('Non sono riuscito a creare il PDF «' + MODULI_CTRL[c.mod].nome + '»: ' + e.message); } });
   ultimoPdfCliente = {blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda, perCliente: true}), nome: nomePdf(lavoro)};
   destInvio = 'uff';
   if (haRcee(lavoro)) {
@@ -6267,11 +6518,11 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.66.2 (30/10/2026)';
+const VERSIONE_APP = '1.68.0 (31/10/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
-const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js'];
+const FILE_OFFLINE = ['index.html', 'manifest.webmanifest', 'icona-192.png', 'icona-512.png', 'icona-maskable-512.png', 'apple-touch-icon.png', 'jspdf.umd.min.js', 'pdf.min.js', 'pdf.worker.min.js', 'pdf-lib.min.js', 'zxing.min.js', 'pako.min.js', 'qrcode.js'];
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); richiestaInstalla = e; aggiornaStatoApp(); });
 window.addEventListener('appinstalled', () => { richiestaInstalla = null; aggiornaStatoApp(); });
 function inLocaleSicuro(){ return location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); }
@@ -6674,6 +6925,7 @@ function scanConferma(chiudi){
   scanApri();
 }
 function scanRisultato(testo){
+  if (/^ASS1\|IDR\|/.test(testo) && lavoro) { scanPre = ''; ctrlDaQr(testo); return; }
   const a = cercaBarre(testo);
   scanPre = '';
   if (a && (lavoro || (scanCn && regCorr))) { scanProponi(a, testo); return; }
@@ -7136,7 +7388,7 @@ function datiIntervento(w, pdf){
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     importi: impPerUfficio(w),
-    ric: w.ric || undefined, voce: vocDati('int:' + w.id),
+    ric: w.ric || undefined, voce: vocDati('int:' + w.id), ctrl: (w.ctrl || []).length ? ctrlDati(w) : undefined,
     portato: (w.portato || []).filter(pp => ptResto(w, pp) > 0 || !qNum(pp.qta) && !portatoUsato(w, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(w, pp)) : (pp.qta || ''), um: pp.um || ''})),
     file: pdf || [], inviato: Date.now()};
 }
@@ -7294,6 +7546,7 @@ function disegnaPosta(){
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${vocLettore(r)}${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
       ${conTab ? '' : mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
+      ${ctrlUfficioHtml(r)}
       ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc(((pp.qta || '') + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
       <p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
