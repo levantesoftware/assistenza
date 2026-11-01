@@ -3138,7 +3138,7 @@ function ctrlBloccoUno(c){
   c.gest = c.gest || {}; c.idr = c.idr || [];
   return `<div class="cm" data-cm="${esc(c.id)}"><div class="cmt"><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small></div>
     <p class="aiuto" style="margin:6px 0 4px">Gestione · tocca ✕ solo dove c'è un problema</p>
-    ${m.gest.map(g => { const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b><small>${esc(g[2])}</small></span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va" autocomplete="off">` : ''}`; }).join('')}
+    ${m.gest.map(g => { const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
     <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     <div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>
@@ -3279,11 +3279,14 @@ function costruisciPdfCtrl(w, c){
   y += 14;
   /* gestione */
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('GESTIONE', M, y + 3); y += 5;
-  m.gest.forEach(g => { const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko'; if (y > H - 20) nuova();
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(doc.splitTextToSize(g[2], 120)[0], M + 62, y + 3.4);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(ko ? ROSSO : INK); doc.text(ko ? 'NEGATIVO' : 'POSITIVO', W - M - 70, y + 3.4);
-    if (ko && c.gest[g[0]].n) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text(doc.splitTextToSize(c.gest[g[0]].n, 45)[0], W - M - 50, y + 3.4); }
-    doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 5, W - M, y + 5); y += 5.6; });
+  m.gest.forEach(g => { const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko';
+    /* positivo: la descrizione in grigio; negativo: al suo posto la spiegazione del problema (in rosso) */
+    const testo = ko ? (c.gest[g[0]].n || 'Negativo, nessuna spiegazione scritta') : g[2], righe = doc.splitTextToSize(testo, 175).slice(0, 4), alt = Math.max(5.6, righe.length * 3.7 + 2);
+    if (y + alt > H - 20) nuova();
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4);
+    doc.setFont('helvetica', ko ? 'bold' : 'normal'); doc.setFontSize(ko ? 8 : 7.5); col(ko ? ROSSO : GR); doc.text(righe, M + 62, y + 3.4);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(ko ? ROSSO : INK); doc.text(ko ? 'NEGATIVO' : 'POSITIVO', W - M - 2, y + 3.4, {align: 'right'});
+    doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + alt - 0.6, W - M, y + alt - 0.6); y += alt; });
   y += 4;
   /* matrice apparecchi x controlli */
   const chv = Object.keys(m.voci), cw1 = 62, cw = (W - 2 * M - cw1) / chv.length, HT = 24;
@@ -6579,7 +6582,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.69.3 (31/10/2026)';
+const VERSIONE_APP = '1.69.4 (01/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
