@@ -240,6 +240,7 @@ details.rcee-blocco[open]>summary{margin-bottom:6px}
 input[type=text],input[type=email],input[type=date],input[type=time],input[type=number],input[type=tel],textarea,select{
   width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid #A9B8BE;border-radius:8px;background:#fff;font:inherit;font-size:16px;color:var(--inchiostro)}
 textarea{min-height:96px;resize:vertical}
+#sm-pwd,#pa-pwd{width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid #A9B8BE;border-radius:8px;background:#fff;font:inherit;font-size:16px;color:var(--inchiostro)}
 textarea.alta{min-height:150px}
 .due{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .tre{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -1019,14 +1020,21 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
         <select id="sm-metodo"><option value="smtp">Con il server di posta (utente e password)</option><option value="outlook">Con Outlook classico di questo PC (niente password)</option></select>
         <p class="aiuto" id="sm-ol-nota" hidden style="margin:6px 0 0">Le mail partono dall'account già configurato in Outlook, che deve essere la versione classica per Windows (non il «nuovo Outlook»). Consigliato con Microsoft 365, che sta chiudendo l'invio con password. Se Outlook chiede una conferma sullo schermo, va data.</p></div>
       <div id="sm-blocco-smtp">
+      <div class="campo"><label for="sm-utente">Indirizzo email (di solito è anche l'utente)</label><input id="sm-utente" type="text" autocomplete="off" autocapitalize="none"></div>
+      <div class="azioni" style="display:flex;justify-content:start;margin:0"><button class="btn sec piccolo" id="sm-cerca" type="button">Cerca le impostazioni</button></div>
+      <p class="aiuto" id="sm-cerca-msg" role="status" style="margin:6px 0 8px"></p>
+      <div class="campo"><label for="sm-pwd">Password <span id="sm-pwd-nota" class="aiuto"></span></label><input id="sm-pwd" type="password" autocomplete="new-password"></div>
+      <div class="campo"><label for="sm-da">Mittente (se diverso dall'utente)</label><input id="sm-da" type="text" autocomplete="off" autocapitalize="none" placeholder="ufficio@azienda.it"></div>
+      <details id="sm-avanz" style="margin:6px 0 10px"><summary>Impostazioni avanzate (server, porta, connessione)</summary>
       <div class="campo"><label for="sm-preset">Servizio di posta</label>
         <select id="sm-preset"><option value="">— scegli —</option><option value="gmail">Gmail / Google Workspace (serve una «password per le app»)</option><option value="aruba">Aruba (posta normale)</option><option value="arubapec">Aruba PEC</option><option value="outlook">Outlook / Microsoft 365</option><option value="libero">Libero</option><option value="altro">Altro</option></select></div>
       <div class="tre"><div class="campo largo"><label for="sm-server">Server in uscita (SMTP)</label><input id="sm-server" type="text" autocomplete="off" autocapitalize="none" placeholder="smtp.esempio.it"></div>
         <div class="campo"><label for="sm-porta">Porta</label><input id="sm-porta" type="text" inputmode="numeric" value="465"></div></div>
       <div class="campo"><label for="sm-sic">Connessione</label><select id="sm-sic"><option value="ssl">SSL (porta 465)</option><option value="starttls">STARTTLS (porta 587)</option></select></div>
-      <div class="campo"><label for="sm-utente">Utente (di solito l'indirizzo email)</label><input id="sm-utente" type="text" autocomplete="off" autocapitalize="none"></div>
-      <div class="campo"><label for="sm-pwd">Password <span id="sm-pwd-nota" class="aiuto"></span></label><input id="sm-pwd" type="password" autocomplete="new-password"></div>
-      <div class="campo"><label for="sm-da">Mittente (se diverso dall'utente)</label><input id="sm-da" type="text" autocomplete="off" autocapitalize="none" placeholder="ufficio@azienda.it"></div>
+      </details>
+      <details id="sm-aiuto-forn" hidden style="margin:8px 0"><summary>Non li trovi? Testo da mandare a chi gestisce la posta</summary>
+        <textarea id="sm-forn-t" readonly rows="4" style="width:100%;margin-top:6px"></textarea>
+        <button class="btn sec piccolo" type="button" id="sm-forn-copia" style="margin-top:6px">Copia il testo</button></details>
       </div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start"><button class="btn" id="sm-salva" type="button">Salva</button><button class="btn sec" id="sm-prova" type="button">Prova il collegamento</button></div>
       <p class="aiuto" id="sm-msg" role="status" style="margin:8px 0 0"></p>
@@ -1108,15 +1116,22 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
           <option value="cartella">Controlla una cartella (Download, o dove salva una regola del tuo programma di posta)</option>
         </select></div>
       <div id="pa-imap" hidden>
+        <div class="campo"><label for="pa-utente">Indirizzo email (di solito è anche l'utente)</label><input id="pa-utente" type="text" autocomplete="off" autocapitalize="none"></div>
+        <div class="azioni" style="display:flex;justify-content:start;margin:0"><button class="btn sec piccolo" id="pa-cerca" type="button">Cerca le impostazioni</button></div>
+        <p class="aiuto" id="pa-cerca-msg" role="status" style="margin:6px 0 8px"></p>
+        <div class="campo"><label for="pa-pwd">Password <span id="pa-pwd-nota" class="aiuto"></span></label><input id="pa-pwd" type="password" autocomplete="new-password"></div>
+        <details id="pa-avanz" style="margin:6px 0 10px"><summary>Impostazioni avanzate (server, porta, cartella)</summary>
         <div class="campo"><label for="pa-preset">Servizio di posta</label>
           <select id="pa-preset"><option value="">— scegli —</option><option value="gmail">Gmail / Google Workspace</option><option value="aruba">Aruba (posta normale)</option><option value="arubapec">Aruba PEC</option><option value="libero">Libero</option><option value="altro">Altro / dominio proprio</option></select></div>
         <p class="aiuto" id="pa-hint" style="margin:0 0 8px"></p>
         <div class="tre"><div class="campo largo"><label for="pa-server">Server IMAP</label><input id="pa-server" type="text" autocomplete="off" autocapitalize="none" placeholder="imap.esempio.it"></div>
           <div class="campo"><label for="pa-porta">Porta</label><input id="pa-porta" type="text" inputmode="numeric" value="993"></div></div>
-        <div class="campo"><label for="pa-utente">Indirizzo email / utente</label><input id="pa-utente" type="text" autocomplete="off" autocapitalize="none"></div>
-        <div class="campo"><label for="pa-pwd">Password <span id="pa-pwd-nota" class="aiuto"></span></label><input id="pa-pwd" type="password" autocomplete="new-password"></div>
         <div class="campo"><label for="pa-cart-imap">Cartella della posta</label><input id="pa-cart-imap" type="text" value="INBOX" autocomplete="off"></div>
         <label class="spunta"><input type="checkbox" id="pa-ssl" checked> Connessione protetta (SSL, consigliata)</label>
+        </details>
+        <details id="pa-aiuto-forn" hidden style="margin:8px 0"><summary>Non li trovi? Testo da mandare a chi gestisce la posta</summary>
+          <textarea id="pa-forn-t" readonly rows="4" style="width:100%;margin-top:6px"></textarea>
+          <button class="btn sec piccolo" type="button" id="pa-forn-copia" style="margin-top:6px">Copia il testo</button></details>
       </div>
       <div id="pa-cartella" hidden>
         <div class="campo"><label for="pa-percorso">Cartella (o più cartelle separate da «;»)</label><input id="pa-percorso" type="text" autocomplete="off" placeholder="C:\Users\nome\Downloads"></div>
@@ -6497,7 +6512,7 @@ const mostraMetodoSmtp = () => { const ol = $('#sm-metodo').value === 'outlook';
 const presetDi = srv => { srv = String(srv || '').trim().toLowerCase(); for (const k in PRESET_SMTP) if (PRESET_SMTP[k][0] === srv) return k; return ''; };
 const PRESET_SMTP = {gmail: ['smtp.gmail.com', 465, 'ssl'], aruba: ['smtps.aruba.it', 465, 'ssl'], arubapec: ['smtps.pec.aruba.it', 465, 'ssl'], outlook: ['smtp.office365.com', 587, 'starttls'], libero: ['smtp.libero.it', 465, 'ssl']};
 function avviaSmtp(){
-  caricaSmtp();
+  caricaSmtp(); avviaCercaPosta();
   $('#sm-metodo').onchange = mostraMetodoSmtp;
   $('#sm-preset').onchange = e => { const p = PRESET_SMTP[e.target.value]; if (p) { $('#sm-server').value = p[0]; $('#sm-porta').value = p[1]; $('#sm-sic').value = p[2]; } };
   $('#sm-server').oninput = e => { $('#sm-preset').value = presetDi(e.target.value); };
@@ -6506,6 +6521,32 @@ function avviaSmtp(){
   const msg = t => { $('#sm-msg').textContent = t; };
   $('#sm-salva').onclick = async () => { try { const r = await chiamaJson('posta-config', dati()); $('#sm-pwd').value = ''; caricaSmtp.fatto = false; await caricaSmtp(true); msg(r.ok ? 'Salvato.' : 'Non sono riuscito a salvare.'); } catch(e) { msg('Il servizio non risponde.'); } };
   $('#sm-prova').onclick = async () => { msg('Provo il collegamento…'); try { await chiamaJson('posta-config', dati()); $('#sm-pwd').value = ''; const r = await chiamaJson('posta-smtp-prova'); await caricaSmtp(true); msg((r.ok ? '✔ ' : '✘ ') + r.messaggio); } catch(e) { msg('Il servizio non risponde.'); } };
+}
+/* ---- ricerca automatica dei server di posta dall'indirizzo email (invio: «sm», ricezione: «pa») ---- */
+const TESTO_FORNITORE = em => 'Buongiorno, devo configurare la casella ' + (em || '…') + ' in un programma. Mi servono: server e porta della posta in arrivo (IMAP), server e porta della posta in uscita (SMTP), tipo di connessione (SSL o STARTTLS), nome utente e, se serve, una password dedicata per le app. Grazie.';
+async function cercaPosta(pre){
+  const campo = $('#' + pre + '-utente'), msg = $('#' + pre + '-cerca-msg'), forn = $('#' + pre + '-aiuto-forn'), bt = $('#' + pre + '-cerca'), av = $('#' + pre + '-avanz');
+  const em = campo.value.trim(); forn.hidden = true;
+  if (!em) { msg.textContent = 'Scrivi prima il tuo indirizzo email.'; campo.focus(); return; }
+  msg.textContent = 'Cerco le impostazioni (può servire qualche secondo)…'; bt.disabled = true;
+  let r; try { r = await chiamaJson('posta-cerca', {email: em}); } catch(e) { r = {ok: false, messaggio: 'Il servizio non risponde.'}; }
+  bt.disabled = false;
+  const trovato = pre === 'sm' ? r.smtp : r.imap;
+  if (!r.ok || !trovato) {
+    msg.textContent = '✘ ' + (r.ok ? 'Ho trovato solo una parte delle impostazioni, ma non quelle ' + (pre === 'sm' ? 'della posta in uscita' : 'della posta in arrivo') + '. Compilale a mano o chiedile a chi gestisce la posta.' : (r.messaggio || 'Non ho trovato le impostazioni.'));
+    av.open = true; forn.hidden = false; $('#' + pre + '-forn-t').value = TESTO_FORNITORE(em); return;
+  }
+  if (r.utente) campo.value = r.utente;
+  if (pre === 'sm') { $('#sm-server').value = r.smtp.server; $('#sm-porta').value = r.smtp.porta; $('#sm-sic').value = r.smtp.sicurezza; $('#sm-preset').value = presetDi(r.smtp.server); }
+  else { $('#pa-server').value = r.imap.server; $('#pa-porta').value = r.imap.porta; $('#pa-ssl').checked = true; $('#pa-preset').value = ''; $('#pa-hint').textContent = r.nota || ''; }
+  msg.textContent = '✔ Trovato' + (r.provider ? ': ' + r.provider : '') + ' — server ' + trovato.server + ', porta ' + trovato.porta + '. ' + (r.nota && pre === 'sm' ? r.nota + ' ' : '') + 'Scrivi la password e premi «Prova il collegamento».';
+}
+function avviaCercaPosta(){
+  for (const pre of ['sm', 'pa']) {
+    $('#' + pre + '-cerca').onclick = () => cercaPosta(pre);
+    $('#' + pre + '-utente').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); cercaPosta(pre); } };
+    $('#' + pre + '-forn-copia').onclick = async () => { const t = $('#' + pre + '-forn-t'); try { await navigator.clipboard.writeText(t.value); $('#' + pre + '-cerca-msg').textContent = 'Testo copiato: incollalo in una mail.'; } catch(e) { t.focus(); t.select(); $('#' + pre + '-cerca-msg').textContent = 'Seleziona il testo e copialo (Ctrl+C).'; } };
+  }
 }
 async function consegna(id, condividi){
   const chk = $('#chk-completo'); infoUff.completo = !!(chk && chk.checked);
@@ -6582,7 +6623,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.69.4 (01/11/2026)';
+const VERSIONE_APP = '1.70.0 (02/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
