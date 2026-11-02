@@ -6503,6 +6503,7 @@ async function caricaSmtp(rifai){
     $('#sm-server').value = c.smtp_server || ''; $('#sm-porta').value = c.smtp_porta || 465; $('#sm-sic').value = c.smtp_sicurezza || 'ssl'; $('#sm-utente').value = c.smtp_utente || ''; $('#sm-da').value = c.smtp_da || '';
     $('#sm-metodo').value = c.invio_metodo === 'outlook' ? 'outlook' : 'smtp'; mostraMetodoSmtp();
     $('#sm-preset').value = presetDi(c.smtp_server);
+    aggiornaAvanz('sm', true);
     $('#sm-pwd-nota').textContent = c.smtp_password_impostata ? '(già salvata: lascia vuoto per non cambiarla)' : '';
     if (!smtpPronto) $('#smtp-box').open = true; }
   const el = $('#smtp-stato'); el.textContent = smtpPronto ? 'pronto' : 'non impostato'; el.className = 'chip' + (smtpPronto ? ' pdf' : '');
@@ -6539,10 +6540,18 @@ async function cercaPosta(pre){
   if (r.utente) campo.value = r.utente;
   if (pre === 'sm') { $('#sm-server').value = r.smtp.server; $('#sm-porta').value = r.smtp.porta; $('#sm-sic').value = r.smtp.sicurezza; $('#sm-preset').value = presetDi(r.smtp.server); }
   else { $('#pa-server').value = r.imap.server; $('#pa-porta').value = r.imap.porta; $('#pa-ssl').checked = true; $('#pa-preset').value = ''; $('#pa-hint').textContent = r.nota || ''; }
+  aggiornaAvanz(pre, false);
   msg.textContent = '✔ Trovato' + (r.provider ? ': ' + r.provider : '') + ' — server ' + trovato.server + ', porta ' + trovato.porta + '. ' + (r.nota && pre === 'sm' ? r.nota + ' ' : '') + 'Scrivi la password e premi «Prova il collegamento».';
+}
+function aggiornaAvanz(pre, apri){
+  const sv = $('#' + pre + '-server').value.trim(), pt = String($('#' + pre + '-porta').value || '').trim();
+  const sm = document.querySelector('#' + pre + '-avanz > summary');
+  if (sm) sm.textContent = 'Impostazioni avanzate' + (sv ? ' — server ' + sv + (pt ? ', porta ' + pt : '') : ' (server, porta, connessione)');
+  if (apri) $('#' + pre + '-avanz').open = !!sv;                  // se il server e' gia' impostato si vede subito; da compilare resta chiusa
 }
 function avviaCercaPosta(){
   for (const pre of ['sm', 'pa']) {
+    $('#' + pre + '-server').addEventListener('input', () => aggiornaAvanz(pre, false)); $('#' + pre + '-porta').addEventListener('input', () => aggiornaAvanz(pre, false));
     $('#' + pre + '-cerca').onclick = () => cercaPosta(pre);
     $('#' + pre + '-utente').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); cercaPosta(pre); } };
     $('#' + pre + '-forn-copia').onclick = async () => { const t = $('#' + pre + '-forn-t'); try { await navigator.clipboard.writeText(t.value); $('#' + pre + '-cerca-msg').textContent = 'Testo copiato: incollalo in una mail.'; } catch(e) { t.focus(); t.select(); $('#' + pre + '-cerca-msg').textContent = 'Seleziona il testo e copialo (Ctrl+C).'; } };
@@ -6623,7 +6632,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.70.0 (02/11/2026)';
+const VERSIONE_APP = '1.70.1 (02/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8018,6 +8027,7 @@ async function caricaPostaAuto(){
     $('#pa-cart-imap').value = c.imap_cartella || 'INBOX'; $('#pa-ssl').checked = c.imap_ssl !== false; $('#pa-percorso').value = c.cartella_osservata || ''; $('#pa-archivia').checked = c.archivia_registrati !== false;
     $('#pa-filtro').value = c.filtro || ''; $('#pa-minuti').value = c.minuti || 3; $('#pa-giorni').value = c.giorni || 14;
     $('#pa-pwd-nota').textContent = c.password_impostata ? '(già salvata: lascia vuoto per non cambiarla)' : '';
+    aggiornaAvanz('pa', true);
     mostraCampiPosta();
   }
   const el = $('#pa-stato'), nome = {nessuno: 'non attiva', imap: 'casella di posta', outlook: 'Outlook', cartella: 'cartella'}[c.metodo];
