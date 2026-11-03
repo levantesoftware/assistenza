@@ -583,6 +583,13 @@ html.no-flexgap .frasi>*{margin-right:6px}
 #avviso-testo{flex:1;min-width:0;overflow-wrap:anywhere}
 html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 
+#fg-d details.fa,#fg-d details.fi{border:1px solid #d5dcdf;border-radius:10px;padding:8px 10px;margin:8px 0;background:#fbfcfc}
+#fg-d details.fs{border:1px solid #e1e7e9;border-radius:8px;padding:6px 8px;margin:6px 0;background:#fff}
+#fg-d summary{cursor:pointer}#fg-d .fgct{margin:10px 0 4px}#fg-d .fgc{border-top:1px dashed #d5dcdf;padding:6px 0}
+#fg-d .fgco{display:block;color:#0e5a6b;font-weight:600;min-height:1em}#fg-d .fgrosso{color:#b91c1c;font-weight:700}
+#fg-d .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}#fg-d .cgrid .cw{grid-column:1/-1}
+#fg-d .cgrid label{display:flex;flex-direction:column;font-size:13px;color:#5b6d75}#fg-d .cgrid label.spunta{flex-direction:row;align-items:center;gap:8px;color:#14232b;font-size:15px}
+#fg-d .cadds{width:100%;margin-top:8px}
 #ctrl-d .cm{border:1px solid var(--bordo,#d5dcdf);border-radius:10px;padding:10px;margin:8px 0}
 #ctrl-d .cmt{display:flex;flex-direction:column;margin-bottom:4px}#ctrl-d .cmt small{color:#5b6d75}
 #ctrl-d .cv{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e6ebed;font-size:15px}
@@ -2050,7 +2057,7 @@ function nuovaScheda(a){
   (r.o || []).forEach(o => { w.ops[o.id] = {fatta:false, nota:''}; });
   // analisi di combustione preparata per gli apparecchi con "analisi fumi" da fare
   (r.o || []).filter(o => o.f && o.a && /(\.AF$|ANALISI FUMI)/i.test(o.c + ' ' + o.d)).forEach(o => { w.analisi[o.a] = {}; });
-  try { ctrlDaOperazioni(w, r); } catch(e) {}
+  try { ctrlDaOperazioni(w, r); fgDaOperazioni(w, r); } catch(e) {}
   return w;
 }
 function apriScheda(a){
@@ -2573,6 +2580,7 @@ function disegnaScheda(){
     <div id="rcee-lib">${sezioniLibere()}</div>
     ${sezioneAggiungiLibero()}
     ${ctrlHtml(w)}
+    ${fgHtml(w)}
     <div class="passo" id="oss-rcee" hidden></div>
     <div class="passo"><h2>Relazione</h2>
       ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
@@ -2658,7 +2666,7 @@ function aggiornaOre(){
 let timer = null;
 
 /* ---- striscia delle sezioni della scheda: scorciatoie + spunta verde sulle sezioni compilate ---- */
-const SZ_NOMI = {'Chi e dove': 'Chi e dove', 'Guasto o richiesta': 'Guasto', 'Operazioni eseguite': 'Operazioni', 'Altre operazioni': 'Altre op.', 'Analisi di combustione': 'Analisi', 'Altri rapporti di efficienza energetica': 'RCEE', 'Controlli e verifiche': 'Controlli', 'Relazione': 'Relazione', 'Orari e viaggio': 'Orari', 'Materiale portato': 'Portato', 'Materiali': 'Materiali', 'Importi e pagamento': 'Importi', 'Foto': 'Foto', 'Esito e firma': 'Esito e firma'};
+const SZ_NOMI = {'Chi e dove': 'Chi e dove', 'Guasto o richiesta': 'Guasto', 'Operazioni eseguite': 'Operazioni', 'Altre operazioni': 'Altre op.', 'Analisi di combustione': 'Analisi', 'Altri rapporti di efficienza energetica': 'RCEE', 'Controlli e verifiche': 'Controlli', 'F-gas': 'F-gas', 'Relazione': 'Relazione', 'Orari e viaggio': 'Orari', 'Materiale portato': 'Portato', 'Materiali': 'Materiali', 'Importi e pagamento': 'Importi', 'Foto': 'Foto', 'Esito e firma': 'Esito e firma'};
 let szSez = [], szFirma = '';
 function szFatta(n){
   const w = lavoro; if (!w) return false;
@@ -2670,6 +2678,7 @@ function szFatta(n){
     case 'Altre operazioni': return (w.ops_extra || []).some(x => t(x));
     case 'Analisi di combustione': return Object.keys(w.analisi || {}).some(k => Object.keys(w.analisi[k] || {}).some(c => t(w.analisi[k][c])));
     case 'Controlli e verifiche': return (w.ctrl || []).some(c => (c.idr || []).length);
+    case 'F-gas': return (w.fg || []).some(x => x.ints.length);
     case 'Relazione': return !!t(w.relazione);
     case 'Orari e viaggio': return !!(w.orari && w.orari.length && t(w.orari[w.orari.length - 1].al));
     case 'Materiale portato': return (w.portato || []).length > 0;
@@ -2752,7 +2761,7 @@ function salvaBozza(mantieniPannello){
 
 /* ---- gestione dei campi (un solo ascoltatore) ---- */
 function collegaForm(){
-  const f = $('#form'); try { collegaCtrl(); collegaEsf(); } catch(e) {}
+  const f = $('#form'); try { collegaCtrl(); collegaEsf(); collegaFg(); } catch(e) {}
   f.addEventListener('input', e => {
     const t = e.target, d = t.dataset;
     if (d.k) { lavoro[d.k] = t.value; if (d.k === 'km') { const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario(); } const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
@@ -3273,6 +3282,380 @@ function ctrlDaOperazioni(w, r){          // le operazioni pianificate di questa
   (r.o || []).filter(o => o.f).forEach(o => Object.keys(ctrlMods()).forEach(k => { const m = ctrlM(k);
     if (m.parole && m.parole.test(o.c + ' ' + o.d) && !(w.ctrl || []).some(c => c.mod === k)) { (w.ctrl = w.ctrl || []).push({id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: '', da: o.d}); ctrlApr[w.id] = true; } }));
 }
+/* ==================================================================
+   F-GAS: apparecchi con gas fluorurati e i loro interventi (installazione, manutenzione, riparazione, controllo perdite, smantellamento)
+   Nell'intervento: lavoro.fg = [{id, a:{apparecchio, circuiti}, ints:[{id, t, data, righe:[{c, matr, erm, ril, es, ak, at, rk, pk, mis, os}], ...}]}]
+   Come nel portale: con un solo circuito i dati valgono per l'apparecchio; con piu' circuiti ogni controllo, riparazione o smantellamento si compila per circuito.
+   Il tecnico raccoglie i dati; l'ufficio li comunica alla banca dati F-gas (entro 30 giorni) e salva i codici restituiti.
+   ================================================================== */
+const FG_INT = {inst: 'Installazione', man: 'Manutenzione o assistenza', rip: 'Riparazione', perd: 'Controllo perdite', sman: 'Smantellamento'};
+const FG_GAS = {'R-410A': 2088, 'R-32': 675, 'R-134a': 1430, 'R-407C': 1774, 'R-404A': 3922};      // GWP usati nei rapporti della banca dati: sempre modificabili
+const FG_USO = [['E.1', 'Residenza (E.1)'], ['E.2', 'Uffici (E.2)'], ['E.3', 'Ospedali e cliniche (E.3)'], ['E.4', 'Attività ricreative, associative, di culto (E.4)'], ['E.5', 'Commerciali (E.5)'], ['E.6', 'Sportive (E.6)'], ['E.7', 'Scolastiche (E.7)'], ['E.8', 'Industriali e artigianali (E.8)']];
+const FG_PROF = [['privato', 'Privato (famiglie, privati cittadini)'], ['impresa', 'Impresa (iscritta al registro imprese)'], ['ente', 'Ente (pubblica amministrazione)'], ['altro', 'Altro (onlus, studi medici e professionali, associazioni)']];
+const FG_TIPO_APP = [['cond', 'Condizionamento fisso (aria)'], ['pdc', 'Pompa di calore fissa (anche con acqua calda sanitaria)']];
+const FG_AGG = [['vergine', 'Vergine'], ['rigenerato', 'Rigenerato'], ['riciclato', 'Riciclato']];
+const FG_MISURE = [['rigenerazione', 'Rigenerazione'], ['riciclo', 'Riciclo'], ['smaltimento', 'Smaltimento'], ['altro', 'Altro']];
+const fgApr = {};
+const fgId = () => 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const fgNum = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; };
+const fgIt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+const fgCo2 = (kg, gwp) => Math.round(fgNum(kg) * fgNum(gwp) / 10) / 100;            // tonnellate di CO2 equivalente, 2 decimali come nei rapporti del portale
+const fgGasNome = c => c.gas === 'altro' ? (c.gn || 'Altro gas') : c.gas;
+const fgCir = (n, da) => ({n, gas: da ? da.gas : 'R-410A', gn: da ? da.gn : '', gwp: da ? da.gwp : 2088, kg: '', matr: ''});
+const fgRiga = (a, n) => ({c: n, matr: '', erm: !!a.erm, ril: !!a.ril, es: 'ok', ak: '', at: 'vergine', rk: '', pk: '', mis: 'altro', os: ''});
+function fgNuovo(w){
+  return {id: fgId(), a: {tipo: 'cond', matr: '', marca: '', modello: '', nc: 1, cir: [fgCir(1)], criter: '', ultPerd: '', uso: 'E.5', prov: '', comune: '', via: w.indirizzo || '', erm: false, ril: false, cod: '',
+    op: {prof: 'impresa', cf: '', nome: w.cliente || '', email: w.email || '', ref: ''}, ut: {diverso: false, cf: '', nome: '', email: ''}}, ints: []};
+}
+function fgNuovoInt(w, x, t){
+  const a = x.a; return {id: fgId(), t, data: w.data || isoGiorno(new Date()), cli: false, fatt: '', fattData: '', vuoto: false, riemp: false, righe: a.cir.slice(0, t === 'inst' ? 1 : a.cir.length).map(c => Object.assign(fgRiga(a, c.n), {matr: c.matr || ''}))};
+}
+function fgAllinea(x){          // i circuiti e le righe degli interventi seguono il numero di circuiti
+  const a = x.a; a.nc = Math.max(1, Math.min(8, parseInt(a.nc, 10) || 1));
+  while (a.cir.length < a.nc) a.cir.push(fgCir(a.cir.length + 1, a.cir[0])); a.cir.length = a.nc;
+  x.ints.forEach(it => { const n = it.t === 'inst' ? 1 : a.nc; while (it.righe.length < n) it.righe.push(fgRiga(a, it.righe.length + 1)); it.righe.length = n; });
+}
+const fgTrova = id => (lavoro.fg || []).find(x => x.id === id);
+const fgTotCo2 = a => a.cir.reduce((s, c) => s + fgCo2(c.kg, c.gwp), 0);
+const fgTotKg = a => a.cir.reduce((s, c) => s + fgNum(c.kg), 0);
+const fgMesi = a => { const t = fgTotCo2(a); if (!t || t < 5 || (a.erm && t < 10)) return 0; return (t >= 500 ? 3 : t >= 50 ? 6 : 12) * (a.ril ? 2 : 1); };
+const fgSommaMesi = (iso, m) => { if (!iso || !m) return ''; const d = new Date(iso + 'T12:00:00'); d.setMonth(d.getMonth() + m); return isoGiorno(d); };
+const fgProssimo = a => fgSommaMesi(a.ultPerd, fgMesi(a));
+function fgPeriodo(a){          // indicazione di massima: va sempre verificata sul testo della norma
+  const t = fgTotCo2(a); if (!t) return '';
+  if (t < 5) return 'Sotto 5 t CO₂eq: di norma il controllo perdite periodico non è obbligatorio (da verificare).';
+  if (a.erm && t < 10) return 'Apparecchio ermetico sotto 10 t CO₂eq: di norma non serve il controllo perdite periodico (da verificare).';
+  const m = fgMesi(a), pr = fgProssimo(a);
+  return 'Carica totale ' + fgIt(t) + ' t CO₂eq: di norma controllo perdite ogni ' + m + ' mesi' + (a.ril ? ' (con rilevatore fisso)' : '') + (pr ? '. Ultimo il ' + dataIT(a.ultPerd) + ', prossimo entro il ' + dataIT(pr) : '') + '. Indicativo, da verificare sulla norma.';
+}
+const fgScad = iso => { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + 30); return isoGiorno(d); };
+const fgGiorni = iso => Math.round((new Date(iso + 'T12:00:00') - new Date()) / 86400000);
+const fgImposta = (o, path, v) => { const p = path.split('.'); let c = o; for (let i = 0; i < p.length - 1; i++) { c = c[p[i]]; if (c == null) return; } c[p[p.length - 1]] = v; };
+const fgGet = (o, path) => path.split('.').reduce((c, k) => c == null ? c : c[k], o);
+const fgCert = () => Object.assign({imp: '', nome: '', cf: '', cert: ''}, impostazioni.fgas);
+function fgSomm(w){
+  const l = w.fg || []; if (!l.length) return 'Installazione, controllo perdite, riparazione, smantellamento';
+  const ni = l.reduce((s, x) => s + x.ints.length, 0);
+  return l.length + (l.length === 1 ? ' apparecchio' : ' apparecchi') + ' · ' + ni + (ni === 1 ? ' intervento' : ' interventi');
+}
+/* archivio dei dati degli apparecchi sul dispositivo: la volta dopo si sceglie l'apparecchio invece di riscrivere tutto */
+const fgChiave = w => ctrlImpId(w) || String(w.cliente || '').trim().toLowerCase();
+function fgSalvaReg(x){
+  if (!lavoro) return; const k = fgChiave(lavoro); if (!k) return; const reg = store.get('ass_fgreg', []), sig = x.a.matr || (x.a.marca + '|' + x.a.modello) || x.id;
+  const e = {k, sig, id: x.id, a: JSON.parse(JSON.stringify(x.a))}, i = reg.findIndex(r => r.k === k && (r.id === x.id || r.sig === sig));
+  if (!x.a.matr && !x.a.marca && !x.a.modello) return; if (i >= 0) reg[i] = e; else reg.push(e); store.set('ass_fgreg', reg.slice(-300));
+}
+const fgIn = (id, p, v, lab, o) => { o = o || {}; return `<label${o.w ? ' class="cw"' : ''}>${lab}<input type="${o.type || 'text'}" data-fp="${esc(id + '|' + p)}" value="${esc(v == null ? '' : v)}"${o.ph ? ' placeholder="' + esc(o.ph) + '"' : ''}${o.im ? ' inputmode="' + o.im + '"' : ''} autocomplete="off"></label>`; };
+const fgSel = (id, p, v, lab, ops, o) => { o = o || {}; return `<label${o.w ? ' class="cw"' : ''}>${lab}<select data-fp="${esc(id + '|' + p)}" data-rr="1">${ops.map(x => `<option value="${esc(x[0])}"${String(x[0]) === String(v) ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}</select></label>`; };
+const fgCk = (id, p, v, lab) => `<label class="spunta cw"><input type="checkbox" data-fp="${esc(id + '|' + p)}" data-rr="1"${v ? ' checked' : ''}> <span>${lab}</span></label>`;
+const fgKg = (x, p, v, lab, ci) => `<label>${lab}<input type="text" inputmode="decimal" data-fp="${esc(x.id + '|' + p)}" value="${esc(v == null ? '' : v)}" autocomplete="off"><small class="fgco" data-co="${esc(x.id + '|' + p + '|' + ci)}"></small></label>`;
+function fgCardInt(x, it, ii){
+  const a = x.a, k = x.id + '|' + it.id, p = 'ints.' + ii, multi = a.nc > 1 && it.t !== 'inst', R = (ri, f) => p + '.righe.' + ri + '.' + f;
+  const scad = fgScad(it.data), g = scad ? fgGiorni(scad) : null;
+  let corpo = `<div class="cgrid">${fgIn(x.id, p + '.data', it.data, 'Data dell\'intervento', {type: 'date', w: 1})}</div>`;
+  if (it.t === 'inst') {
+    const r = it.righe[0] || fgRiga(a, 1);
+    corpo += `<div class="cgrid">${fgCk(x.id, p + '.cli', it.cli, 'Gas e apparecchio forniti dal cliente (non fatturati da noi)')}${it.cli ? '' : fgIn(x.id, p + '.fatt', it.fatt, 'N. fattura', {im: 'numeric'}) + fgIn(x.id, p + '.fattData', it.fattData, 'Data fattura', {type: 'date'})}
+      ${fgKg(x, R(0, 'ak'), r.ak, 'Gas aggiunto (kg)', 0)}${fgSel(x.id, R(0, 'at'), r.at, 'Tipo di gas aggiunto', FG_AGG)}${fgBombSel(x, R(0, 'bb'), r.bb, a.cir[0])}
+      <label class="cw">Gas presente (kg)<input type="text" inputmode="decimal" data-fp="${esc(x.id + '|' + R(0, 'pk'))}" value="${esc(r.pk || '')}" placeholder="${esc(fgIt(fgTotKg(a)))}" autocomplete="off"><small class="fgco" data-co="${esc(x.id + '|' + R(0, 'pk') + '|0')}"></small></label>
+      ${fgCk(x.id, p + '.vuoto', it.vuoto, 'Vuoto eseguito e circuito aperto')}${fgCk(x.id, p + '.riemp', it.riemp, 'Riempimento e sfiato dell\'impianto eseguiti')}
+      <label class="cw">Osservazioni<input type="text" data-fp="${esc(x.id + '|' + R(0, 'os'))}" value="${esc(r.os || '')}" autocomplete="off"></label></div>`;
+  } else {
+    corpo += it.righe.map((r, ri) => {
+      const c = a.cir[ri] || a.cir[0];
+      let h = multi ? `<p class="fgct"><b>Circuito ${r.c}</b> · ${esc(fgGasNome(c))}</p><div class="cgrid">${fgIn(x.id, R(ri, 'matr'), r.matr, 'Matricola del circuito (es. compressore)', {w: 1})}${fgCk(x.id, R(ri, 'erm'), r.erm, 'Ermeticamente sigillato')}${fgCk(x.id, R(ri, 'ril'), r.ril, 'Sistema di rilevamento perdite')}</div>` : '';
+      h += '<div class="cgrid">';
+      if (it.t === 'perd') h += fgSel(x.id, R(ri, 'es'), r.es, 'Esito', [['ok', 'Nessuna perdita'], ['perdita', 'Riscontrata perdita']], {w: 1});
+      if (it.t === 'man' || it.t === 'rip') h += fgKg(x, R(ri, 'ak'), r.ak, 'Gas aggiunto (kg)', ri) + fgSel(x.id, R(ri, 'at'), r.at, 'Tipo di gas aggiunto', FG_AGG) + fgKg(x, R(ri, 'rk'), r.rk, 'Gas recuperato (kg)', ri) + fgKg(x, R(ri, 'pk'), r.pk, 'Gas presente (kg)', ri) + fgBombSel(x, R(ri, 'bb'), r.bb, c);
+      if (it.t === 'sman') h += fgSel(x.id, R(ri, 'mis'), r.mis, 'Misura adottata per il gas', FG_MISURE) + fgKg(x, R(ri, 'rk'), r.rk, 'Gas recuperato (kg)', ri);
+      h += `<label class="cw">Osservazioni<input type="text" data-fp="${esc(x.id + '|' + R(ri, 'os'))}" value="${esc(r.os || '')}" autocomplete="off"></label></div>`;
+      if (it.t === 'perd' && r.es === 'perdita') h += '<p class="aiuto" style="margin:0 0 6px">Se bisogna riparare, aggiungi un intervento di riparazione: va comunicato a parte.</p>';
+      return `<div class="fgc">${h}</div>`;
+    }).join('');
+    if (multi) corpo += `<button type="button" class="btn sec piccolo" data-fgcopia="${esc(k)}">Copia i dati del circuito 1 sugli altri</button>`;
+  }
+  return `<details class="fi" data-fk="${esc(k)}"${fgApr[k] ? ' open' : ''}><summary><b>${esc(FG_INT[it.t])}</b> · ${esc(dataIT(it.data))}${scad ? `<small class="${g <= 5 ? 'fgrosso' : ''}"> · da comunicare entro il ${esc(dataIT(scad))}</small>` : ''}</summary>${corpo}
+    <div class="cadd"><button type="button" class="btn chiaro piccolo" data-fgidel="${esc(k)}">Togli questo intervento</button></div></details>`;
+}
+function fgBlocco(x){
+  const a = x.a, sk = x.id + '|s', ok = x.id + '|o', tit = ([a.marca, a.modello].filter(Boolean).join(' ') || 'Apparecchio') + (a.matr ? ' · matr. ' + a.matr : '');
+  const gasOps = Object.keys(FG_GAS).map(g => [g, g]).concat([['altro', 'Altro gas']]);
+  return `<details class="fa" data-fk="${esc(x.id)}"${fgApr[x.id] ? ' open' : ''}><summary><b>${esc(tit)}</b><small> · ${a.nc} ${a.nc === 1 ? 'circuito' : 'circuiti'} · ${x.ints.length} ${x.ints.length === 1 ? 'intervento' : 'interventi'}</small></summary>
+    <details class="fs" data-fk="${esc(sk)}"${fgApr[sk] ? ' open' : ''}><summary>Scheda apparecchio e circuiti</summary>
+      <div class="cgrid">${fgSel(x.id, 'a.tipo', a.tipo, 'Tipo di apparecchiatura', FG_TIPO_APP, {w: 1})}${fgIn(x.id, 'a.marca', a.marca, 'Marca')}${fgIn(x.id, 'a.modello', a.modello, 'Modello')}${fgIn(x.id, 'a.matr', a.matr, 'Matricola', {w: 1})}
+        ${fgSel(x.id, 'a.nc', a.nc, 'Numero di circuiti', [1, 2, 3, 4, 5, 6, 7, 8].map(n => [n, String(n)]))}${fgIn(x.id, 'a.criter', a.criter, 'Codice catasto impianti termici (Criter)', {})}
+        ${fgIn(x.id, 'a.cod', a.cod, 'Codice apparecchiatura del portale (se già comunicato)', {w: 1, ph: 'Per esempio 24*043821*00167597'})}
+        ${fgIn(x.id, 'a.ultPerd', a.ultPerd, 'Data dell\'ultimo controllo perdite', {type: 'date', w: 1})}${fgSel(x.id, 'a.uso', a.uso, 'Destinazione d\'uso', FG_USO, {w: 1})}${fgIn(x.id, 'a.via', a.via, 'Indirizzo', {w: 1})}${fgIn(x.id, 'a.comune', a.comune, 'Comune')}${fgIn(x.id, 'a.prov', a.prov, 'Provincia', {ph: 'BO'})}
+        ${fgCk(x.id, 'a.erm', a.erm, 'Ermeticamente sigillato')}${fgCk(x.id, 'a.ril', a.ril, 'Sistema di rilevamento perdite presente')}</div>
+      <p class="fgct"><b>Gas e carica massima</b> · per circuito</p>
+      ${a.cir.map((c, ci) => `<div class="fgc"><div class="cgrid">${a.nc > 1 ? `<p class="fgct cw" style="margin:0"><b>Circuito ${c.n}</b></p>` : ''}${fgSel(x.id, 'a.cir.' + ci + '.gas', c.gas, 'Gas', gasOps)}${c.gas === 'altro' ? fgIn(x.id, 'a.cir.' + ci + '.gn', c.gn, 'Nome del gas') : ''}${fgIn(x.id, 'a.cir.' + ci + '.gwp', c.gwp, 'GWP', {im: 'numeric'})}
+        ${fgKg(x, 'a.cir.' + ci + '.kg', c.kg, 'Carica massima (kg)', ci)}${a.nc > 1 ? fgIn(x.id, 'a.cir.' + ci + '.matr', c.matr, 'Matricola di riferimento (es. compressore)', {w: 1}) : ''}</div></div>`).join('')}
+      <p class="aiuto" style="margin:8px 0 0" data-cot="${esc(x.id)}"></p><p class="aiuto" style="margin:2px 0 0" data-cop="${esc(x.id)}"></p>
+    </details>
+    <details class="fs" data-fk="${esc(ok)}"${fgApr[ok] ? ' open' : ''}><summary>Operatore e utilizzatore</summary>
+      <div class="cgrid">${fgSel(x.id, 'a.op.prof', a.op.prof, 'Profilo dell\'operatore', FG_PROF, {w: 1})}${fgIn(x.id, 'a.op.nome', a.op.nome, 'Ragione sociale o nome e cognome', {w: 1})}${fgIn(x.id, 'a.op.cf', a.op.cf, 'Codice fiscale')}${fgIn(x.id, 'a.op.email', a.op.email, 'Email', {type: 'email'})}
+        ${fgIn(x.id, 'a.op.ref', a.op.ref, 'Referente (persona che segue l\'apparecchiatura)', {w: 1})}${fgCk(x.id, 'a.ut.diverso', a.ut.diverso, 'L\'utilizzatore è diverso dall\'operatore')}
+        ${a.ut.diverso ? fgIn(x.id, 'a.ut.nome', a.ut.nome, 'Utilizzatore: ragione sociale o nome', {w: 1}) + fgIn(x.id, 'a.ut.cf', a.ut.cf, 'Codice fiscale') + fgIn(x.id, 'a.ut.email', a.ut.email, 'Email', {type: 'email'}) : ''}</div>
+    </details>
+    <p class="fgct"><b>Interventi</b> · ${x.ints.length}</p>
+    ${x.ints.map((it, ii) => fgCardInt(x, it, ii)).join('') || '<p class="aiuto">Nessun intervento: scegli il tipo qui sotto.</p>'}
+    <select class="cadds" data-fgaddint="${esc(x.id)}" aria-label="Aggiungi un intervento"><option value="">+ Aggiungi un intervento…</option>${Object.keys(FG_INT).map(t => `<option value="${t}">${esc(FG_INT[t])}</option>`).join('')}</select>
+    <div class="cadd"><button type="button" class="btn sec piccolo" data-fgqr="${esc(x.id)}">Etichetta con QR</button> <button type="button" class="btn chiaro piccolo" data-fgdel="${esc(x.id)}">Togli questo apparecchio</button></div></details>`;
+}
+function fgHtml(w){
+  const l = w.fg || [], ce = fgCert(), reg = store.get('ass_fgreg', []).filter(r => r.k === fgChiave(w) && !l.some(x => x.id === r.id));
+  return `<details class="passo rcee-blocco" id="fg-d"${fgApr[w.id] ? ' open' : ''}><summary><h2>F-gas</h2><span class="aiuto" id="fg-sum">${esc(fgSomm(w))}</span></summary>
+    <details class="fs" data-fk="${esc(w.id + '|c')}"${fgApr[w.id + '|c'] ? ' open' : ''}><summary>Certificati (si ricordano)</summary>
+      <div class="cgrid"><label class="cw">Certificato dell'impresa<input type="text" data-fcert="imp" value="${esc(ce.imp)}" autocomplete="off" placeholder="Per esempio FGAS-A0312"></label>
+        <label class="cw">Persona certificata che esegue l'intervento<input type="text" data-fcert="nome" value="${esc(ce.nome)}" autocomplete="off" placeholder="Nome e cognome"></label>
+        <label>Codice fiscale<input type="text" data-fcert="cf" value="${esc(ce.cf)}" autocomplete="off" autocapitalize="characters"></label><label>N. certificato personale<input type="text" data-fcert="cert" value="${esc(ce.cert)}" autocomplete="off" placeholder="FGAS-P…"></label></div></details>
+    <div id="fg-box">${l.map(fgBlocco).join('')}</div>
+    ${fgBombHtml(w)}
+    <div class="cadd"><button type="button" class="btn piccolo" data-fgnew="1">Nuovo apparecchio</button> <button type="button" class="btn sec piccolo" data-fgscan="1">Leggi il QR di un apparecchio</button></div>
+    ${reg.length ? `<select class="cadds" data-fgreg="1" aria-label="Apparecchio già conosciuto"><option value="">Apparecchio già conosciuto…</option>${reg.map((r, i) => `<option value="${esc(r.id)}">${esc(([r.a.marca, r.a.modello].filter(Boolean).join(' ') || 'Apparecchio') + (r.a.matr ? ' · matr. ' + r.a.matr : ''))}</option>`).join('')}</select>` : ''}</details>`;
+}
+function fgAggCo2(){          // aggiorna i testi calcolati (t CO2 equivalenti, totale, periodicita') senza ridisegnare i campi che si stanno scrivendo
+  document.querySelectorAll('#fg-d [data-co]').forEach(s => { const q = s.dataset.co.split('|'), x = fgTrova(q[0]); if (!x) return; const kg = fgGet(x, q[1]), c = x.a.cir[+q[2]] || x.a.cir[0];
+    s.textContent = fgNum(kg) ? '= ' + fgIt(fgCo2(kg, c.gwp)) + ' t CO₂eq' : ''; });
+  document.querySelectorAll('#fg-d [data-cot]').forEach(s => { const x = fgTrova(s.dataset.cot); if (!x) return; const t = fgTotKg(x.a); s.textContent = t ? 'Carica totale: ' + fgIt(t) + ' kg · ' + fgIt(fgTotCo2(x.a)) + ' t CO₂eq' : ''; });
+  document.querySelectorAll('#fg-d [data-cop]').forEach(s => { const x = fgTrova(s.dataset.cop); if (x) s.textContent = fgPeriodo(x.a); });
+}
+function fgRidisegna(){ const b = $('#fg-box'); if (!b) return; b.innerHTML = (lavoro.fg || []).map(fgBlocco).join(''); const s = $('#fg-sum'); if (s) s.textContent = fgSomm(lavoro); fgAggCo2(); }
+function fgRidisegnaTutto(){ const d = $('#fg-d'); if (!d) return; const sel = d.querySelector('select[data-fgreg]'); d.outerHTML = fgHtml(lavoro); fgAggCo2(); }
+function collegaFg(){
+  const d = $('#form'); if (!d) return;
+  d.addEventListener('toggle', e => { const t = e.target; if (t.id === 'fg-d') fgApr[lavoro.id] = t.open; else if (t.dataset && t.dataset.fk && t.closest && t.closest('#fg-d')) fgApr[t.dataset.fk] = t.open; }, true);
+  d.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !b.closest('#fg-d')) return; const ds = b.dataset;
+    if (ds.fgnew) { const x = fgNuovo(lavoro); (lavoro.fg = lavoro.fg || []).push(x); fgApr[lavoro.id] = true; fgApr[x.id] = true; fgApr[x.id + '|s'] = true; fgRidisegnaTutto(); bozzaModificata(); }
+    else if (ds.fgdel) { if (confirm('Togliere questo apparecchio e i suoi interventi?')) { const xx = fgTrova(ds.fgdel); if (xx) fgBombPulisci(xx.ints.map(i => i.id)); lavoro.fg = (lavoro.fg || []).filter(x => x.id !== ds.fgdel); fgRidisegnaTutto(); bozzaModificata(); } }
+    else if (ds.fgidel) { const q = ds.fgidel.split('|'), x = fgTrova(q[0]); if (x && confirm('Togliere questo intervento?')) { fgBombPulisci([q[1]]); x.ints = x.ints.filter(i => i.id !== q[1]); fgAggUlt(x); fgRidisegna(); bozzaModificata(); } }
+    else if (ds.fgqr) { fgMostraEtichetta(ds.fgqr); }
+    else if (ds.fgscan) { ctrlQrDest = ''; scanCn = false; fgScanAtt = true; scanApri(); }
+    else if (ds.fbadd) { const g = id => $('#' + id), kg = fgNum(g('fb-kg').value); if (!kg) { alert('Scrivi i kg della bombola.'); return; }
+      const l = fgBomb(); l.push({id: fgId(), gas: g('fb-gas').value, tipo: g('fb-tipo').value, cod: g('fb-cod').value.trim(), kg, data: g('fb-data').value || isoGiorno(new Date()), usi: []}); store.set('ass_fgbomb', l); fgApr[lavoro.id + '|b'] = true; fgRidisegnaTutto(); }
+    else if (ds.fbdel) { if (confirm('Togliere questa bombola dal registro?')) { store.set('ass_fgbomb', fgBomb().filter(z => z.id !== ds.fbdel)); fgApr[lavoro.id + '|b'] = true; fgRidisegnaTutto(); } }
+    else if (ds.fbcsv) { fgBombCsv(); }
+    else if (ds.fgcopia) { const q = ds.fgcopia.split('|'), x = fgTrova(q[0]), it = x && x.ints.find(i => i.id === q[1]); if (!it) return; const s = it.righe[0];
+      it.righe.slice(1).forEach(r => { ['erm', 'ril', 'es', 'ak', 'at', 'rk', 'pk', 'mis', 'os'].forEach(f => { r[f] = s[f]; }); }); fgRidisegna(); bozzaModificata(); }
+  });
+  const agg = e => {
+    const t = e.target; if (!t.closest || !t.closest('#fg-d')) return; const ds = t.dataset;
+    if (ds.fcert) { impostazioni.fgas = Object.assign(fgCert(), {[ds.fcert]: t.value}); salvaImpostazioni(); bozzaModificata(true); return; }
+    if (ds.fgaddint !== undefined) { if (e.type !== 'change' || !t.value) return; const x = fgTrova(ds.fgaddint); if (!x) return; const it = fgNuovoInt(lavoro, x, t.value); x.ints.push(it); fgAggUlt(x); fgApr[x.id] = true; fgApr[x.id + '|' + it.id] = true; fgRidisegna(); bozzaModificata(); return; }
+    if (ds.fgreg !== undefined) { if (e.type !== 'change' || !t.value) return; const r = store.get('ass_fgreg', []).find(z => z.id === t.value && z.k === fgChiave(lavoro)); if (!r) return;
+      const x = {id: r.id, a: JSON.parse(JSON.stringify(r.a)), ints: []}; (lavoro.fg = lavoro.fg || []).push(x); fgApr[lavoro.id] = true; fgApr[x.id] = true; fgRidisegnaTutto(); bozzaModificata(); return; }
+    if (!ds.fp) return; const q = ds.fp.split('|'), x = fgTrova(q[0]); if (!x) return;
+    const v = t.type === 'checkbox' ? t.checked : t.value; fgImposta(x, q[1], v);
+    { const m = /^ints\.(\d+)\.righe\.(\d+)\.(ak|bb)$/.exec(q[1]); if (m && x.ints[+m[1]] && x.ints[+m[1]].righe[+m[2]]) fgBombSync(lavoro, x, x.ints[+m[1]], x.ints[+m[1]].righe[+m[2]]); if (/\.data$/.test(q[1])) fgAggUlt(x); }
+    if (e.type === 'change') {
+      if (q[1] === 'a.nc') { fgAllinea(x); }
+      else if (/^a\.cir\.\d+\.gas$/.test(q[1]) && FG_GAS[v]) fgImposta(x, q[1].replace(/gas$/, 'gwp'), FG_GAS[v]);
+      if (t.dataset.rr) fgRidisegna();
+    }
+    if (q[1] === 'a.marca' || q[1] === 'a.modello' || q[1] === 'a.matr') { const fa = t.closest('details.fa'), sm = fa && fa.firstElementChild && fa.firstElementChild.querySelector('b'); if (sm) sm.textContent = ([x.a.marca, x.a.modello].filter(Boolean).join(' ') || 'Apparecchio') + (x.a.matr ? ' · matr. ' + x.a.matr : ''); }
+    fgAggCo2(); fgSalvaReg(x); bozzaModificata();
+  };
+  d.addEventListener('input', agg); d.addEventListener('change', agg);
+}
+function fgDaOperazioni(w, r){          // se tra le operazioni pianificate (da Levante) c'e' un controllo F-gas, la sezione si apre da sola
+  if ((w.fg || []).length) return;
+  if ((r.o || []).filter(o => o.f).some(o => /f[- ]?gas|gas fluorurat|perdite/i.test(o.c + ' ' + o.d))) { w.fg = [fgNuovo(w)]; fgApr[w.id] = true; fgApr[w.fg[0].id] = true; fgApr[w.fg[0].id + '|s'] = true; }
+}
+function fgDati(w){ return {cert: fgCert(), app: (w.fg || []).map(x => JSON.parse(JSON.stringify(x)))}; }
+/* ---- PDF: scheda F-gas dei dati raccolti (per apparecchio) ---- */
+const slugFg = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+const nomePdfFg = (w, x) => 'FGas_' + slugFg(w.cliente || 'cliente') + '_' + (w.data || isoGiorno(new Date())) + (x.a.matr ? '_' + slugFg(x.a.matr) : '') + '.pdf';
+function fgRigheTesto(x, it){          // le righe di un intervento in forma di testo (per il PDF e per copiare i dati in ufficio)
+  const a = x.a, out = [];
+  it.righe.forEach((r, ri) => { const c = a.cir[ri] || a.cir[0], gas = fgGasNome(c), gwp = c.gwp, pre = a.nc > 1 && it.t !== 'inst' ? 'Circuito ' + r.c + (r.matr ? ' (matr. ' + r.matr + ')' : '') + ': ' : '';
+    const kgT = (lab, kg) => lab + ' ' + gas + ' ' + fgIt(fgNum(kg)) + ' kg (GWP ' + gwp + ', ' + fgIt(fgCo2(kg, gwp)) + ' t CO2eq)';
+    const p = [];
+    if (it.t === 'perd') p.push(r.es === 'perdita' ? 'RISCONTRATA PERDITA' : 'Nessuna perdita');
+    if (it.t === 'inst') { if (fgNum(r.ak)) p.push(kgT('Aggiunto', r.ak) + ' ' + r.at + (r.bbc ? ' (bombola ' + r.bbc + ')' : '')); p.push(kgT('Presente', fgNum(r.pk) ? r.pk : fgTotKg(a))); }
+    if (it.t === 'man' || it.t === 'rip') { if (fgNum(r.ak)) p.push(kgT('Aggiunto', r.ak) + ' ' + r.at + (r.bbc ? ' (bombola ' + r.bbc + ')' : '')); if (fgNum(r.rk)) p.push(kgT('Recuperato', r.rk)); if (fgNum(r.pk)) p.push(kgT('Presente', r.pk)); }
+    if (it.t === 'sman') { p.push('Misura: ' + ((FG_MISURE.find(m => m[0] === r.mis) || [0, r.mis])[1])); if (fgNum(r.rk)) p.push(kgT('Recuperato', r.rk)); }
+    if (a.nc > 1 && it.t !== 'inst') p.push('ermetico ' + (r.erm ? 'sì' : 'no') + ', rilevatore ' + (r.ril ? 'sì' : 'no'));
+    if (r.os) p.push('Osservazioni: ' + r.os);
+    out.push(pre + p.join(' · ')); });
+  if (it.t === 'inst') { const d = []; if (it.cli) d.push('gas e apparecchio forniti dal cliente'); else if (it.fatt || it.fattData) d.push('fattura n. ' + (it.fatt || '—') + (it.fattData ? ' del ' + dataIT(it.fattData) : '')); if (it.vuoto) d.push('vuoto eseguito'); if (it.riemp) d.push('riempimento e sfiato eseguiti'); if (d.length) out.push(d.join(' · ')); }
+  return out;
+}
+function costruisciPdfFg(w, x){
+  const { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', compress: true});
+  const M = 12, W = 210, H = 297, INK = [20, 35, 43], GR = [91, 109, 117], PET = [14, 90, 107], ROSSO = [185, 28, 28], a = x.a, ce = fgCert();
+  const col = c => doc.setTextColor(c[0], c[1], c[2]);
+  const az = impostazioni.azienda || (datiReali && datiReali.azienda && datiReali.azienda.RAGIONESOCIALE) || '';
+  let y = M, pag = 1;
+  const testa = () => { doc.setFont('helvetica', 'bold'); doc.setFontSize(13); col(INK); doc.text(az || 'Scheda F-gas', M, y + 5); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); col(GR); doc.text('Scheda F-gas · dati per la banca dati', W - M, y + 5, {align: 'right'}); y += 8; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.5); doc.line(M, y, W - M, y); y += 3; };
+  const piede = () => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(az + (impostazioni.aziendaTel ? ' · ' + impostazioni.aziendaTel : ''), M, H - 6); doc.text('Pag. ' + pag, W - M, H - 6, {align: 'right'}); };
+  const nuova = () => { piede(); doc.addPage(); pag++; y = M; testa(); };
+  const spazio = n => { if (y + n > H - 14) nuova(); };
+  const tit = t => { spazio(14); y += 3; doc.setFont('helvetica', 'bold'); doc.setFontSize(10); col(PET); doc.text(t, M, y + 4); y += 5.5; doc.setDrawColor(200, 210, 214); doc.setLineWidth(0.25); doc.line(M, y, W - M, y); y += 2.5; };
+  const campi = (arr, cols) => { const cw = (W - 2 * M) / cols; for (let i = 0; i < arr.length; i += cols) { spazio(11); for (let j = 0; j < cols && i + j < arr.length; j++) { const l = arr[i + j][0], v = arr[i + j][1], xx = M + j * cw;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(l, xx, y + 3); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); col(INK); doc.text(doc.splitTextToSize(String(v || '—'), cw - 3)[0] || '—', xx, y + 7.5); } y += 10.5; } };
+  const testo = (t, neg) => { doc.setFont('helvetica', neg ? 'bold' : 'normal'); doc.setFontSize(9); col(neg ? ROSSO : INK); doc.splitTextToSize(t, W - 2 * M - 2).forEach(r => { spazio(5); doc.text(r, M + 1, y + 3.5); y += 4.6; }); };
+  testa();
+  campi([['Cliente', w.cliente], ['Data', dataIT(w.data)], ['Indirizzo', w.indirizzo], ['Tecnico', w.tecnico]], 2);
+  tit('OPERATORE' + (a.ut.diverso ? ' E UTILIZZATORE' : ''));
+  campi([['Profilo', (FG_PROF.find(p => p[0] === a.op.prof) || [0, ''])[1].replace(/ \(.*/, '')], ['Ragione sociale / nome', a.op.nome], ['Codice fiscale', a.op.cf], ['Email', a.op.email], ['Referente', a.op.ref]], 2);
+  if (a.ut.diverso) campi([['Utilizzatore', a.ut.nome], ['Codice fiscale utilizzatore', a.ut.cf], ['Email utilizzatore', a.ut.email]], 2);
+  tit('APPARECCHIATURA');
+  campi([['Tipo', (FG_TIPO_APP.find(p => p[0] === a.tipo) || [0, ''])[1]], ['Codice apparecchiatura (portale)', a.cod], ['Marca', a.marca], ['Modello', a.modello], ['Matricola', a.matr], ['N. circuiti', a.nc],
+    ['Codice catasto (Criter)', a.criter], ['Destinazione d\'uso', (FG_USO.find(p => p[0] === a.uso) || [0, a.uso])[1]], ['Ubicazione', [a.via, a.comune, a.prov && '(' + a.prov + ')'].filter(Boolean).join(' ')], ['Ermetico / rilevatore perdite', (a.erm ? 'ermetico' : 'non ermetico') + ' · ' + (a.ril ? 'con rilevatore' : 'senza rilevatore')]], 2);
+  tit('GAS E CARICA MASSIMA');
+  spazio(8 + a.cir.length * 5); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); col(GR); ['Circuito', 'Gas', 'Kg', 'GWP', 't CO2eq', 'Matricola di riferimento'].forEach((h, i) => doc.text(h, [M + 1, M + 24, M + 70, M + 90, M + 112, M + 140][i], y + 3)); y += 5;
+  a.cir.forEach(c => { spazio(5.5); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); col(INK); [String(c.n), fgGasNome(c), fgIt(fgNum(c.kg)), String(c.gwp), fgIt(fgCo2(c.kg, c.gwp)), c.matr || '—'].forEach((t, i) => doc.text(t, [M + 1, M + 24, M + 70, M + 90, M + 112, M + 140][i], y + 3.5)); y += 5; });
+  if (a.nc > 1) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(INK); spazio(6); doc.text('Totale', M + 1, y + 3.5); doc.text(fgIt(fgTotKg(a)), M + 70, y + 3.5); doc.text(fgIt(fgTotCo2(a)), M + 112, y + 3.5); y += 6; }
+  let prima = '';
+  x.ints.forEach(it => { tit(FG_INT[it.t].toUpperCase() + ' · ' + dataIT(it.data)); if (!prima || it.data < prima) prima = it.data;
+    testo('Persona certificata: ' + ([ce.nome, ce.cf, ce.cert].filter(Boolean).join(' · ') || '—') + (ce.imp ? ' · impresa ' + ce.imp : ''));
+    fgRigheTesto(x, it).forEach(r => testo(r, /RISCONTRATA PERDITA/.test(r))); });
+  if (prima) { spazio(14); y += 3; doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); col(ROSSO); doc.text('Da comunicare alla banca dati F-gas entro il ' + dataIT(fgScad(prima)) + ' (30 giorni dal primo intervento).', M, y + 4); y += 8; }
+  spazio(34); y += 4; doc.setDrawColor(GR[0], GR[1], GR[2]); doc.setLineWidth(0.3); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); col(GR);
+  doc.text('Il tecnico' + (w.tecnico ? ': ' + w.tecnico : ''), M, y + 3); doc.text('Per il cliente' + (w.firmaNome ? ': ' + w.firmaNome : ''), M + 100, y + 3);
+  try { if (impostazioni.firmaTecnico) doc.addImage(impostazioni.firmaTecnico, 'PNG', M, y + 4, 40, 16); } catch(e) {}
+  try { if (w.firma) doc.addImage(w.firma, 'PNG', M + 100, y + 4, 40, 16); } catch(e) {}
+  doc.line(M, y + 22, M + 70, y + 22); doc.line(M + 100, y + 22, M + 170, y + 22);
+  piede();
+  return doc.output('blob');
+}
+/* ---- ufficio: dati nell'ordine del portale, copia, scadenza dei 30 giorni e codici restituiti ---- */
+const fgRapp = r => r.fg && Array.isArray(r.fg.app) ? r.fg : null;
+function fgTestoUfficio(r, x, it){
+  const a = x.a, ce = (r.fg && r.fg.cert) || {}, righe = [];
+  righe.push('APPARECCHIATURA: ' + (FG_TIPO_APP.find(p => p[0] === a.tipo) || [0, ''])[1] + ' · ' + [a.marca, a.modello].filter(Boolean).join(' ') + ' · matr. ' + (a.matr || '—') + ' · circuiti ' + a.nc + (a.cod ? ' · codice portale ' + a.cod : '') + (a.criter ? ' · Criter ' + a.criter : ''));
+  righe.push('OPERATORE: ' + [a.op.nome, a.op.cf, a.op.email].filter(Boolean).join(' · ') + (a.ut.diverso ? ' | UTILIZZATORE: ' + [a.ut.nome, a.ut.cf, a.ut.email].filter(Boolean).join(' · ') : ''));
+  righe.push('UBICAZIONE: ' + [a.via, a.comune, a.prov && '(' + a.prov + ')'].filter(Boolean).join(' ') + ' · destinazione ' + a.uso + ' · ' + (a.erm ? 'ermetico' : 'non ermetico') + ' · ' + (a.ril ? 'con rilevatore perdite' : 'senza rilevatore perdite'));
+  righe.push('CARICA MASSIMA: ' + a.cir.map(c => (a.nc > 1 ? 'circ. ' + c.n + ' ' : '') + fgGasNome(c) + ' ' + fgIt(fgNum(c.kg)) + ' kg, GWP ' + c.gwp + ', ' + fgIt(fgCo2(c.kg, c.gwp)) + ' t CO2eq').join(' | ') + (a.nc > 1 ? ' | totale ' + fgIt(fgTotKg(a)) + ' kg, ' + fgIt(fgTotCo2(a)) + ' t CO2eq' : ''));
+  righe.push(FG_INT[it.t].toUpperCase() + ' del ' + dataIT(it.data));
+  fgRigheTesto(x, it).forEach(t => righe.push('  ' + t));
+  righe.push('PERSONA CERTIFICATA: ' + [ce.nome, ce.cf, ce.cert].filter(Boolean).join(' · ') + (ce.imp ? ' · impresa ' + ce.imp : ''));
+  return righe.join('\n');
+}
+function fgUfficioHtml(r){
+  const f = fgRapp(r); if (!f || !f.app.length) return '';
+  r.fgCom = r.fgCom || {}; const key = posta.indexOf(r);
+  return f.app.map((x, xi) => { const a = x.a;
+    return `<p style="margin:10px 0 2px"><b>F-gas · ${esc([a.marca, a.modello].filter(Boolean).join(' ') || 'Apparecchio')}</b>${a.matr ? ' · matr. ' + esc(a.matr) : ''} · ${a.nc} ${a.nc === 1 ? 'circuito' : 'circuiti'} · ${esc(fgIt(fgTotCo2(a)))} t CO₂eq${a.cod ? ' · codice portale ' + esc(a.cod) : ''}</p>` +
+      (x.ints || []).map((it, ii) => { const com = r.fgCom[it.id] || {}, scad = fgScad(it.data), g = scad ? fgGiorni(scad) : 99;
+        const stato = com.ok ? '<span class="chip pdf">Comunicato</span>' : `<span class="chip${g <= 5 ? ' urg' : ''}">entro il ${esc(dataIT(scad))}${g < 0 ? ' (scaduto)' : ' · ' + g + ' g'}</span>`;
+        return `<div style="margin:4px 0 6px;padding:6px 8px;border:1px solid var(--riga);border-radius:8px;background:#fff"><b>${esc(FG_INT[it.t])}</b> · ${esc(dataIT(it.data))} ${stato}
+          <ul style="margin:4px 0;padding-left:20px">${fgRigheTesto(x, it).map(t => `<li${/RISCONTRATA PERDITA/.test(t) ? ' style="color:#b91c1c;font-weight:700"' : ''}>${esc(t)}</li>`).join('')}</ul>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><button class="btn sec piccolo" type="button" data-fgcopia="${key}|${xi}|${ii}">Copia i dati per il portale</button>
+          <label class="spunta"><input type="checkbox" data-fgok="${key}|${it.id}"${com.ok ? ' checked' : ''}> Comunicato in banca dati</label>
+          <input type="text" data-fgcod="${key}|${it.id}" value="${esc(com.cod || '')}" placeholder="Codice intervento restituito" style="max-width:240px" autocomplete="off"></div></div>`; }).join(''); }).join('');
+}
+function collegaFgUfficio(){
+  const el = $('#posta-elenco'); if (!el) return;
+  const trova = k => posta[+String(k).split('|')[0]];
+  el.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.dataset.fgcopia === undefined) return; const q = b.dataset.fgcopia.split('|'), r = trova(q[0]); if (!r || !fgRapp(r)) return;
+    const x = r.fg.app[+q[1]], it = x && x.ints[+q[2]]; if (!it) return; copiaTesto(fgTestoUfficio(r, x, it)); b.textContent = 'Copiato ✓'; });
+  el.addEventListener('change', e => { const t = e.target, d = t.dataset; if (d.fgok === undefined && d.fgcod === undefined) return; const k = d.fgok !== undefined ? d.fgok : d.fgcod, r = trova(k); if (!r) return;
+    r.fgCom = r.fgCom || {}; const id = k.split('|')[1]; r.fgCom[id] = Object.assign({}, r.fgCom[id]); if (d.fgok !== undefined) { r.fgCom[id].ok = t.checked; salvaPosta(); disegnaPosta(); } else { r.fgCom[id].cod = t.value.trim(); salvaPosta(); } });
+}
+
+/* ---- ultima data del controllo perdite: si aggiorna da sola ---- */
+function fgAggUlt(x){ const d = x.ints.filter(i => i.t === 'perd').map(i => i.data).sort().pop(); if (d && (!x.a.ultPerd || d > x.a.ultPerd)) x.a.ultPerd = d; }
+/* ---- registro delle bombole (sul dispositivo): acquisto, uso nei lavori, kg residui ---- */
+const fgBomb = () => store.get('ass_fgbomb', []);
+const fgBombRes = b => Math.round((fgNum(b.kg) - (b.usi || []).reduce((s, u) => s + fgNum(u.kg), 0)) * 100) / 100;
+function fgBombSync(w, x, it, r){
+  if (!r) return; const l = fgBomb(), k = it.id + '|' + r.c; let ch = false;
+  l.forEach(b => { const n = (b.usi || []).length; b.usi = (b.usi || []).filter(u => u.k !== k); if (b.usi.length !== n) ch = true; });
+  const b = l.find(z => z.id === r.bb); r.bbc = b ? (b.cod || '') : '';
+  if (b && fgNum(r.ak) > 0) { b.usi.push({k, data: it.data, kg: fgNum(r.ak), cli: w.cliente || '', app: x.a.matr || x.a.modello || ''}); ch = true; }
+  if (ch) store.set('ass_fgbomb', l);
+}
+function fgBombPulisci(ids){ const l = fgBomb(); let ch = false; l.forEach(b => { const n = (b.usi || []).length; b.usi = (b.usi || []).filter(u => !ids.some(i => u.k.indexOf(i + '|') === 0)); if (b.usi.length !== n) ch = true; }); if (ch) store.set('ass_fgbomb', l); }
+function fgBombSel(x, p, v, c){
+  const l = fgBomb().filter(b => !c || c.gas === 'altro' || b.gas === c.gas); if (!l.length) return '';
+  return `<label class="cw">Bombola usata<select data-fp="${esc(x.id + '|' + p)}" data-rr="1"><option value="">— non indicata —</option>${l.map(b => `<option value="${esc(b.id)}"${b.id === v ? ' selected' : ''}>${esc(b.gas + ' · ' + (b.cod || 'senza codice') + ' · residuo ' + fgIt(fgBombRes(b)) + ' kg')}</option>`).join('')}</select></label>`;
+}
+function fgBombHtml(w){
+  const l = fgBomb(), k = w.id + '|b';
+  return `<details class="fs" data-fk="${esc(k)}"${fgApr[k] ? ' open' : ''}><summary>Bombole (registro) · ${l.length}</summary>
+    ${l.map(b => { const r = fgBombRes(b); return `<div class="fgc"><b>${esc(b.gas)}</b> · ${esc(b.tipo)} · cod. ${esc(b.cod || '—')} · residuo <b class="${r < 0 ? 'fgrosso' : ''}">${esc(fgIt(r))}</b> di ${esc(fgIt(fgNum(b.kg)))} kg${b.data ? ' · acquisto ' + esc(dataIT(b.data)) : ''} <button type="button" class="btn chiaro piccolo" data-fbdel="${esc(b.id)}">Togli</button></div>`; }).join('') || '<p class="aiuto">Nessuna bombola nel registro. Aggiungila qui sotto: poi, negli interventi, scegli da quale bombola hai caricato e i kg residui si aggiornano.</p>'}
+    <div class="cgrid"><label>Gas<select id="fb-gas">${Object.keys(FG_GAS).map(g => `<option>${esc(g)}</option>`).join('')}</select></label><label>Tipo<select id="fb-tipo">${FG_AGG.map(a => `<option value="${a[0]}">${a[1]}</option>`).join('')}</select></label>
+      <label>Codice o lotto<input type="text" id="fb-cod" autocomplete="off"></label><label>Kg di gas<input type="text" inputmode="decimal" id="fb-kg" autocomplete="off"></label><label class="cw">Data di acquisto<input type="date" id="fb-data"></label></div>
+    <div class="cadd"><button type="button" class="btn piccolo" data-fbadd="1">Aggiungi la bombola</button> <button type="button" class="btn chiaro piccolo" data-fbcsv="1">Registro in CSV</button></div></details>`;
+}
+function fgBombCsv(){
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', righe = [['Data', 'Movimento', 'Gas', 'Tipo', 'Bombola', 'Kg', 'Cliente', 'Apparecchio'].map(q).join(';')];
+  fgBomb().forEach(b => { righe.push([b.data, 'Acquisto', b.gas, b.tipo, b.cod, fgIt(fgNum(b.kg)), '', ''].map(q).join(';')); (b.usi || []).forEach(u => righe.push([u.data, 'Uso', b.gas, b.tipo, b.cod, fgIt(-fgNum(u.kg)), u.cli, u.app].map(q).join(';'))); });
+  scaricaBlob(new Blob(['﻿' + righe.join('\r\n')], {type: 'text/csv;charset=utf-8'}), 'Registro_bombole_FGAS.csv');
+}
+/* ---- QR dell'apparecchio: tutti i dati fissi, cosi' al prossimo controllo si legge e si parte ---- */
+let fgScanAtt = false;
+const fgQe = v => String(v == null ? '' : v).replace(/[|;~]/g, ' ').replace(/\s+/g, ' ').trim();
+function fgQrTesto(w, x){
+  const a = x.a, o = a.op, u = a.ut;
+  return ['ASS1', 'FGAS', '1', ctrlImpId(w), a.tipo, fgQe(a.marca), fgQe(a.modello), fgQe(a.matr), a.nc, a.uso, a.erm ? 1 : 0, a.ril ? 1 : 0, fgQe(a.cod), fgQe(a.criter), fgQe(a.via), fgQe(a.comune), fgQe(a.prov), fgQe(a.ultPerd),
+    o.prof, fgQe(o.cf), fgQe(o.nome), fgQe(o.email), fgQe(o.ref), u.diverso ? 1 : 0, fgQe(u.cf), fgQe(u.nome), fgQe(u.email),
+    a.cir.map(c => [c.gas, fgQe(c.gn), fgQe(c.gwp), String(c.kg || '').replace(',', '.'), fgQe(c.matr)].join('~')).join(';')].join('|');
+}
+function fgQrLeggi(t){
+  const p = String(t).split('|'); if (p[0] !== 'ASS1' || p[1] !== 'FGAS') return null;
+  const a = {tipo: p[4] || 'cond', marca: p[5] || '', modello: p[6] || '', matr: p[7] || '', nc: 1, uso: p[9] || 'E.5', erm: p[10] === '1', ril: p[11] === '1', cod: p[12] || '', criter: p[13] || '', via: p[14] || '', comune: p[15] || '', prov: p[16] || '', ultPerd: p[17] || '',
+    op: {prof: p[18] || 'impresa', cf: p[19] || '', nome: p[20] || '', email: p[21] || '', ref: p[22] || ''}, ut: {diverso: p[23] === '1', cf: p[24] || '', nome: p[25] || '', email: p[26] || ''},
+    cir: (p[27] || '').split(';').filter(Boolean).map((z, i) => { const q = z.split('~'); return {n: i + 1, gas: q[0] || 'R-410A', gn: q[1] || '', gwp: q[2] || FG_GAS[q[0]] || '', kg: (q[3] || '').replace('.', ','), matr: q[4] || ''}; })};
+  if (!a.cir.length) a.cir = [fgCir(1)]; a.nc = a.cir.length; return {imp: p[3] || '', a};
+}
+function fgDaQr(testo){
+  const r = fgQrLeggi(testo); if (!r) { scanMsg('Questo QR non è valido.', true); return; }
+  const imp = ctrlImpId(lavoro); if (r.imp && imp && r.imp !== imp && !confirm('Questo QR appartiene a un altro impianto. Lo aggiungo lo stesso a questo intervento?')) return;
+  const nome = [r.a.marca, r.a.modello].filter(Boolean).join(' ') || 'Apparecchio', ex = (lavoro.fg || []).find(x => r.a.matr && x.a.matr === r.a.matr);
+  let msg;
+  if (ex) { fgApr[lavoro.id] = true; fgApr[ex.id] = true; msg = 'Già nella lista: ' + nome + '.'; }
+  else { const x = {id: fgId(), a: r.a, ints: []}; fgAllinea(x); (lavoro.fg = lavoro.fg || []).push(x); fgApr[lavoro.id] = true; fgApr[x.id] = true; fgSalvaReg(x); msg = 'Letto: ' + nome + ' (' + fgIt(fgTotCo2(x.a)) + ' t CO₂eq). Ora aggiungi l\'intervento.'; }
+  scanChiudi(); fgScanAtt = false; fgRidisegnaTutto(); bozzaModificata(); mostraAvviso(msg);
+  setTimeout(() => { const d = $('#fg-d'); if (d) d.scrollIntoView({block: 'start'}); }, 200);
+}
+function fgEtichetta(w, x){
+  const a = x.a, t = fgQrTesto(w, x); let q = qrcode(0, 'M'); q.addData(t, 'Byte'); q.make();
+  if (q.getModuleCount() > 45) { q = qrcode(0, 'L'); q.addData(t, 'Byte'); q.make(); }          // piu' dati = QR piu' fitto: con livello L i moduli restano piu' grandi
+  const n = q.getModuleCount(), W = 600, H = 360, Q = 3, px = Math.max(2, Math.floor(344 / (n + 2 * Q))), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, W, H); c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeRect(3, 3, W - 6, H - 6);
+  const lato = px * (n + 2 * Q), ox = 8 + Q * px, oy = Math.floor((H - lato) / 2) + Q * px; c.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) c.fillRect(ox + k * px, oy + r * px, px, px);
+  c.textBaseline = 'top'; const X = 8 + lato + 8, L = W - X - 12; let y = 20;
+  c.font = 'bold 34px Arial, sans-serif'; c.fillText('F-GAS', X, y); y += 40;
+  c.font = 'bold 26px Arial, sans-serif'; ctrlRighe(c, [a.marca, a.modello].filter(Boolean).join(' ') || 'Apparecchio', L).slice(0, 2).forEach(r => { c.fillText(r, X, y, L); y += 30; });
+  c.font = '24px Arial, sans-serif'; if (a.matr) { c.fillText('Matr. ' + a.matr, X, y, L); y += 29; }
+  a.cir.slice(0, 2).forEach(ci => { c.fillText((a.nc > 1 ? 'C' + ci.n + ' ' : '') + fgGasNome(ci) + ' ' + fgIt(fgNum(ci.kg)) + ' kg', X, y, L); y += 29; });
+  c.fillText(fgIt(fgTotCo2(a)) + ' t CO2eq', X, y, L);
+  c.fillStyle = '#333'; c.font = 'bold 20px Arial, sans-serif'; c.fillText(impostazioni.azienda || '', X, H - 34, L);
+  return cv;
+}
+async function fgMostraEtichetta(id){
+  const x = fgTrova(id); if (!x) return;
+  if (!x.a.matr && !x.a.modello) { alert('Compila almeno modello e matricola dell\'apparecchio: servono per riconoscerlo.'); return; }
+  try { await ctrlQrLib(); } catch(e) { alert('La libreria dei QR non si è ancora caricata: serve la connessione una volta sola.'); return; }
+  const cv = fgEtichetta(lavoro, x), blob = await cvBlob(cv), nome = 'Etichetta_FGAS_' + String(x.a.matr || x.a.modello).replace(/[^A-Za-z0-9]+/g, '_') + '.png', len = fgQrTesto(lavoro, x).length;
+  let ov = $('#ctrl-qr'); if (ov) ov.remove(); ov = document.createElement('div'); ov.id = 'ctrl-qr';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = `<div style="background:#fff;border-radius:12px;padding:14px;max-width:440px;width:100%"><img alt="Etichetta F-gas con QR" src="${cv.toDataURL('image/png')}" style="width:100%;border:1px dashed #999"><p class="aiuto" style="margin:8px 0">Etichetta da 50 × 30 mm, come quella degli idranti, con tutti i dati fissi dell'apparecchio nel QR (${len} caratteri). Stampala e attaccala all'unità: la prossima volta basta "Leggi il QR di un apparecchio". Dopo la stampa prova a leggerla.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn" type="button" id="cq-salva">Salva l'immagine</button><button class="btn sec" type="button" id="cq-cond">Condividi</button><button class="btn chiaro" type="button" id="cq-chiudi">Chiudi</button></div></div>`;
+  document.body.appendChild(ov);
+  $('#cq-chiudi').onclick = () => ov.remove(); $('#cq-salva').onclick = () => scaricaBlob(blob, nome);
+  $('#cq-cond').onclick = async () => { try { const f = new File([blob], nome, {type: 'image/png'}); if (navigator.canShare && navigator.canShare({files: [f]})) await navigator.share({files: [f]}); else scaricaBlob(blob, nome); } catch(e) {} };
+}
+/* ---- ufficio: riepilogo delle scadenze F-gas (comunicazioni da fare e prossimi controlli perdite) ---- */
+function fgScadenzeHtml(){
+  const com = [], app = {};
+  posta.forEach(r => { const f = fgRapp(r); if (!f) return; (f.app || []).forEach(x => {
+    (x.ints || []).forEach(it => { const c = (r.fgCom || {})[it.id]; if (!(c && c.ok)) com.push({d: fgScad(it.data), t: FG_INT[it.t], cl: r.cliente, app: [x.a.marca, x.a.modello].filter(Boolean).join(' ') || x.a.matr}); });
+    const k = (r.cliente || '') + '|' + (x.a.matr || x.a.modello || ''), u = (x.ints || []).filter(i => i.t === 'perd').map(i => i.data).concat(x.a.ultPerd || []).sort().pop();
+    if (!app[k] || (u || '') > (app[k].u || '')) app[k] = {cl: r.cliente, nome: [x.a.marca, x.a.modello].filter(Boolean).join(' ') || x.a.matr, u, pr: fgSommaMesi(u, fgMesi(x.a)), co2: fgTotCo2(x.a)}; }); });
+  const ap = Object.keys(app).map(k => app[k]).filter(a => a.pr).sort((a, b) => a.pr < b.pr ? -1 : 1);
+  if (!com.length && !ap.length) return '';
+  com.sort((a, b) => a.d < b.d ? -1 : 1);
+  const oggi = isoGiorno(new Date()), rosso = d => d && d <= fgScad(oggi) && false;
+  return `<details class="avviso info" style="margin:0 0 12px"><summary><b>F-gas</b> · ${com.length} da comunicare · ${ap.length} con prossimo controllo</summary>
+    ${com.length ? '<p style="margin:8px 0 2px"><b>Da comunicare alla banca dati</b></p><ul style="margin:0;padding-left:20px">' + com.map(c => `<li>entro il <b>${esc(dataIT(c.d))}</b>${c.d < oggi ? ' <span class="chip urg">scaduto</span>' : ''} · ${esc(c.t)} · ${esc(c.cl)} · ${esc(c.app)}</li>`).join('') + '</ul>' : ''}
+    ${ap.length ? '<p style="margin:8px 0 2px"><b>Prossimi controlli perdite</b> <span class="aiuto">(indicativi)</span></p><ul style="margin:0;padding-left:20px">' + ap.map(a => `<li>entro il <b>${esc(dataIT(a.pr))}</b>${a.pr < oggi ? ' <span class="chip urg">scaduto</span>' : ''} · ${esc(a.cl)} · ${esc(a.nome)} · ${esc(fgIt(a.co2))} t CO₂eq</li>`).join('') + '</ul>' : ''}</details>`;
+}
+
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
   return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: x.ko, nota: x.i.nota || ''}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
@@ -3349,6 +3732,7 @@ function creaPdf(){
   registraMatUsati(lavoro.materiali);
   const files = [{blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda}), nome: nomePdf(lavoro), titolo: 'Rapportino'}];
   (lavoro.ctrl || []).forEach(c => { if (!ctrlM(c.mod)) return; try { files.push({blob: costruisciPdfCtrl(lavoro, c), nome: nomePdfCtrl(lavoro, c), titolo: ctrlM(c.mod).nome}); } catch(e) { alert('Non sono riuscito a creare il PDF «' + ctrlM(c.mod).nome + '»: ' + e.message); } });
+  (lavoro.fg || []).forEach(x => { if (!x.ints.length) return; try { files.push({blob: costruisciPdfFg(lavoro, x), nome: nomePdfFg(lavoro, x), titolo: 'Scheda F-gas'}); } catch(e) { alert('Non sono riuscito a creare il PDF F-gas: ' + e.message); } });
   ultimoPdfCliente = {blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda, perCliente: true}), nome: nomePdf(lavoro)};
   destInvio = 'uff';
   if (haRcee(lavoro)) {
@@ -6632,7 +7016,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.70.1 (02/11/2026)';
+const VERSIONE_APP = '1.72.0 (03/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -7039,6 +7423,7 @@ function scanConferma(chiudi){
   scanApri();
 }
 function scanRisultato(testo){
+  if (/^ASS1\|FGAS\|/.test(testo) && lavoro) { scanPre = ''; fgDaQr(testo); return; }
   if (/^ASS1\|IDR\|/.test(testo) && lavoro) { scanPre = ''; ctrlDaQr(testo); return; }
   const a = cercaBarre(testo);
   scanPre = '';
@@ -7502,7 +7887,7 @@ function datiIntervento(w, pdf){
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
     importi: impPerUfficio(w),
-    ric: w.ric || undefined, voce: vocDati('int:' + w.id), ctrl: (w.ctrl || []).length ? ctrlDati(w) : undefined,
+    ric: w.ric || undefined, voce: vocDati('int:' + w.id), ctrl: (w.ctrl || []).length ? ctrlDati(w) : undefined, fg: (w.fg || []).length ? fgDati(w) : undefined,
     portato: (w.portato || []).filter(pp => ptResto(w, pp) > 0 || !qNum(pp.qta) && !portatoUsato(w, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(w, pp)) : (pp.qta || ''), um: pp.um || ''})),
     file: pdf || [], inviato: Date.now()};
 }
@@ -7660,12 +8045,13 @@ function disegnaPosta(){
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${vocLettore(r)}${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
       ${conTab ? '' : mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
-      ${ctrlUfficioHtml(r)}
+      ${ctrlUfficioHtml(r)}${fgUfficioHtml(r)}
       ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc(((pp.qta || '') + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
       <p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
   }).join('');
+  testa += fgScadenzeHtml();
   { const nC = posta.filter(r => r.cant && !r.fatto).length; if (nC) testa += `<button class="btn sec piccolo" type="button" data-cantcsv="1" style="margin:0 0 12px 8px">Riepilogo ore dei cantieri da registrare (CSV, ${nC})</button>`; }
   box.innerHTML = testa + box.innerHTML;
 }
@@ -7807,7 +8193,7 @@ async function leggiPosta(files){
   for (const {o} of lette) {
     const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
     o.src = Array.from(new Set((i >= 0 ? (posta[i].src || []) : []).concat(o._src || []))); delete o._src;
-    if (i >= 0) { o.ricevuto = posta[i].ricevuto; o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { o.ricevuto = isoGiorno(new Date()); posta.push(o); if (o.rich) nuoviRq++; else nuovi++; }
+    if (i >= 0) { o.ricevuto = posta[i].ricevuto; o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; if (posta[i].fgCom) o.fgCom = posta[i].fgCom; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { o.ricevuto = isoGiorno(new Date()); posta.push(o); if (o.rich) nuoviRq++; else nuovi++; }
   }
   salvaPosta();
   $('#posta-msg').textContent = (nuoviRq ? nuoviRq + (nuoviRq === 1 ? ' richiesta di chiamate' : ' richieste di chiamate') + ' (nella sezione Richieste dei tecnici), ' : '') + nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.' + (protetti ? ' ⚠ ' + protetti + (protetti === 1 ? ' file protetto non letto' : ' file protetti non letti') + ': ' + motivoProt + '.' : '');
@@ -7927,6 +8313,7 @@ function avviaPosta(){
     else if (d.rtogli !== undefined) { const p = d.rtogli.split('|'), r = posta[+p[0]]; r.rip = ripartizione(r).map(x => Object.assign({}, x)); r.rip.splice(+p[1], 1); salvaPosta(); disegnaPosta(); }
     else if (d.togliPosta !== undefined) { if (confirm('Elimino questo intervento dalla posta in arrivo?')) { posta.splice(+d.togliPosta, 1); salvaPosta(); disegnaPosta(); } }
   });
+  collegaFgUfficio();
   $('#posta-elenco').addEventListener('dragstart', e => {
     const z = e.target.closest && e.target.closest('[data-zip]');
     if (z && e.dataTransfer) {
