@@ -3302,7 +3302,7 @@ const fgIt = n => String(Math.round(n * 100) / 100).replace('.', ',');
 const fgCo2 = (kg, gwp) => Math.round(fgNum(kg) * fgNum(gwp) / 10) / 100;            // tonnellate di CO2 equivalente, 2 decimali come nei rapporti del portale
 const fgGasNome = c => c.gas === 'altro' ? (c.gn || 'Altro gas') : c.gas;
 const fgCir = (n, da) => ({n, gas: da ? da.gas : 'R-410A', gn: da ? da.gn : '', gwp: da ? da.gwp : 2088, kg: '', matr: ''});
-const fgRiga = (a, n) => ({c: n, matr: '', erm: !!a.erm, ril: !!a.ril, es: 'ok', ak: '', at: 'vergine', rk: '', pk: '', mis: 'altro', os: ''});
+const fgRiga = (a, n) => ({c: n, on: true, matr: '', erm: !!a.erm, ril: !!a.ril, es: 'ok', ak: '', at: 'vergine', rk: '', pk: '', mis: 'altro', os: ''});
 function fgNuovo(w){
   return {id: fgId(), a: {tipo: 'cond', matr: '', marca: '', modello: '', nc: 1, cir: [fgCir(1)], criter: '', ultPerd: '', uso: 'E.5', prov: '', comune: '', via: w.indirizzo || '', erm: false, ril: false, cod: '',
     op: {prof: 'impresa', cf: '', nome: w.cliente || '', email: w.email || '', ref: ''}, ut: {diverso: false, cf: '', nome: '', email: ''}}, ints: []};
@@ -3356,18 +3356,21 @@ function fgCardInt(x, it, ii){
   if (it.t === 'inst') {
     const r = it.righe[0] || fgRiga(a, 1);
     corpo += `<div class="cgrid">${fgCk(x.id, p + '.cli', it.cli, 'Gas e apparecchio forniti dal cliente (non fatturati da noi)')}${it.cli ? '' : fgIn(x.id, p + '.fatt', it.fatt, 'N. fattura', {im: 'numeric'}) + fgIn(x.id, p + '.fattData', it.fattData, 'Data fattura', {type: 'date'})}
-      ${fgKg(x, R(0, 'ak'), r.ak, 'Gas aggiunto (kg)', 0)}${fgSel(x.id, R(0, 'at'), r.at, 'Tipo di gas aggiunto', FG_AGG)}${fgBombSel(x, R(0, 'bb'), r.bb, a.cir[0])}
+      ${fgKg(x, R(0, 'ak'), r.ak, 'Gas aggiunto (kg)', 0)}${fgSel(x.id, R(0, 'at'), r.at, 'Tipo di gas aggiunto', FG_AGG)}${fgBombSel(x, p + '.righe.0', r, a.cir[0], 'uso')}
       <label class="cw">Gas presente (kg)<input type="text" inputmode="decimal" data-fp="${esc(x.id + '|' + R(0, 'pk'))}" value="${esc(r.pk || '')}" placeholder="${esc(fgIt(fgTotKg(a)))}" autocomplete="off"><small class="fgco" data-co="${esc(x.id + '|' + R(0, 'pk') + '|0')}"></small></label>
       ${fgCk(x.id, p + '.vuoto', it.vuoto, 'Vuoto eseguito e circuito aperto')}${fgCk(x.id, p + '.riemp', it.riemp, 'Riempimento e sfiato dell\'impianto eseguiti')}
       <label class="cw">Osservazioni<input type="text" data-fp="${esc(x.id + '|' + R(0, 'os'))}" value="${esc(r.os || '')}" autocomplete="off"></label></div>`;
   } else {
     corpo += it.righe.map((r, ri) => {
-      const c = a.cir[ri] || a.cir[0];
-      let h = multi ? `<p class="fgct"><b>Circuito ${r.c}</b> · ${esc(fgGasNome(c))}</p><div class="cgrid">${fgIn(x.id, R(ri, 'matr'), r.matr, 'Matricola del circuito (es. compressore)', {w: 1})}${fgCk(x.id, R(ri, 'erm'), r.erm, 'Ermeticamente sigillato')}${fgCk(x.id, R(ri, 'ril'), r.ril, 'Sistema di rilevamento perdite')}</div>` : '';
+      const c = a.cir[ri] || a.cir[0], on = r.on !== false, rp = p + '.righe.' + ri;
+      let h = `<p class="fgct"><b>Circuito ${r.c}${a.nc > 1 ? ' di ' + a.nc : ''}</b> · ${esc(fgGasNome(c))}</p>`;
+      if (a.nc > 1) h += `<div class="cgrid">${fgCk(x.id, R(ri, 'on'), on, 'Compreso in questo intervento (togli la spunta se non lo hai controllato)')}</div>`;
+      if (!on) return `<div class="fgc">${h}</div>`;
+      if (multi) h += `<div class="cgrid">${fgIn(x.id, R(ri, 'matr'), r.matr, 'Matricola del circuito (es. compressore)', {w: 1})}${fgCk(x.id, R(ri, 'erm'), r.erm, 'Ermeticamente sigillato')}${fgCk(x.id, R(ri, 'ril'), r.ril, 'Sistema di rilevamento perdite')}</div>`;
       h += '<div class="cgrid">';
       if (it.t === 'perd') h += fgSel(x.id, R(ri, 'es'), r.es, 'Esito', [['ok', 'Nessuna perdita'], ['perdita', 'Riscontrata perdita']], {w: 1});
-      if (it.t === 'man' || it.t === 'rip') h += fgKg(x, R(ri, 'ak'), r.ak, 'Gas aggiunto (kg)', ri) + fgSel(x.id, R(ri, 'at'), r.at, 'Tipo di gas aggiunto', FG_AGG) + fgKg(x, R(ri, 'rk'), r.rk, 'Gas recuperato (kg)', ri) + fgKg(x, R(ri, 'pk'), r.pk, 'Gas presente (kg)', ri) + fgBombSel(x, R(ri, 'bb'), r.bb, c);
-      if (it.t === 'sman') h += fgSel(x.id, R(ri, 'mis'), r.mis, 'Misura adottata per il gas', FG_MISURE) + fgKg(x, R(ri, 'rk'), r.rk, 'Gas recuperato (kg)', ri);
+      if (it.t === 'man' || it.t === 'rip') h += fgKg(x, R(ri, 'ak'), r.ak, 'Gas aggiunto (kg)', ri) + fgSel(x.id, R(ri, 'at'), r.at, 'Tipo di gas aggiunto', FG_AGG) + fgBombSel(x, rp, r, c, 'uso') + fgKg(x, R(ri, 'rk'), r.rk, 'Gas recuperato (kg)', ri) + fgBombSel(x, rp, r, c, 'rec') + fgKg(x, R(ri, 'pk'), r.pk, 'Gas presente (kg)', ri);
+      if (it.t === 'sman') h += fgSel(x.id, R(ri, 'mis'), r.mis, 'Misura adottata per il gas', FG_MISURE) + fgKg(x, R(ri, 'rk'), r.rk, 'Gas recuperato (kg)', ri) + fgBombSel(x, rp, r, c, 'rec');
       h += `<label class="cw">Osservazioni<input type="text" data-fp="${esc(x.id + '|' + R(ri, 'os'))}" value="${esc(r.os || '')}" autocomplete="off"></label></div>`;
       if (it.t === 'perd' && r.es === 'perdita') h += '<p class="aiuto" style="margin:0 0 6px">Se bisogna riparare, aggiungi un intervento di riparazione: va comunicato a parte.</p>';
       return `<div class="fgc">${h}</div>`;
@@ -3387,8 +3390,8 @@ function fgBlocco(x){
         ${fgIn(x.id, 'a.cod', a.cod, 'Codice apparecchiatura del portale (se già comunicato)', {w: 1, ph: 'Per esempio 24*043821*00167597'})}
         ${fgIn(x.id, 'a.ultPerd', a.ultPerd, 'Data dell\'ultimo controllo perdite', {type: 'date', w: 1})}${fgSel(x.id, 'a.uso', a.uso, 'Destinazione d\'uso', FG_USO, {w: 1})}${fgIn(x.id, 'a.via', a.via, 'Indirizzo', {w: 1})}${fgIn(x.id, 'a.comune', a.comune, 'Comune')}${fgIn(x.id, 'a.prov', a.prov, 'Provincia', {ph: 'BO'})}
         ${fgCk(x.id, 'a.erm', a.erm, 'Ermeticamente sigillato')}${fgCk(x.id, 'a.ril', a.ril, 'Sistema di rilevamento perdite presente')}</div>
-      <p class="fgct"><b>Gas e carica massima</b> · per circuito</p>
-      ${a.cir.map((c, ci) => `<div class="fgc"><div class="cgrid">${a.nc > 1 ? `<p class="fgct cw" style="margin:0"><b>Circuito ${c.n}</b></p>` : ''}${fgSel(x.id, 'a.cir.' + ci + '.gas', c.gas, 'Gas', gasOps)}${c.gas === 'altro' ? fgIn(x.id, 'a.cir.' + ci + '.gn', c.gn, 'Nome del gas') : ''}${fgIn(x.id, 'a.cir.' + ci + '.gwp', c.gwp, 'GWP', {im: 'numeric'})}
+      <p class="fgct"><b>Gas e carica massima</b> · ${a.nc} ${a.nc === 1 ? 'circuito' : 'circuiti'}</p>
+      ${a.cir.map((c, ci) => `<div class="fgc"><div class="cgrid"><p class="fgct cw" style="margin:0"><b>Circuito ${c.n} di ${a.nc}</b></p>${fgSel(x.id, 'a.cir.' + ci + '.gas', c.gas, 'Gas', gasOps)}${c.gas === 'altro' ? fgIn(x.id, 'a.cir.' + ci + '.gn', c.gn, 'Nome del gas') : ''}${fgIn(x.id, 'a.cir.' + ci + '.gwp', c.gwp, 'GWP', {im: 'numeric'})}
         ${fgKg(x, 'a.cir.' + ci + '.kg', c.kg, 'Carica massima (kg)', ci)}${a.nc > 1 ? fgIn(x.id, 'a.cir.' + ci + '.matr', c.matr, 'Matricola di riferimento (es. compressore)', {w: 1}) : ''}</div></div>`).join('')}
       <p class="aiuto" style="margin:8px 0 0" data-cot="${esc(x.id)}"></p><p class="aiuto" style="margin:2px 0 0" data-cop="${esc(x.id)}"></p>
     </details>
@@ -3418,6 +3421,10 @@ function fgAggCo2(){          // aggiorna i testi calcolati (t CO2 equivalenti, 
   document.querySelectorAll('#fg-d [data-co]').forEach(s => { const q = s.dataset.co.split('|'), x = fgTrova(q[0]); if (!x) return; const kg = fgGet(x, q[1]), c = x.a.cir[+q[2]] || x.a.cir[0];
     s.textContent = fgNum(kg) ? '= ' + fgIt(fgCo2(kg, c.gwp)) + ' t CO₂eq' : ''; });
   document.querySelectorAll('#fg-d [data-cot]').forEach(s => { const x = fgTrova(s.dataset.cot); if (!x) return; const t = fgTotKg(x.a); s.textContent = t ? 'Carica totale: ' + fgIt(t) + ' kg · ' + fgIt(fgTotCo2(x.a)) + ' t CO₂eq' : ''; });
+  document.querySelectorAll('#fg-d [data-bbi]').forEach(sp => { const q = sp.dataset.bbi.split('|'), x = fgTrova(q[0]), r = x && fgGet(x, q[1]); if (!r) return;
+    const b = fgBomb().find(z => z.id === (q[2] === 'uso' ? r.bb : r.br)); if (!b) { sp.textContent = ''; return; }
+    const kg = fgNum(q[2] === 'uso' ? r.ak : r.rk), res = fgBombRes(b);
+    sp.textContent = (q[2] === 'uso' ? 'Da questa bombola: usati ' + fgIt(kg) + ' kg · residuo ' : 'In questa bombola: recuperati ' + fgIt(kg) + ' kg · contenuto ora ') + fgIt(res) + ' kg' + (res < 0 ? ' (ATTENZIONE: più di quanto c\'era)' : ''); sp.style.color = res < 0 ? '#b91c1c' : ''; });
   document.querySelectorAll('#fg-d [data-cop]').forEach(s => { const x = fgTrova(s.dataset.cop); if (x) s.textContent = fgPeriodo(x.a); });
 }
 function fgRidisegna(){ const b = $('#fg-box'); if (!b) return; b.innerHTML = (lavoro.fg || []).map(fgBlocco).join(''); const s = $('#fg-sum'); if (s) s.textContent = fgSomm(lavoro); fgAggCo2(); }
@@ -3432,8 +3439,9 @@ function collegaFg(){
     else if (ds.fgidel) { const q = ds.fgidel.split('|'), x = fgTrova(q[0]); if (x && confirm('Togliere questo intervento?')) { fgBombPulisci([q[1]]); x.ints = x.ints.filter(i => i.id !== q[1]); fgAggUlt(x); fgRidisegna(); bozzaModificata(); } }
     else if (ds.fgqr) { fgMostraEtichetta(ds.fgqr); }
     else if (ds.fgscan) { ctrlQrDest = ''; scanCn = false; fgScanAtt = true; scanApri(); }
-    else if (ds.fbadd) { const g = id => $('#' + id), kg = fgNum(g('fb-kg').value); if (!kg) { alert('Scrivi i kg della bombola.'); return; }
-      const l = fgBomb(); l.push({id: fgId(), gas: g('fb-gas').value, tipo: g('fb-tipo').value, cod: g('fb-cod').value.trim(), kg, data: g('fb-data').value || isoGiorno(new Date()), usi: []}); store.set('ass_fgbomb', l); fgApr[lavoro.id + '|b'] = true; fgRidisegnaTutto(); }
+    else if (ds.fbadd) { const g = id => $('#' + id), mod = g('fb-mod').value, kg = fgNum(g('fb-kg').value); if (mod === 'piena' && !kg) { alert('Scrivi i kg della bombola piena.'); return; }
+      const l = fgBomb(); l.push({id: fgId(), mod, gas: g('fb-gas').value, tipo: g('fb-tipo').value, cod: g('fb-cod').value.trim(), kg: mod === 'vuota' ? 0 : kg, forn: g('fb-forn').value.trim(), bolla: g('fb-bolla').value.trim(), data: g('fb-data').value || isoGiorno(new Date()), rend: g('fb-rend').checked, resa: '', bollaResa: '', usi: [], rec: []}); store.set('ass_fgbomb', l); fgApr[lavoro.id + '|b'] = true; fgRidisegnaTutto(); fgRidisegna(); }
+    else if (ds.fbresa) { const l = fgBomb(), bb = l.find(z => z.id === ds.fbresa); if (bb) { const n = prompt('Numero della bolla di reso (puoi lasciare vuoto):', ''); if (n === null) return; bb.resa = isoGiorno(new Date()); bb.bollaResa = String(n).trim(); store.set('ass_fgbomb', l); fgApr[lavoro.id + '|b'] = true; fgRidisegnaTutto(); } }
     else if (ds.fbdel) { if (confirm('Togliere questa bombola dal registro?')) { store.set('ass_fgbomb', fgBomb().filter(z => z.id !== ds.fbdel)); fgApr[lavoro.id + '|b'] = true; fgRidisegnaTutto(); } }
     else if (ds.fbcsv) { fgBombCsv(); }
     else if (ds.fgcopia) { const q = ds.fgcopia.split('|'), x = fgTrova(q[0]), it = x && x.ints.find(i => i.id === q[1]); if (!it) return; const s = it.righe[0];
@@ -3447,7 +3455,7 @@ function collegaFg(){
       const x = {id: r.id, a: JSON.parse(JSON.stringify(r.a)), ints: []}; (lavoro.fg = lavoro.fg || []).push(x); fgApr[lavoro.id] = true; fgApr[x.id] = true; fgRidisegnaTutto(); bozzaModificata(); return; }
     if (!ds.fp) return; const q = ds.fp.split('|'), x = fgTrova(q[0]); if (!x) return;
     const v = t.type === 'checkbox' ? t.checked : t.value; fgImposta(x, q[1], v);
-    { const m = /^ints\.(\d+)\.righe\.(\d+)\.(ak|bb)$/.exec(q[1]); if (m && x.ints[+m[1]] && x.ints[+m[1]].righe[+m[2]]) fgBombSync(lavoro, x, x.ints[+m[1]], x.ints[+m[1]].righe[+m[2]]); if (/\.data$/.test(q[1])) fgAggUlt(x); }
+    { const m = /^ints\.(\d+)\.righe\.(\d+)\.(ak|bb|rk|br|on)$/.exec(q[1]); if (m && x.ints[+m[1]] && x.ints[+m[1]].righe[+m[2]]) fgBombSync(lavoro, x, x.ints[+m[1]], x.ints[+m[1]].righe[+m[2]]); if (/\.data$/.test(q[1])) fgAggUlt(x); }
     if (e.type === 'change') {
       if (q[1] === 'a.nc') { fgAllinea(x); }
       else if (/^a\.cir\.\d+\.gas$/.test(q[1]) && FG_GAS[v]) fgImposta(x, q[1].replace(/gas$/, 'gwp'), FG_GAS[v]);
@@ -3468,13 +3476,13 @@ const slugFg = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').rep
 const nomePdfFg = (w, x) => 'FGas_' + slugFg(w.cliente || 'cliente') + '_' + (w.data || isoGiorno(new Date())) + (x.a.matr ? '_' + slugFg(x.a.matr) : '') + '.pdf';
 function fgRigheTesto(x, it){          // le righe di un intervento in forma di testo (per il PDF e per copiare i dati in ufficio)
   const a = x.a, out = [];
-  it.righe.forEach((r, ri) => { const c = a.cir[ri] || a.cir[0], gas = fgGasNome(c), gwp = c.gwp, pre = a.nc > 1 && it.t !== 'inst' ? 'Circuito ' + r.c + (r.matr ? ' (matr. ' + r.matr + ')' : '') + ': ' : '';
+  it.righe.forEach((r, ri) => { if (r.on === false) return; const c = a.cir[ri] || a.cir[0], gas = fgGasNome(c), gwp = c.gwp, pre = it.t !== 'inst' ? 'Circuito ' + r.c + (a.nc > 1 ? ' di ' + a.nc : '') + (r.matr ? ' (matr. ' + r.matr + ')' : '') + ': ' : '';
     const kgT = (lab, kg) => lab + ' ' + gas + ' ' + fgIt(fgNum(kg)) + ' kg (GWP ' + gwp + ', ' + fgIt(fgCo2(kg, gwp)) + ' t CO2eq)';
     const p = [];
     if (it.t === 'perd') p.push(r.es === 'perdita' ? 'RISCONTRATA PERDITA' : 'Nessuna perdita');
     if (it.t === 'inst') { if (fgNum(r.ak)) p.push(kgT('Aggiunto', r.ak) + ' ' + r.at + (r.bbc ? ' (bombola ' + r.bbc + ')' : '')); p.push(kgT('Presente', fgNum(r.pk) ? r.pk : fgTotKg(a))); }
-    if (it.t === 'man' || it.t === 'rip') { if (fgNum(r.ak)) p.push(kgT('Aggiunto', r.ak) + ' ' + r.at + (r.bbc ? ' (bombola ' + r.bbc + ')' : '')); if (fgNum(r.rk)) p.push(kgT('Recuperato', r.rk)); if (fgNum(r.pk)) p.push(kgT('Presente', r.pk)); }
-    if (it.t === 'sman') { p.push('Misura: ' + ((FG_MISURE.find(m => m[0] === r.mis) || [0, r.mis])[1])); if (fgNum(r.rk)) p.push(kgT('Recuperato', r.rk)); }
+    if (it.t === 'man' || it.t === 'rip') { if (fgNum(r.ak)) p.push(kgT('Aggiunto', r.ak) + ' ' + r.at + (r.bbc ? ' (bombola ' + r.bbc + ')' : '')); if (fgNum(r.rk)) p.push(kgT('Recuperato', r.rk) + (r.brc ? ' (in bombola ' + r.brc + ')' : '')); if (fgNum(r.pk)) p.push(kgT('Presente', r.pk)); }
+    if (it.t === 'sman') { p.push('Misura: ' + ((FG_MISURE.find(m => m[0] === r.mis) || [0, r.mis])[1])); if (fgNum(r.rk)) p.push(kgT('Recuperato', r.rk) + (r.brc ? ' (in bombola ' + r.brc + ')' : '')); }
     if (a.nc > 1 && it.t !== 'inst') p.push('ermetico ' + (r.erm ? 'sì' : 'no') + ', rilevatore ' + (r.ril ? 'sì' : 'no'));
     if (r.os) p.push('Osservazioni: ' + r.os);
     out.push(pre + p.join(' · ')); });
@@ -3559,31 +3567,47 @@ function collegaFgUfficio(){
 function fgAggUlt(x){ const d = x.ints.filter(i => i.t === 'perd').map(i => i.data).sort().pop(); if (d && (!x.a.ultPerd || d > x.a.ultPerd)) x.a.ultPerd = d; }
 /* ---- registro delle bombole (sul dispositivo): acquisto, uso nei lavori, kg residui ---- */
 const fgBomb = () => store.get('ass_fgbomb', []);
-const fgBombRes = b => Math.round((fgNum(b.kg) - (b.usi || []).reduce((s, u) => s + fgNum(u.kg), 0)) * 100) / 100;
+const fgBombSomma = l => (l || []).reduce((t, u) => t + fgNum(u.kg), 0);
+const fgBombRes = b => Math.round((fgNum(b.kg) + fgBombSomma(b.rec) - fgBombSomma(b.usi)) * 100) / 100;
 function fgBombSync(w, x, it, r){
   if (!r) return; const l = fgBomb(), k = it.id + '|' + r.c; let ch = false;
-  l.forEach(b => { const n = (b.usi || []).length; b.usi = (b.usi || []).filter(u => u.k !== k); if (b.usi.length !== n) ch = true; });
-  const b = l.find(z => z.id === r.bb); r.bbc = b ? (b.cod || '') : '';
-  if (b && fgNum(r.ak) > 0) { b.usi.push({k, data: it.data, kg: fgNum(r.ak), cli: w.cliente || '', app: x.a.matr || x.a.modello || ''}); ch = true; }
+  l.forEach(b => { ['usi', 'rec'].forEach(f => { const n = (b[f] || []).length; b[f] = (b[f] || []).filter(u => u.k !== k); if (b[f].length !== n) ch = true; }); });
+  const on = r.on !== false, bu = l.find(z => z.id === r.bb), br = l.find(z => z.id === r.br), com = {k, data: it.data, cli: w.cliente || '', app: x.a.matr || x.a.modello || ''};
+  r.bbc = bu ? (bu.cod || '') : ''; r.brc = br ? (br.cod || '') : '';
+  if (on && bu && fgNum(r.ak) > 0) { bu.usi.push(Object.assign({kg: fgNum(r.ak)}, com)); ch = true; }
+  if (on && br && fgNum(r.rk) > 0) { br.rec = br.rec || []; br.rec.push(Object.assign({kg: fgNum(r.rk)}, com)); ch = true; }
   if (ch) store.set('ass_fgbomb', l);
 }
-function fgBombPulisci(ids){ const l = fgBomb(); let ch = false; l.forEach(b => { const n = (b.usi || []).length; b.usi = (b.usi || []).filter(u => !ids.some(i => u.k.indexOf(i + '|') === 0)); if (b.usi.length !== n) ch = true; }); if (ch) store.set('ass_fgbomb', l); }
-function fgBombSel(x, p, v, c){
-  const l = fgBomb().filter(b => !c || c.gas === 'altro' || b.gas === c.gas); if (!l.length) return '';
-  return `<label class="cw">Bombola usata<select data-fp="${esc(x.id + '|' + p)}" data-rr="1"><option value="">— non indicata —</option>${l.map(b => `<option value="${esc(b.id)}"${b.id === v ? ' selected' : ''}>${esc(b.gas + ' · ' + (b.cod || 'senza codice') + ' · residuo ' + fgIt(fgBombRes(b)) + ' kg')}</option>`).join('')}</select></label>`;
+function fgBombPulisci(ids){ const l = fgBomb(); let ch = false; l.forEach(b => ['usi', 'rec'].forEach(f => { const n = (b[f] || []).length; b[f] = (b[f] || []).filter(u => !ids.some(i => u.k.indexOf(i + '|') === 0)); if (b[f].length !== n) ch = true; })); if (ch) store.set('ass_fgbomb', l); }
+function fgBombSel(x, rp, r, c, ruolo){          // ruolo 'uso' = bombola da cui si carica, 'rec' = bombola dove si mette il gas recuperato
+  const campo = ruolo === 'uso' ? 'bb' : 'br', v = r[campo], tit = ruolo === 'uso' ? 'Bombola usata' : 'Bombola dove va il gas recuperato';
+  const l = fgBomb().filter(b => (!b.resa || b.id === v) && (!c || c.gas === 'altro' || b.gas === c.gas));
+  if (!l.length) return `<p class="aiuto cw" style="margin:0">${tit}: nessuna bombola di ${esc(c ? fgGasNome(c) : 'questo gas')} nel registro. Aggiungila in «Bombole (registro)».</p>`;
+  return `<label class="cw">${tit}<select data-fp="${esc(x.id + '|' + rp + '.' + campo)}" data-rr="1"><option value="">— non indicata —</option>${l.map(b => `<option value="${esc(b.id)}"${b.id === v ? ' selected' : ''}>${esc(b.gas + ' · ' + (b.mod === 'vuota' ? 'vuota · ' : '') + (b.cod || 'senza codice') + ' · ' + (b.mod === 'vuota' ? 'contiene ' : 'residuo ') + fgIt(fgBombRes(b)) + ' kg')}</option>`).join('')}</select><small class="fgco" data-bbi="${esc(x.id + '|' + rp + '|' + ruolo)}"></small></label>`;
 }
 function fgBombHtml(w){
   const l = fgBomb(), k = w.id + '|b';
-  return `<details class="fs" data-fk="${esc(k)}"${fgApr[k] ? ' open' : ''}><summary>Bombole (registro) · ${l.length}</summary>
-    ${l.map(b => { const r = fgBombRes(b); return `<div class="fgc"><b>${esc(b.gas)}</b> · ${esc(b.tipo)} · cod. ${esc(b.cod || '—')} · residuo <b class="${r < 0 ? 'fgrosso' : ''}">${esc(fgIt(r))}</b> di ${esc(fgIt(fgNum(b.kg)))} kg${b.data ? ' · acquisto ' + esc(dataIT(b.data)) : ''} <button type="button" class="btn chiaro piccolo" data-fbdel="${esc(b.id)}">Togli</button></div>`; }).join('') || '<p class="aiuto">Nessuna bombola nel registro. Aggiungila qui sotto: poi, negli interventi, scegli da quale bombola hai caricato e i kg residui si aggiornano.</p>'}
-    <div class="cgrid"><label>Gas<select id="fb-gas">${Object.keys(FG_GAS).map(g => `<option>${esc(g)}</option>`).join('')}</select></label><label>Tipo<select id="fb-tipo">${FG_AGG.map(a => `<option value="${a[0]}">${a[1]}</option>`).join('')}</select></label>
-      <label>Codice o lotto<input type="text" id="fb-cod" autocomplete="off"></label><label>Kg di gas<input type="text" inputmode="decimal" id="fb-kg" autocomplete="off"></label><label class="cw">Data di acquisto<input type="date" id="fb-data"></label></div>
+  return `<details class="fs" data-fk="${esc(k)}"${fgApr[k] ? ' open' : ''}><summary>Bombole (registro) · ${l.filter(b => !b.resa).length}</summary>
+    ${l.map(b => { const r = fgBombRes(b), vuota = b.mod === 'vuota';
+      return `<div class="fgc"><b>${esc(b.gas)}</b> · ${vuota ? 'vuota per recupero' : esc(b.tipo)} · cod. ${esc(b.cod || '—')} · ${vuota ? 'contiene' : 'residuo'} <b class="${r < 0 ? 'fgrosso' : ''}">${esc(fgIt(r))}</b> kg
+        <small class="aiuto" style="display:block">${vuota ? '' : 'iniziali ' + esc(fgIt(fgNum(b.kg))) + ' · '}usati ${esc(fgIt(fgBombSomma(b.usi)))} · recuperati ${esc(fgIt(fgBombSomma(b.rec)))}${b.forn ? ' · fornitore ' + esc(b.forn) : ''}${b.bolla ? ' · bolla n. ' + esc(b.bolla) : ''}${b.data ? ' · ' + esc(dataIT(b.data)) : ''}${b.rend ? (b.resa ? ' · <b>resa il ' + esc(dataIT(b.resa)) + (b.bollaResa ? ' (bolla ' + esc(b.bollaResa) + ')' : '') + '</b>' : ' · <b>da rendere</b>') : ''}</small>
+        ${b.rend && !b.resa ? `<button type="button" class="btn sec piccolo" data-fbresa="${esc(b.id)}">Segna come resa</button> ` : ''}<button type="button" class="btn chiaro piccolo" data-fbdel="${esc(b.id)}">Togli</button></div>`; }).join('') || '<p class="aiuto">Nessuna bombola nel registro. Aggiungila qui sotto: negli interventi scegli da quale bombola hai caricato e in quale hai messo il gas recuperato, e i kg si aggiornano da soli.</p>'}
+    <p class="fgct"><b>Nuova bombola</b></p>
+    <div class="cgrid"><label class="cw">Bombola<select id="fb-mod"><option value="piena">Piena (gas acquistato)</option><option value="vuota">Vuota (per recuperare il gas)</option></select></label>
+      <label>Gas<select id="fb-gas">${Object.keys(FG_GAS).map(g => `<option>${esc(g)}</option>`).join('')}</select></label><label>Tipo di gas<select id="fb-tipo">${FG_AGG.map(a => `<option value="${a[0]}">${a[1]}</option>`).join('')}</select></label>
+      <label>Codice o lotto<input type="text" id="fb-cod" autocomplete="off"></label><label>Kg di gas (0 se vuota)<input type="text" inputmode="decimal" id="fb-kg" autocomplete="off"></label>
+      <label>Fornitore<input type="text" id="fb-forn" autocomplete="off"></label><label>N. bolla<input type="text" id="fb-bolla" autocomplete="off"></label>
+      <label>Data<input type="date" id="fb-data"></label>${fgCkLibero('fb-rend', 'Bombola a rendere al fornitore')}</div>
     <div class="cadd"><button type="button" class="btn piccolo" data-fbadd="1">Aggiungi la bombola</button> <button type="button" class="btn chiaro piccolo" data-fbcsv="1">Registro in CSV</button></div></details>`;
 }
+const fgCkLibero = (id, lab) => `<label class="spunta cw"><input type="checkbox" id="${id}"> <span>${lab}</span></label>`;
 function fgBombCsv(){
-  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', righe = [['Data', 'Movimento', 'Gas', 'Tipo', 'Bombola', 'Kg', 'Cliente', 'Apparecchio'].map(q).join(';')];
-  fgBomb().forEach(b => { righe.push([b.data, 'Acquisto', b.gas, b.tipo, b.cod, fgIt(fgNum(b.kg)), '', ''].map(q).join(';')); (b.usi || []).forEach(u => righe.push([u.data, 'Uso', b.gas, b.tipo, b.cod, fgIt(-fgNum(u.kg)), u.cli, u.app].map(q).join(';'))); });
-  scaricaBlob(new Blob(['﻿' + righe.join('\r\n')], {type: 'text/csv;charset=utf-8'}), 'Registro_bombole_FGAS.csv');
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', righe = [['Data', 'Movimento', 'Gas', 'Tipo', 'Bombola', 'Kg', 'Fornitore', 'N. bolla', 'Cliente', 'Apparecchio'].map(q).join(';')];
+  fgBomb().forEach(b => { righe.push([b.data, b.mod === 'vuota' ? 'Bombola vuota per recupero' : 'Acquisto', b.gas, b.tipo, b.cod, fgIt(fgNum(b.kg)), b.forn, b.bolla, '', ''].map(q).join(';'));
+    (b.usi || []).forEach(u => righe.push([u.data, 'Uso', b.gas, b.tipo, b.cod, fgIt(-fgNum(u.kg)), b.forn, b.bolla, u.cli, u.app].map(q).join(';')));
+    (b.rec || []).forEach(u => righe.push([u.data, 'Recupero', b.gas, b.tipo, b.cod, fgIt(fgNum(u.kg)), b.forn, b.bolla, u.cli, u.app].map(q).join(';')));
+    if (b.resa) righe.push([b.resa, 'Resa al fornitore', b.gas, b.tipo, b.cod, fgIt(fgBombRes(b)), b.forn, b.bollaResa || '', '', ''].map(q).join(';')); });
+  scaricaBlob(new Blob(['\ufeff' + righe.join('\r\n')], {type: 'text/csv;charset=utf-8'}), 'Registro_bombole_FGAS.csv');
 }
 /* ---- QR dell'apparecchio: tutti i dati fissi, cosi' al prossimo controllo si legge e si parte ---- */
 let fgScanAtt = false;
@@ -7016,7 +7040,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.72.0 (03/11/2026)';
+const VERSIONE_APP = '1.73.0 (04/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
