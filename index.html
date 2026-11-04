@@ -2677,7 +2677,7 @@ function szFatta(n){
     case 'Operazioni eseguite': return Object.keys(w.ops || {}).some(k => w.ops[k] && w.ops[k].fatta);
     case 'Altre operazioni': return (w.ops_extra || []).some(x => t(x));
     case 'Analisi di combustione': return Object.keys(w.analisi || {}).some(k => Object.keys(w.analisi[k] || {}).some(c => t(w.analisi[k][c])));
-    case 'Controlli e verifiche': return (w.ctrl || []).some(c => (c.idr || []).length);
+    case 'Controlli e verifiche': return (w.ctrl || []).some(c => (c.idr || []).length || ((ctrlM(c.mod) || {}).solo && (Object.keys(c.gest || {}).length || Object.keys(c.lett || {}).some(k => String(c.lett[k] || '').trim()))));
     case 'F-gas': return (w.fg || []).some(x => x.ints.length);
     case 'Relazione': return !!t(w.relazione);
     case 'Orari e viaggio': return !!(w.orari && w.orari.length && t(w.orari[w.orari.length - 1].al));
@@ -3104,7 +3104,7 @@ const MODULI_CTRL = {
     gest: [['registro', 'Registro antincendio', 'Presente, regolarmente compilato'], ['centralina', 'Centralina antincendio', 'Correttamente funzionante, nessuna segnalazione o guasto, presidiata'],
       ['attrezzatura', 'Attrezzatura addetti al servizio', 'Progetto presente, conformità, manuali d\'uso e manutenzione, chiavi dei locali facilmente reperibili'],
       ['valvole', 'Valvole di intercettazione', 'Segnalate, pozzetti apribili e segnalati'], ['autopompa', 'Attacco autopompa', 'Accessibile, segnalato'],
-      ['contatore', 'Lettura contatore idrico', 'Lettura semestrale, in metri cubi (m³)', 'num']],
+      ['contatore', 'Lettura contatore idrico', 'Lettura semestrale, in metri cubi (m³)', 'num', 'm³']],
     voci: {cassetta: ['Integrità cassetta', 'Cassetta'], manichetta: ['Manichetta / naspo', 'Manich.'], lancia: ['Lancia', 'Lancia'], sella: ['Sella', 'Sella'], rubinetto: ['Rubinetto', 'Rubin.'], lastra: ['Lastra (safe crash)', 'Lastra'],
       raccordi: ['Raccordi collegati', 'Raccordi'], cartello: ['Cartello di segnalazione', 'Cartello'], cartellino: ['Cartellino di manutenzione', 'Cartell.manut.'], sigillo: ['Sigillo', 'Sigillo'],
       chiave: ['Chiave di manovra', 'Chiave'], tappi: ['Tappi di protezione', 'Tappi'], collo: ['Collo di cigno', 'Collo cigno'], pozzetto: ['Coperchio pozzetto', 'Pozzetto']},
@@ -3113,6 +3113,21 @@ const MODULI_CTRL = {
       ['naspo25', 'Naspo a muro UNI 25', 'Naspo 25', ['cassetta', 'manichetta', 'lancia', 'rubinetto', 'lastra', 'raccordi', 'cartello', 'cartellino', 'sigillo']],
       ['sopra', 'Idrante sopra suolo', 'Sopra suolo', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'raccordi', 'cartello', 'cartellino', 'sigillo', 'chiave', 'tappi', 'collo']],
       ['sotto', 'Idrante sotto suolo', 'Sotto suolo', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'cartello', 'cartellino', 'chiave', 'tappi', 'collo', 'pozzetto']]]
+  },
+  /* modulo "a scheda unica": un solo apparecchio per impianto, tutto nella lista generale (dati, letture, spunte). Le voci vengono dal DM 25/2012, dalle linee guida del Ministero e dai manuali dei costruttori: da tarare sulle schede reali. */
+  addolcitore: {
+    parole: /addolcit|decalcific|trattamento acqua|depurator/i, solo: true, nome: 'Controllo addolcitore', rif: 'DM 25/2012 · UNI EN 15161 · manuale del costruttore', app: 'addolcitore', apps: 'addolcitori',
+    gestTit: 'Controlli · compila i dati e le letture, tocca ✕ solo dove c\'è un problema',
+    gest: [['marca', 'Marca e modello', 'Dalla targa', 'txt'], ['matricola', 'Matricola', '', 'txt'], ['anno', 'Anno o data di installazione', '', 'txt'], ['resina', 'Litri di resina', '', 'num', 'l'],
+      ['durin', 'Durezza acqua in ingresso', 'Misurata con kit o durometro', 'num', '°f'], ['durout', 'Durezza acqua in uscita', 'Valore consigliato non sotto 15 °f', 'num', '°f'],
+      ['press', 'Pressione di esercizio', 'Circa 4,5 bar in rigenerazione: riduttore se la rete è più alta', 'num', 'bar'], ['cloro', 'Cloro in ingresso', 'Massimo 2 mg/l secondo il costruttore', 'num', 'mg/l'],
+      ['cont', 'Lettura del contatore dell\'addolcitore', 'Metri cubi trattati', 'num', 'm³'],
+      ['doc', 'Manuale e dichiarazione di conformità', 'Consegnati al cliente, in italiano'], ['bypass', 'Valvola di bypass', 'Presente e funzionante'], ['antiritorno', 'Anti-ritorno', 'Presente: impedisce il ritorno in rete'],
+      ['prelievo', 'Punti di prelievo', 'Prima e dopo il trattamento, dove previsti'], ['scarico', 'Scarico e troppo pieno', 'Collegati senza rientro'], ['alim', 'Alimentazione elettrica', 'Collegata in modo stabile'],
+      ['perdite', 'Perdite', 'Nessuna perdita su valvola, raccordi e tino'], ['valvola', 'Valvola e iniettore', 'Funzionamento regolare, pulizia eseguita'], ['sale', 'Sale e tino della salamoia', 'Sale sufficiente, tino pulito'],
+      ['prefiltro', 'Prefiltro', 'Cartuccia pulita o sostituita'], ['prog', 'Programmazione', 'Ora, giorno e capacità di rigenerazione corretti'], ['rig', 'Rigenerazione di prova', 'Eseguita e conclusa regolarmente'],
+      ['disinf', 'Disinfezione delle resine', 'Eseguita o ciclo automatico attivo'], ['resine', 'Stato delle resine', 'Capacità di scambio nella norma'], ['segn', 'Segnalatore di manutenzione', 'Funzionante']],
+    voci: {}, tipi: []
   }
 };
 /* Predisposizione per l'elenco modificabile dall'ufficio: impostazioni.ctrlModuli puo' aggiungere tipi, voci e voci di gestione a un modulo
@@ -3128,6 +3143,7 @@ function ctrlMods(){
 const ctrlM = k => ctrlMods()[k];
 const ctrlApr = {};
 const ctrlId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const ctrlGestCampo = (c, g) => { const txt = g[3] === 'txt'; return `<div class="cv cg" style="flex-wrap:nowrap"><span style="flex:1;min-width:0"><b>${esc(g[1])}</b>${g[2] ? `<small>${esc(g[2])}</small>` : ''}</span><span class="cb" style="align-items:center;gap:6px"><input type="text"${txt ? '' : ' inputmode="decimal"'} class="cnote" style="width:${txt ? 156 : 84}px;${txt ? '' : 'text-align:right'}" data-clet="${esc(c.id + '|' + g[0])}" value="${esc((c.lett || {})[g[0]] || '')}" autocomplete="off">${g[4] ? `<b>${esc(g[4])}</b>` : ''}</span></div>`; };
 const ctrlTipo = (m, k, i) => m.tipi.find(t => t[0] === k) || (k === 'altro' ? ['altro', (i && i.tn) || 'Altro apparecchio', (i && i.tn) || 'Altro', Object.keys(m.voci)] : m.tipi[0]);
 /* Tutti gli apparecchi mostrano tutte le voci: quelle che per quel tipo di solito non servono partono su «n.a.» (grigio) e si attivano con un tocco su ✓ o ✕ */
 const ctrlStato = (m, t, i, v) => (i.es || {})[v] || (t[3].indexOf(v) >= 0 ? 'ok' : 'na');
@@ -3142,7 +3158,7 @@ function ctrlNegativi(m, c){            // elenco dei negativi: gestione e appar
 function ctrlSomm(w){
   const l = w.ctrl || []; if (!l.length) return 'Rete idranti e altri controlli';
   return l.map(c => { const m = ctrlM(c.mod); if (!m) return ''; const n = ctrlNegativi(m, c), k = n.g.length + n.a.reduce((s, x) => s + x.ko.length, 0);
-    return m.nome + ': ' + (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ', tutto positivo'); }).filter(Boolean).join(' · ');
+    return m.nome + ': ' + (m.solo ? (k ? k + ' negativ' + (k === 1 ? 'o' : 'i') : 'tutto positivo') : (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ', tutto positivo')); }).filter(Boolean).join(' · ');
 }
 const ctrlSt = (att, v, d, extra) => `<button type="button" class="cs ${v}${att === v ? ' su' : ''}" data-cs="${esc(d)}" data-v="${v}" aria-pressed="${att === v}" aria-label="${v === 'ok' ? 'Positivo' : v === 'ko' ? 'Negativo' : 'Non applicabile'}">${v === 'ok' ? '✓' : v === 'ko' ? '✕' : 'n.a.'}</button>`;
 function ctrlCard(m, c, i){
@@ -3164,12 +3180,12 @@ function ctrlBloccoUno(c){
   const m = ctrlM(c.mod); if (!m) return '';
   c.gest = c.gest || {}; c.idr = c.idr || [];
   return `<div class="cm" data-cm="${esc(c.id)}"><div class="cmt"><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small></div>
-    <p class="aiuto" style="margin:6px 0 4px">Gestione · tocca ✕ solo dove c'è un problema</p>
-    ${m.gest.map(g => { if (g[3] === 'num') return `<div class="cv cg" style="flex-wrap:wrap"><span><b>${esc(g[1])}</b><small>${esc(g[2])}</small></span><span class="cb" style="align-items:center;gap:6px"><input type="text" inputmode="decimal" class="cnote" style="width:110px;text-align:right" data-clet="${esc(c.id + '|' + g[0])}" value="${esc((c.lett || {})[g[0]] || '')}" placeholder="0" autocomplete="off"><b>m³</b></span></div>`; const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
-    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>
+    <p class="aiuto" style="margin:6px 0 4px">${esc(m.gestTit || 'Gestione · tocca ✕ solo dove c\'è un problema')}</p>
+    ${m.gest.map(g => { if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
+    ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     <div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>
-    <select class="cadds" data-cadds="${esc(c.id)}" aria-label="Aggiungi un apparecchio"><option value="">+ Aggiungi un ${m.app}…</option>${m.tipi.map(t => `<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}<option value="altro">Altro (scrivi il nome)</option></select>
+    <select class="cadds" data-cadds="${esc(c.id)}" aria-label="Aggiungi un apparecchio"><option value="">+ Aggiungi un ${m.app}…</option>${m.tipi.map(t => `<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}<option value="altro">Altro (scrivi il nome)</option></select>`}
     <label class="cw" style="display:block;margin-top:10px">Note<textarea data-cn="${esc(c.id)}" data-f="note" rows="2">${esc(c.note || '')}</textarea></label>
     <label class="cw" style="display:block;margin-top:8px;max-width:220px">Prossimo controllo<input type="date" data-cn="${esc(c.id)}" data-f="prossimo" value="${esc(c.prossimo || '')}"></label>
     <button type="button" class="btn chiaro piccolo" data-cdel="${esc(c.id)}" style="margin-top:10px">Togli questo controllo</button></div>`;
@@ -3215,9 +3231,9 @@ function collegaCtrl(){
 }
 function ctrlUfficioHtml(r){
   return (r.ctrl || []).map(c => { const n = c.neg || {g: [], a: []}, k = n.g.length + n.a.length;
-    return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.n} ${c.n === 1 ? 'apparecchio' : 'apparecchi'} · ${k ? '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : 'tutto positivo'}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
-      ((c.lett || []).length ? '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + ' m³</b>').join(' · ') + '</p>' : '') +
-      (k ? '<ul style="margin:0;padding-left:20px">' + n.g.map(x => `<li>Gestione · ${esc(x.v)}${x.n ? ' — ' + esc(x.n) : ''}</li>`).join('') + n.a.map(x => `<li>${esc(x.t)} n. ${esc(x.matr || '—')}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${esc(x.v.join(', '))}${x.nota ? ' — ' + esc(x.nota) : ''}</li>`).join('') + '</ul>' : ''); }).join('');
+    return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.solo ? '' : c.n + ' ' + (c.n === 1 ? 'apparecchio' : 'apparecchi') + ' · '}${k ? '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : 'tutto positivo'}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
+      ((c.lett || []).length ? '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + (l.u ? ' ' + esc(l.u) : '') + '</b>').join(' · ') + '</p>' : '') +
+      (k ? '<ul style="margin:0;padding-left:20px">' + n.g.map(x => `<li>${c.solo ? '' : 'Gestione · '}${esc(x.v)}${x.n ? ' — ' + esc(x.n) : ''}</li>`).join('') + n.a.map(x => `<li>${esc(x.t)} n. ${esc(x.matr || '—')}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${esc(x.v.join(', '))}${x.nota ? ' — ' + esc(x.nota) : ''}</li>`).join('') + '</ul>' : ''); }).join('');
 }
 /* ---- QR sugli apparecchi: etichetta, lettura, foto sugli esiti negativi ---- */
 let ctrlQrDest = '';            // controllo che sta ricevendo gli apparecchi letti col QR
@@ -3286,9 +3302,19 @@ async function ctrlFoto(k, files){
   }
   if (fatte) { disegnaFoto(); ctrlRidisegna(); bozzaModificata(); mostraAvviso(fatte === 1 ? 'Foto aggiunta (la trovi anche nella sezione Foto).' : fatte + ' foto aggiunte.'); }
 }
+function ctrlPreCompila(w, r, m, c, op){          // moduli a scheda unica: i dati dell'apparecchio arrivano da Levante (marca, modello, matricola, anno)
+  const ap = (r.a || []), a = (op && op.a && ap.find(x => x.id === op.a)) || ap.find(x => m.parole.test([x.t, x.c, x.m].join(' '))) || (ap.length === 1 ? ap[0] : null);
+  c.lett = {}; if (a) { const dv = {marca: [a.c, a.m].filter(Boolean).join(' '), matricola: a.s || '', anno: a.y || ''}; m.gest.forEach(g => { if (dv[g[0]]) c.lett[g[0]] = dv[g[0]]; }); }
+  c.prossimo = fgSommaMesi(w.data || isoGiorno(new Date()), 12);
+}
 function ctrlDaOperazioni(w, r){          // le operazioni pianificate di questa visita (da Levante) aprono il modulo giusto, come l'analisi fumi
+  const crea = (k, m, da, op) => { const c = {id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: '', da}; if (m.solo) ctrlPreCompila(w, r, m, c, op); (w.ctrl = w.ctrl || []).push(c); ctrlApr[w.id] = true; };
   (r.o || []).filter(o => o.f).forEach(o => Object.keys(ctrlMods()).forEach(k => { const m = ctrlM(k);
-    if (m.parole && m.parole.test(o.c + ' ' + o.d) && !(w.ctrl || []).some(c => c.mod === k)) { (w.ctrl = w.ctrl || []).push({id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: '', da: o.d}); ctrlApr[w.id] = true; } }));
+    if (m.parole && m.parole.test(o.c + ' ' + o.d) && !(w.ctrl || []).some(c => c.mod === k)) crea(k, m, o.d, o); }));
+  Object.keys(ctrlMods()).forEach(k => { const m = ctrlM(k);          // moduli a scheda unica: basta che l'impianto o l'apparecchio in Levante si chiami "addolcitore"
+    if (!m.solo || !m.parole || (w.ctrl || []).some(c => c.mod === k)) return;
+    const testo = [r.i && r.i.d, r.i && r.i.tp].concat((r.a || []).map(a => [a.t, a.c, a.m].join(' '))).join(' ');
+    if (m.parole.test(testo)) crea(k, m, 'impianto', null); });
 }
 /* ==================================================================
    F-GAS: apparecchi con gas fluorurati e i loro interventi (installazione, manutenzione, riparazione, controllo perdite, smantellamento)
@@ -3688,9 +3714,9 @@ function fgScadenzeHtml(){
     ${ap.length ? '<p style="margin:8px 0 2px"><b>Prossimi controlli perdite</b> <span class="aiuto">(indicativi)</span></p><ul style="margin:0;padding-left:20px">' + ap.map(a => `<li>entro il <b>${esc(dataIT(a.pr))}</b>${a.pr < oggi ? ' <span class="chip urg">scaduto</span>' : ''} · ${esc(a.cl)} · ${esc(a.nome)} · ${esc(fgIt(a.co2))} t CO₂eq</li>`).join('') + '</ul>' : ''}</details>`;
 }
 
-const ctrlLettDati = (m, c) => m.gest.filter(g => g[3] === 'num' && String((c.lett || {})[g[0]] || '').trim()).map(g => ({v: g[1], val: String(c.lett[g[0]]).trim()}));
+const ctrlLettDati = (m, c) => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt') && String((c.lett || {})[g[0]] || '').trim()).map(g => ({v: g[1], val: String(c.lett[g[0]]).trim(), u: g[4] || ''}));
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
-  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
+  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
   return `Controllo_${c.mod === 'idranti' ? 'Idranti' : c.mod}_${s}_${w.data || isoGiorno(new Date())}.pdf`; }
 function costruisciPdfCtrl(w, c){
@@ -3709,8 +3735,8 @@ function costruisciPdfCtrl(w, c){
     doc.setFont('helvetica', 'normal'); col(GR); doc.setFontSize(8); doc.text(r[0], x, yy + 3); doc.setFontSize(10); col(INK); doc.setFont('helvetica', 'bold'); doc.text(String(r[1] || ''), x + 18, yy + 3.2); });
   y += 14;
   /* gestione */
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('GESTIONE', M, y + 3); y += 5;
-  m.gest.forEach(g => { if (g[3] === 'num') { const val = String((c.lett || {})[g[0]] || '').trim(); if (y + 6 > H - 20) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(g[2], M + 62, y + 3.4); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(val ? val + ' m³' : 'non rilevata', W - M - 2, y + 3.4, {align: 'right'}); doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 5, W - M, y + 5); y += 5.6; return; }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text(m.solo ? 'CONTROLLI' : 'GESTIONE', M, y + 3); y += 5;
+  m.gest.forEach(g => { if (g[3] === 'num' || g[3] === 'txt') { const val = String((c.lett || {})[g[0]] || '').trim(); if (y + 6 > H - 20) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(g[2], M + 62, y + 3.4); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(val ? val + (g[4] ? ' ' + g[4] : '') : (g[3] === 'txt' ? '—' : 'non rilevata'), W - M - 2, y + 3.4, {align: 'right'}); doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 5, W - M, y + 5); y += 5.6; return; }
     const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko';
     /* positivo: la descrizione in grigio; negativo: al suo posto la spiegazione del problema (in rosso) */
     const testo = ko ? (c.gest[g[0]].n || 'Negativo, nessuna spiegazione scritta') : g[2], righe = doc.splitTextToSize(testo, 175).slice(0, 4), alt = Math.max(5.6, righe.length * 3.7 + 2);
@@ -3721,6 +3747,7 @@ function costruisciPdfCtrl(w, c){
     doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + alt - 0.6, W - M, y + alt - 0.6); y += alt; });
   y += 4;
   /* matrice apparecchi x controlli */
+  if (!m.solo) {
   const chv = Object.keys(m.voci), cw1 = 62, cw = (W - 2 * M - cw1) / chv.length, HT = 24;
   const testaM = () => { doc.setFillColor(238, 242, 243); doc.rect(M, y, W - 2 * M, HT, 'F'); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); col(INK); doc.text(m.apps[0].toUpperCase() + m.apps.slice(1).toLowerCase(), M + 1.5, y + HT - 2);
     chv.forEach((v, n) => doc.text(m.voci[v][1], M + cw1 + n * cw + cw / 2 + 1.2, y + HT - 2, {angle: 90})); y += HT; };
@@ -3731,12 +3758,13 @@ function costruisciPdfCtrl(w, c){
     chv.forEach((v, n) => { const cx = M + cw1 + n * cw + cw / 2; const e = ctrlStato(m, t, i, v); const s = e === 'ok' ? 'OK' : e === 'ko' ? 'NEG' : 'n.a.', cl = e === 'ko' ? ROSSO : e === 'na' ? [150, 160, 165] : INK;
       doc.setFont('helvetica', s === 'NEG' ? 'bold' : 'normal'); doc.setFontSize(7.5); col(cl); doc.text(s, cx, y + 4.6, {align: 'center'}); });
     doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 7.4, W - M, y + 7.4); y += 7.6; });
+  }
   /* negativi */
   const ng = ctrlNegativi(m, c);
   if (ng.a.length || ng.g.length) {
     if (y + 20 > H - 12) nuova(); y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(ROSSO); doc.text('ESITI NEGATIVI', M, y + 3); y += 6;
     const riga = (tit, txt) => { const ls = doc.splitTextToSize(txt, W - 2 * M - 70); if (y + ls.length * 4 + 2 > H - 12) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(doc.splitTextToSize(tit, 66), M + 1, y + 3.2); doc.setFont('helvetica', 'normal'); doc.text(ls, M + 70, y + 3.2); y += Math.max(5, ls.length * 4) + 1.5; };
-    ng.g.forEach(x => riga('Gestione · ' + x.v, x.n || 'Negativo'));
+    ng.g.forEach(x => riga((m.solo ? '' : 'Gestione · ') + x.v, x.n || 'Negativo'));
     ng.a.forEach(x => riga(ctrlTipo(m, x.i.tipo, x.i)[1] + ' n. ' + (x.i.matr || '—') + (x.i.pos ? ' · ' + x.i.pos : ''), ctrlKoTesto(m, x.i).join(', ') + (ctrlNotaI(m, x.i) ? ' — ' + ctrlNotaI(m, x.i) : '')));
   }
   if (c.note || c.prossimo) { if (y + 24 > H - 12) nuova(); y += 4;
@@ -7050,7 +7078,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.73.1 (04/11/2026)';
+const VERSIONE_APP = '1.74.0 (04/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
