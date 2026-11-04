@@ -3103,15 +3103,16 @@ const MODULI_CTRL = {
     parole: /idrant|naspo|naspi|rete antincendio/i, nome: 'Controllo rete idranti', rif: 'UNI 10779:2014 · UNI EN 671/3:2009', app: 'idrante', apps: 'idranti',
     gest: [['registro', 'Registro antincendio', 'Presente, regolarmente compilato'], ['centralina', 'Centralina antincendio', 'Correttamente funzionante, nessuna segnalazione o guasto, presidiata'],
       ['attrezzatura', 'Attrezzatura addetti al servizio', 'Progetto presente, conformità, manuali d\'uso e manutenzione, chiavi dei locali facilmente reperibili'],
-      ['valvole', 'Valvole di intercettazione', 'Segnalate, pozzetti apribili e segnalati'], ['autopompa', 'Attacco autopompa', 'Accessibile, segnalato']],
-    voci: {cassetta: ['Integrità cassetta', 'Cassetta'], manichetta: ['Manichetta / naspo', 'Manich.'], lancia: ['Lancia', 'Lancia'], sella: ['Sella', 'Sella'], rubinetto: ['Rubinetto', 'Rubin.'], lastra: ['Lastra', 'Lastra'],
+      ['valvole', 'Valvole di intercettazione', 'Segnalate, pozzetti apribili e segnalati'], ['autopompa', 'Attacco autopompa', 'Accessibile, segnalato'],
+      ['contatore', 'Lettura contatore idrico', 'Lettura semestrale, in metri cubi (m³)', 'num']],
+    voci: {cassetta: ['Integrità cassetta', 'Cassetta'], manichetta: ['Manichetta / naspo', 'Manich.'], lancia: ['Lancia', 'Lancia'], sella: ['Sella', 'Sella'], rubinetto: ['Rubinetto', 'Rubin.'], lastra: ['Lastra (safe crash)', 'Lastra'],
       raccordi: ['Raccordi collegati', 'Raccordi'], cartello: ['Cartello di segnalazione', 'Cartello'], cartellino: ['Cartellino di manutenzione', 'Cartell.manut.'], sigillo: ['Sigillo', 'Sigillo'],
       chiave: ['Chiave di manovra', 'Chiave'], tappi: ['Tappi di protezione', 'Tappi'], collo: ['Collo di cigno', 'Collo cigno'], pozzetto: ['Coperchio pozzetto', 'Pozzetto']},
     tipi: [['muro45', 'Idrante a muro UNI 45', 'UNI 45', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'lastra', 'raccordi', 'cartello', 'cartellino', 'sigillo']],
       ['muro70', 'Idrante a muro UNI 70', 'UNI 70', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'lastra', 'raccordi', 'cartello', 'cartellino', 'sigillo']],
       ['naspo25', 'Naspo a muro UNI 25', 'Naspo 25', ['cassetta', 'manichetta', 'lancia', 'rubinetto', 'lastra', 'raccordi', 'cartello', 'cartellino', 'sigillo']],
-      ['sopra', 'Idrante sopra suolo', 'Sopra suolo', ['rubinetto', 'raccordi', 'cartello', 'cartellino', 'sigillo', 'chiave', 'tappi', 'collo']],
-      ['sotto', 'Idrante sotto suolo', 'Sotto suolo', ['rubinetto', 'cartello', 'cartellino', 'chiave', 'tappi', 'collo', 'pozzetto']]]
+      ['sopra', 'Idrante sopra suolo', 'Sopra suolo', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'raccordi', 'cartello', 'cartellino', 'sigillo', 'chiave', 'tappi', 'collo']],
+      ['sotto', 'Idrante sotto suolo', 'Sotto suolo', ['cassetta', 'manichetta', 'lancia', 'sella', 'rubinetto', 'cartello', 'cartellino', 'chiave', 'tappi', 'collo', 'pozzetto']]]
   }
 };
 /* Predisposizione per l'elenco modificabile dall'ufficio: impostazioni.ctrlModuli puo' aggiungere tipi, voci e voci di gestione a un modulo
@@ -3130,6 +3131,8 @@ const ctrlId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).
 const ctrlTipo = (m, k, i) => m.tipi.find(t => t[0] === k) || (k === 'altro' ? ['altro', (i && i.tn) || 'Altro apparecchio', (i && i.tn) || 'Altro', Object.keys(m.voci)] : m.tipi[0]);
 /* Tutti gli apparecchi mostrano tutte le voci: quelle che per quel tipo di solito non servono partono su «n.a.» (grigio) e si attivano con un tocco su ✓ o ✕ */
 const ctrlStato = (m, t, i, v) => (i.es || {})[v] || (t[3].indexOf(v) >= 0 ? 'ok' : 'na');
+const ctrlNotaI = (m, i) => String(i.nota || '').trim();
+const ctrlKoTesto = (m, i) => ctrlKo(m, null, i).map(v => m.voci[v][0] + (String((i.nv || {})[v] || '').trim() ? ' (' + String(i.nv[v]).trim() + ')' : ''));
 const ctrlKo = (m, t, i) => Object.keys(m.voci).filter(v => (i.es || {})[v] === 'ko');
 function ctrlNegativi(m, c){            // elenco dei negativi: gestione e apparecchi
   const g = m.gest.filter(x => c.gest && c.gest[x[0]] && c.gest[x[0]].e === 'ko').map(x => ({v: x[1], n: c.gest[x[0]].n || ''}));
@@ -3150,8 +3153,8 @@ function ctrlCard(m, c, i){
     ${i.tipo === 'altro' ? `<label class="cw">Nome del tipo<input type="text" data-ci="${esc(k)}" data-f="tn" value="${esc(i.tn || '')}" placeholder="Per esempio: idrante a colonna" autocomplete="off"></label>` : ''}
     <label>Matricola / n.<input type="text" data-ci="${esc(k)}" data-f="matr" value="${esc(i.matr || '')}" autocomplete="off"></label>
     <label class="cw">Posizione<input type="text" data-ci="${esc(k)}" data-f="pos" value="${esc(i.pos || '')}" placeholder="Per esempio: scala B, piano 1" autocomplete="off"></label></div>
-    ${Object.keys(m.voci).map(v => `<div class="cv"><span>${esc(m.voci[v][0])}</span><span class="cb">${['ok', 'ko', 'na'].map(s => ctrlSt(ctrlStato(m, t, i, v), s, k + '|' + v)).join('')}</span></div>`).join('')}
-    ${ko ? `<label class="cw">Cosa non va<textarea data-ci="${esc(k)}" data-f="nota" rows="2" placeholder="Per esempio: manichetta con taglio, da sostituire">${esc(i.nota || '')}</textarea></label>
+    ${Object.keys(m.voci).map(v => { const st = ctrlStato(m, t, i, v); return `<div class="cv"><span>${esc(m.voci[v][0])}</span><span class="cb">${['ok', 'ko', 'na'].map(s => ctrlSt(st, s, k + '|' + v)).join('')}</span></div>` + (st === 'ko' ? `<input type="text" class="cnote" data-ci="${esc(k)}" data-nv="${esc(v)}" value="${esc((i.nv || {})[v] || '')}" placeholder="Cosa non va su «${esc(m.voci[v][0])}»" autocomplete="off">` : ''); }).join('')}
+    ${ko ? `<label class="cw">Altre note su questo ${m.app} (facoltative)<textarea data-ci="${esc(k)}" data-f="nota" rows="2" placeholder="Per esempio: da sostituire entro il mese">${esc(i.nota || '')}</textarea></label>
     <div class="cadd"><button type="button" class="btn piccolo" data-cfs="${esc(k)}">Scatta una foto</button><button type="button" class="btn sec piccolo" data-cfg="${esc(k)}">Dalla galleria</button>${i.nf ? `<span class="aiuto" style="align-self:center">${i.nf} foto</span>` : ''}</div>
     <input type="file" accept="image/*" capture="environment" hidden data-cfoto="${esc(k)}" data-cam="1"><input type="file" accept="image/*" multiple hidden data-cfoto="${esc(k)}">` : ''}
     ${i.qr ? `<p class="aiuto" style="margin:6px 0 0">Letto col QR alle ${esc(i.qr)}</p>` : ''}
@@ -3162,7 +3165,7 @@ function ctrlBloccoUno(c){
   c.gest = c.gest || {}; c.idr = c.idr || [];
   return `<div class="cm" data-cm="${esc(c.id)}"><div class="cmt"><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small></div>
     <p class="aiuto" style="margin:6px 0 4px">Gestione · tocca ✕ solo dove c'è un problema</p>
-    ${m.gest.map(g => { const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
+    ${m.gest.map(g => { if (g[3] === 'num') return `<div class="cv cg" style="flex-wrap:wrap"><span><b>${esc(g[1])}</b><small>${esc(g[2])}</small></span><span class="cb" style="align-items:center;gap:6px"><input type="text" inputmode="decimal" class="cnote" style="width:110px;text-align:right" data-clet="${esc(c.id + '|' + g[0])}" value="${esc((c.lett || {})[g[0]] || '')}" placeholder="0" autocomplete="off"><b>m³</b></span></div>`; const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
     <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     <div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>
@@ -3189,7 +3192,9 @@ function collegaCtrl(){
     else if (b.dataset.cs) { const t = ctrlTrova(b.dataset.cs), v = b.dataset.v; if (!t) return;
       if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; if (v === 'ok') delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: 'ko', n: (t.c.gest[t.q[2]] || {}).n || ''}; }
       else if (t.i) { t.i.es = t.i.es || {}; const tp = ctrlTipo(ctrlM(t.c.mod), t.i.tipo, t.i), def = tp[3].indexOf(t.q[2]) >= 0 ? 'ok' : 'na'; if (v === def) delete t.i.es[t.q[2]]; else t.i.es[t.q[2]] = v; }
-      ctrlRidisegna(); bozzaModificata(); }
+      ctrlRidisegna(); bozzaModificata();
+      if (v === 'ko') { const sel = t.q[1] === 'G' ? 'input.cnote[data-cg="' + t.c.id + '|' + t.q[2] + '"]' : 'input.cnote[data-ci="' + b.dataset.cs.split('|').slice(0, 2).join('|') + '"][data-nv="' + t.q[2] + '"]', n = document.querySelector(sel);
+        if (n) { try { n.focus(); } catch(x) {} } } }
     else if (b.dataset.cscan) { ctrlQrDest = b.dataset.cscan; scanCn = false; scanApri(); }
     else if (b.dataset.cfoglio) ctrlFoglioEtichette(b.dataset.cfoglio);
     else if (b.dataset.cqr) ctrlMostraEtichetta(b.dataset.cqr);
@@ -3201,6 +3206,8 @@ function collegaCtrl(){
   const agg = e => { const t = e.target, ds = t.dataset || {}; if (!t.closest || !t.closest('#ctrl-d')) return;
     if (ds.cadds !== undefined) { if (e.type !== 'change' || !t.value) return; const c = (lavoro.ctrl || []).find(x => x.id === ds.cadds); if (!c) return; const n = {id: ctrlId(), tipo: t.value, matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); return; }
     if (ds.cfoto) { const fl = [...(t.files || [])]; t.value = ''; if (fl.length) ctrlFoto(ds.cfoto, fl); return; }
+    if (ds.ci && ds.nv) { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.nv = q.i.nv || {}; q.i.nv[ds.nv] = t.value; bozzaModificata(); } return; }
+    if (ds.clet) { const q = ds.clet.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c) { c.lett = c.lett || {}; c.lett[q[1]] = t.value; bozzaModificata(); } return; }
     if (ds.ci) { const q = ctrlTrova(ds.ci); if (!q || !q.i) return; q.i[ds.f] = t.value; if (ds.f === 'tipo' || ds.f === 'matr' || ds.f === 'pos' || ds.f === 'tn') { if (e.type === 'change') ctrlRidisegna(); else { const s = t.closest('details').querySelector('summary b'); } } bozzaModificata(); }
     else if (ds.cg) { const q = ds.cg.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c && c.gest && c.gest[q[1]]) { c.gest[q[1]].n = t.value; bozzaModificata(); } }
     else if (ds.cn) { const c = (lavoro.ctrl || []).find(x => x.id === ds.cn); if (c) { c[ds.f] = t.value; bozzaModificata(); } } };
@@ -3209,6 +3216,7 @@ function collegaCtrl(){
 function ctrlUfficioHtml(r){
   return (r.ctrl || []).map(c => { const n = c.neg || {g: [], a: []}, k = n.g.length + n.a.length;
     return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.n} ${c.n === 1 ? 'apparecchio' : 'apparecchi'} · ${k ? '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : 'tutto positivo'}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
+      ((c.lett || []).length ? '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + ' m³</b>').join(' · ') + '</p>' : '') +
       (k ? '<ul style="margin:0;padding-left:20px">' + n.g.map(x => `<li>Gestione · ${esc(x.v)}${x.n ? ' — ' + esc(x.n) : ''}</li>`).join('') + n.a.map(x => `<li>${esc(x.t)} n. ${esc(x.matr || '—')}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${esc(x.v.join(', '))}${x.nota ? ' — ' + esc(x.nota) : ''}</li>`).join('') + '</ul>' : ''); }).join('');
 }
 /* ---- QR sugli apparecchi: etichetta, lettura, foto sugli esiti negativi ---- */
@@ -3680,8 +3688,9 @@ function fgScadenzeHtml(){
     ${ap.length ? '<p style="margin:8px 0 2px"><b>Prossimi controlli perdite</b> <span class="aiuto">(indicativi)</span></p><ul style="margin:0;padding-left:20px">' + ap.map(a => `<li>entro il <b>${esc(dataIT(a.pr))}</b>${a.pr < oggi ? ' <span class="chip urg">scaduto</span>' : ''} · ${esc(a.cl)} · ${esc(a.nome)} · ${esc(fgIt(a.co2))} t CO₂eq</li>`).join('') + '</ul>' : ''}</details>`;
 }
 
+const ctrlLettDati = (m, c) => m.gest.filter(g => g[3] === 'num' && String((c.lett || {})[g[0]] || '').trim()).map(g => ({v: g[1], val: String(c.lett[g[0]]).trim()}));
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
-  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: x.ko, nota: x.i.nota || ''}))}}; }); }
+  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
   return `Controllo_${c.mod === 'idranti' ? 'Idranti' : c.mod}_${s}_${w.data || isoGiorno(new Date())}.pdf`; }
 function costruisciPdfCtrl(w, c){
@@ -3701,7 +3710,8 @@ function costruisciPdfCtrl(w, c){
   y += 14;
   /* gestione */
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('GESTIONE', M, y + 3); y += 5;
-  m.gest.forEach(g => { const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko';
+  m.gest.forEach(g => { if (g[3] === 'num') { const val = String((c.lett || {})[g[0]] || '').trim(); if (y + 6 > H - 20) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(g[2], M + 62, y + 3.4); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(val ? val + ' m³' : 'non rilevata', W - M - 2, y + 3.4, {align: 'right'}); doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 5, W - M, y + 5); y += 5.6; return; }
+    const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko';
     /* positivo: la descrizione in grigio; negativo: al suo posto la spiegazione del problema (in rosso) */
     const testo = ko ? (c.gest[g[0]].n || 'Negativo, nessuna spiegazione scritta') : g[2], righe = doc.splitTextToSize(testo, 175).slice(0, 4), alt = Math.max(5.6, righe.length * 3.7 + 2);
     if (y + alt > H - 20) nuova();
@@ -3727,7 +3737,7 @@ function costruisciPdfCtrl(w, c){
     if (y + 20 > H - 12) nuova(); y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(ROSSO); doc.text('ESITI NEGATIVI', M, y + 3); y += 6;
     const riga = (tit, txt) => { const ls = doc.splitTextToSize(txt, W - 2 * M - 70); if (y + ls.length * 4 + 2 > H - 12) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(doc.splitTextToSize(tit, 66), M + 1, y + 3.2); doc.setFont('helvetica', 'normal'); doc.text(ls, M + 70, y + 3.2); y += Math.max(5, ls.length * 4) + 1.5; };
     ng.g.forEach(x => riga('Gestione · ' + x.v, x.n || 'Negativo'));
-    ng.a.forEach(x => riga(ctrlTipo(m, x.i.tipo, x.i)[1] + ' n. ' + (x.i.matr || '—') + (x.i.pos ? ' · ' + x.i.pos : ''), x.ko.join(', ') + (x.i.nota ? ' — ' + x.i.nota : '')));
+    ng.a.forEach(x => riga(ctrlTipo(m, x.i.tipo, x.i)[1] + ' n. ' + (x.i.matr || '—') + (x.i.pos ? ' · ' + x.i.pos : ''), ctrlKoTesto(m, x.i).join(', ') + (ctrlNotaI(m, x.i) ? ' — ' + ctrlNotaI(m, x.i) : '')));
   }
   if (c.note || c.prossimo) { if (y + 24 > H - 12) nuova(); y += 4;
     if (c.note) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('NOTE', M, y + 3); y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); col(INK); const ls = doc.splitTextToSize(c.note, W - 2 * M); ls.forEach(r => { if (y > H - 14) nuova(); doc.text(r, M, y + 3); y += 4.4; }); y += 2; }
@@ -7040,7 +7050,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.73.0 (04/11/2026)';
+const VERSIONE_APP = '1.73.1 (04/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
