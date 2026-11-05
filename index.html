@@ -3168,8 +3168,31 @@ const MODULI_CTRL = {
       tr: [['tara', 'Taratura', '°C', 'num']], tb: [['tara', 'Taratura', '°C', 'num']], pb: [['tara', 'Taratura', 'bar', 'num']],
       vaso: [['cost', 'Fabbricante', '', 'txt'], ['vol', 'Volume', 'l', 'num'], ['ps', 'Pressione massima PS', 'bar', 'num'], ['ts', 'Temperatura massima TS', '°C', 'num'], ['prec', 'Pressione di precarica', 'bar', 'num'], ['cat', 'Categoria', '', 'txt']],
       man: [['fs', 'Fondo scala', 'bar', 'num']], term: [['fs', 'Fondo scala', '°C', 'num']], accum: [['vol', 'Volume', 'l', 'num'], ['ps', 'Pressione massima PS', 'bar', 'num']], pompa: [['amp', 'Corrente assorbita', 'A', 'num']]},
+    /* controllo periodico (ogni quanti mesi) proposto per tipo: il tecnico lo cambia componente per componente */
+    periodi: {gen: 12, brug: 12, valsic: 6, tb: 6, pb: 6, tr: 6, vaso: 6, man: 12, term: 12, circ: 12, pompa: 12, dosat: 12, scamb: 12, accum: 12, filtro: 12, camino: 12},
     /* come i componenti di Levante diventano tipi del modulo (per precompilare la lista) */
     mappa: [[/caldaia|generatore|gruppo termico/i, 'gen'], [/bruciator/i, 'brug'], [/vaso/i, 'vaso'], [/pompa dosatric/i, 'dosat'], [/pompa|circolator/i, 'pompa'], [/scambiator/i, 'scamb'], [/boiler|bollitore|accumul/i, 'accum'], [/filtro/i, 'filtro']]
+  },
+  /* estintori portatili e carrellati: lista con matricola, posizione e QR (come gli idranti), sorveglianza e controllo periodico, scadenze di revisione e collaudo.
+     Fonti: UNI 9994-1 e DM 1/9/2021 (manutenzione con personale qualificato), registro controlli antincendio. Le scadenze di revisione e collaudo sono quelle del vecchio testo della norma:
+     da confermare con l'edizione in vigore prima di fidarsene. Se per un tipo non e' indicata una scadenza, l'app non ne calcola. */
+  estintori: {
+    parole: /estintor/i, autoImp: true, qr: 'EST', prossMesi: 6, nome: 'Controllo estintori', rif: 'UNI 9994-1 · DM 1/9/2021 · D.Lgs. 81/2008', app: 'estintore', apps: 'estintori',
+    gestTit: 'Generale · tocca ✕ solo dove c\'è un problema',
+    gest: [['ditta', 'Ditta di manutenzione', 'Nome', 'txt'], ['reg', 'Registro antincendio', 'Presente e aggiornato'], ['pers', 'Personale che esegue i controlli', 'Qualificato (DM 1/9/2021)'],
+      ['dist', 'Distribuzione degli estintori', 'Adeguata al rischio, sempre raggiungibili'], ['istr', 'Istruzioni al personale', 'Chi deve usarli sa dove sono e come si usano']],
+    voci: {cartello: ['Cartello di segnalazione', 'Cartello'], access: ['Accessibile e ben visibile', 'Access.'], sicura: ['Spina di sicurezza e sigillo integri', 'Sicura'], scritte: ['Istruzioni e scritte leggibili', 'Scritte'],
+      manom: ['Manometro nel campo verde', 'Manom.'], stato: ['Corpo, tubo e ugello in buono stato', 'Stato'], supp: ['Supporto o staffa saldo', 'Supporto'], peso: ['Peso o carica conforme', 'Peso'],
+      cartellino: ['Cartellino di manutenzione compilato', 'Cartell.'], rev: ['Revisione in corso di validità', 'Revisione'], coll: ['Collaudo in corso di validità', 'Collaudo']},
+    tipi: [['polvere', 'Estintore a polvere', 'Polvere', ['cartello', 'access', 'sicura', 'scritte', 'manom', 'stato', 'supp', 'cartellino', 'rev', 'coll']],
+      ['co2', 'Estintore a CO2', 'CO2', ['cartello', 'access', 'sicura', 'scritte', 'stato', 'supp', 'peso', 'cartellino', 'rev', 'coll']],
+      ['idrico', 'Estintore a schiuma o ad acqua', 'Schiuma/acqua', ['cartello', 'access', 'sicura', 'scritte', 'manom', 'stato', 'supp', 'cartellino', 'rev', 'coll']],
+      ['carrell', 'Estintore carrellato', 'Carrellato', ['cartello', 'access', 'sicura', 'scritte', 'manom', 'stato', 'cartellino', 'rev', 'coll']]],
+    campi: (() => { const c = [['cap', 'Carica', 'kg', 'num'], ['cl', 'Classe (es. 34A 233BC)', '', 'txt'], ['anno', 'Anno di costruzione', '', 'txt'], ['rev', 'Ultima revisione (mm/aaaa)', '', 'txt'], ['coll', 'Ultimo collaudo (anno)', '', 'txt']]; return {polvere: c, co2: c, idrico: c, carrell: c}; })(),
+    periodi: {polvere: 6, co2: 6, idrico: 6, carrell: 6},
+    /* scadenze calcolate: [nome, campo di partenza (il primo compilato), mesi] */
+    scad: {polvere: [['Revisione', 'rev', 36], ['Collaudo', 'coll|anno', 144]], co2: [['Revisione', 'rev', 60], ['Collaudo', 'coll|anno', 120]]},
+    mappa: [[/co2|anidride carbonica/i, 'co2'], [/carrellat/i, 'carrell'], [/estintor/i, 'polvere']]
   }
 };
 /* Predisposizione per l'elenco modificabile dall'ufficio: impostazioni.ctrlModuli puo' aggiungere tipi, voci e voci di gestione a un modulo
@@ -3206,14 +3229,66 @@ const ctrlSt = (att, v, d, extra) => `<button type="button" class="cs ${v}${att 
 const ctrlCampiHtml = (m, i, k) => ((m.campi || {})[i.tipo] || []).map(f => `<label>${esc(f[1])}${f[2] ? ' (' + esc(f[2]) + ')' : ''}<input type="text"${f[3] === 'txt' ? '' : ' inputmode="decimal"'} data-ci="${esc(k)}" data-fd="${esc(f[0])}" value="${esc((i.d || {})[f[0]] || '')}" autocomplete="off"></label>`).join('');
 const ctrlPre = m => m.gestPre !== undefined ? m.gestPre : (m.solo ? '' : 'Gestione · ');
 const ctrlDatiApp = (m, c) => (c.idr || []).map(i => ({t: ctrlTipo(m, i.tipo, i)[1], matr: i.matr || '', pos: i.pos || '', d: ((m.campi || {})[i.tipo] || []).filter(f => String((i.d || {})[f[0]] || '').trim()).map(f => ({v: f[1], val: String(i.d[f[0]]).trim(), u: f[2] || ''}))})).filter(x => x.d.length);
+/* ---- periodicita' e scadenze per componente ---- */
+const ctrlGg = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
+const ctrlMeseIso = s => { const t = String(s || '').trim(); let a = /^(\d{1,2})\s*[\/.\-]\s*(\d{4})$/.exec(t); if (a && +a[1] >= 1 && +a[1] <= 12) return a[2] + '-' + ('0' + a[1]).slice(-2) + '-01'; a = /^(\d{4})$/.exec(t); return a ? a[1] + '-12-01' : ''; };
+const ctrlMeseIT = iso => iso ? iso.slice(5, 7) + '/' + iso.slice(0, 4) : '';
+const ctrlFineMese = iso => { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); return isoGiorno(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12)); };
+const ctrlOgni = (m, i) => { const v = i.ogni; return (v !== undefined && v !== '' && v !== null) ? (+v || 0) : ((m.periodi || {})[i.tipo] || 0); };
+function ctrlScad(m, i, w, dopo){          // scadenze di un componente: [{v, d, mese}]; dopo=true: calcolate dopo la visita di oggi
+  const out = [], og = ctrlOgni(m, i), oggi = (w && w.data) || isoGiorno(new Date());
+  if (og) { const base = dopo ? (i.nc ? i.ult : oggi) : i.ult; if (base) out.push({v: 'Controllo periodico', d: fgSommaMesi(base, og)}); }
+  ((m.scad || {})[i.tipo] || []).forEach(x => { const b = x[1].split('|').map(k => ctrlMeseIso((i.d || {})[k])).find(Boolean); if (b) out.push({v: x[0], d: ctrlFineMese(fgSommaMesi(b, x[2])), mese: 1}); });
+  return out;
+}
+const ctrlConScad = m => !!(m.periodi || m.scad);
+const ctrlScadDati = (m, c, w) => (c.idr || []).map(i => ({t: ctrlTipo(m, i.tipo, i)[1], matr: i.matr || '', pos: i.pos || '', s: ctrlScad(m, i, w, true).map(x => ({v: x.v, d: x.d, me: x.mese ? 1 : undefined}))})).filter(x => x.s.length);
+const ctrlOgniOpz = [[0, 'Nessuno'], [1, 'ogni mese'], [3, 'ogni 3 mesi'], [6, 'ogni 6 mesi'], [12, 'ogni 12 mesi'], [24, 'ogni 24 mesi']];
+function ctrlBadge(m, i){
+  if (!ctrlConScad(m)) return ''; const oggi = (lavoro && lavoro.data) || isoGiorno(new Date()), lim = ctrlGg(oggi, 30);
+  const l = ctrlScad(m, i, lavoro, false).filter(x => x.d <= lim); if (!l.length) return '';
+  const sc = l.some(x => x.d < oggi);
+  return `<span class="cbad"${sc ? '' : ' style="background:#fff4d6;color:#8a5a00"'}>${esc(l[0].v)} ${sc ? 'scaduto' : 'in scadenza'}</span>`;
+}
+function ctrlRiga(m, c){
+  if (!ctrlConScad(m) || !(c.idr || []).length) return ''; const oggi = (lavoro && lavoro.data) || isoGiorno(new Date()), lim = ctrlGg(oggi, 30);
+  const n = c.idr.filter(i => ctrlScad(m, i, lavoro, false).some(x => x.d <= lim)).length;
+  return `<p class="aiuto" style="margin:0 0 6px">${n ? '<b>' + n + '</b> su ' + c.idr.length + ' da controllare ora (scaduti o in scadenza entro 30 giorni).' : 'Nessun ' + m.app + ' in scadenza.'} Dopo la prima visita l'app ricorda l'elenco su questo dispositivo.</p>`;
+}
+function ctrlPerHtml(m, i, k){
+  if (!ctrlConScad(m)) return '';
+  const og = ctrlOgni(m, i), dopo = ctrlScad(m, i, lavoro, true), fm = x => x.mese ? ctrlMeseIT(x.d) : dataIT(x.d);
+  return `<div class="cgrid"><label>Controllo periodico<select data-ci="${esc(k)}" data-f="ogni">${ctrlOgniOpz.map(o => `<option value="${o[0]}"${o[0] === og ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></label>
+    <label class="spunta" style="grid-column:1/-1;margin:2px 0;display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none;margin:0" data-ci="${esc(k)}" data-f="nc"${i.nc ? ' checked' : ''}> <span>Non controllato in questa visita</span></label></div>
+    <p class="aiuto" style="margin:2px 0 6px">${i.ult ? 'Ultimo controllo: ' + esc(dataIT(i.ult)) + '. ' : 'Prima visita registrata da questa app. '}${dopo.length ? 'Prossime scadenze: ' + dopo.map(x => esc(x.v) + ' ' + esc(fm(x))).join(' · ') + '.' : ''}</p>`;
+}
+/* elenco dei componenti ricordato sul dispositivo, per impianto: la volta dopo ci sono gia' tutti, con periodicita' e ultimo controllo */
+function ctrlDaReg(w, m, c){
+  const e = store.get('ass_ctrlreg', []).find(r => r.k === fgChiave(w) && r.mod === c.mod); if (!e) return;
+  e.items.forEach(x => c.idr.push({id: ctrlId(), tipo: x.tipo, tn: x.tn, matr: x.matr || '', pos: x.pos || '', es: {}, nota: '', d: Object.assign({}, x.d), ogni: x.ogni, ult: x.ult || ''}));
+}
+function ctrlSalvaReg(w){
+  const k = fgChiave(w); if (!k) return; const reg = store.get('ass_ctrlreg', []), oggi = w.data || isoGiorno(new Date());
+  (w.ctrl || []).forEach(c => { const m = ctrlM(c.mod); if (!m || m.solo || !ctrlConScad(m) || !(c.idr || []).length) return;
+    const e = {k, mod: c.mod, items: c.idr.map(i => ({tipo: i.tipo, tn: i.tn, matr: i.matr || '', pos: i.pos || '', d: Object.assign({}, i.d), ogni: ctrlOgni(m, i), ult: i.nc ? (i.ult || '') : oggi}))};
+    const n = reg.findIndex(r => r.k === k && r.mod === c.mod); if (n >= 0) reg[n] = e; else reg.push(e); });
+  store.set('ass_ctrlreg', reg.slice(-200));
+}
+function ctrlScadenzeHtml(){          // in ufficio: componenti scaduti o in scadenza, da tutti gli interventi ricevuti
+  const mp = {};
+  posta.forEach(r => (r.ctrl || []).forEach(c => (c.sc || []).forEach(x => x.s.forEach(s => { const k = [r.cliente, c.mod, x.t, x.matr, x.pos, s.v].join('|'); if (!mp[k] || s.d > mp[k].d) mp[k] = {d: s.d, me: s.me, v: s.v, t: x.t, matr: x.matr, cl: r.cliente}; }))));
+  const oggi = isoGiorno(new Date()), lim = ctrlGg(oggi, 60), l = Object.keys(mp).map(k => mp[k]).filter(x => x.d <= lim).sort((a, b) => a.d < b.d ? -1 : 1);
+  if (!l.length) return '';
+  return `<details class="avviso info" style="margin:0 0 12px"><summary><b>Scadenze dei controlli</b> · ${l.length} entro 60 giorni</summary><ul style="margin:8px 0 0;padding-left:20px">${l.map(x => `<li>entro il <b>${esc(x.me ? ctrlMeseIT(x.d) : dataIT(x.d))}</b>${x.d < oggi ? ' <span class="chip urg">scaduto</span>' : ''} · ${esc(x.cl)} · ${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''} · ${esc(x.v)}</li>`).join('')}</ul></details>`;
+}
 function ctrlCard(m, c, i){
   const t = ctrlTipo(m, i.tipo, i), ko = ctrlKo(m, t, i).length, k = c.id + '|' + i.id;
   const apr = ctrlApr[k] === true;
-  return `<details class="ci" data-ck="${esc(k)}"${apr ? ' open' : ''}><summary><b>${esc(t[1])}</b> · n. ${esc(i.matr || '—')}${i.pos ? ' · ' + esc(i.pos) : ''}${ko ? `<span class="cbad">${ko} ✕</span>` : ''}</summary>
+  return `<details class="ci" data-ck="${esc(k)}"${apr ? ' open' : ''}><summary><b>${esc(t[1])}</b> · n. ${esc(i.matr || '—')}${i.pos ? ' · ' + esc(i.pos) : ''}${ko ? `<span class="cbad">${ko} ✕</span>` : ''}${ctrlBadge(m, i)}</summary>
     <div class="cgrid"><label>Tipo<select data-ci="${esc(k)}" data-f="tipo">${m.tipi.map(x => `<option value="${x[0]}"${x[0] === i.tipo ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}<option value="altro"${i.tipo === 'altro' ? ' selected' : ''}>Altro (scrivi il nome)</option></select></label>
     ${i.tipo === 'altro' ? `<label class="cw">Nome del tipo<input type="text" data-ci="${esc(k)}" data-f="tn" value="${esc(i.tn || '')}" placeholder="Per esempio: idrante a colonna" autocomplete="off"></label>` : ''}
     <label>Matricola / n.<input type="text" data-ci="${esc(k)}" data-f="matr" value="${esc(i.matr || '')}" autocomplete="off"></label>
-    <label class="cw">Posizione<input type="text" data-ci="${esc(k)}" data-f="pos" value="${esc(i.pos || '')}" placeholder="Per esempio: scala B, piano 1" autocomplete="off"></label>${ctrlCampiHtml(m, i, k)}</div>
+    <label class="cw">Posizione<input type="text" data-ci="${esc(k)}" data-f="pos" value="${esc(i.pos || '')}" placeholder="Per esempio: scala B, piano 1" autocomplete="off"></label>${ctrlCampiHtml(m, i, k)}</div>${ctrlPerHtml(m, i, k)}
     ${Object.keys(m.voci).map(v => { const st = ctrlStato(m, t, i, v); return `<div class="cv"><span>${esc(m.voci[v][0])}</span><span class="cb">${['ok', 'ko', 'na'].map(s => ctrlSt(st, s, k + '|' + v)).join('')}</span></div>` + (st === 'ko' ? `<input type="text" class="cnote" data-ci="${esc(k)}" data-nv="${esc(v)}" value="${esc((i.nv || {})[v] || '')}" placeholder="Cosa non va su «${esc(m.voci[v][0])}»" autocomplete="off">` : ''); }).join('')}
     ${ko ? `<label class="cw">Altre note su questo ${m.app} (facoltative)<textarea data-ci="${esc(k)}" data-f="nota" rows="2" placeholder="Per esempio: da sostituire entro il mese">${esc(i.nota || '')}</textarea></label>
     <div class="cadd"><button type="button" class="btn piccolo" data-cfs="${esc(k)}">Scatta una foto</button><button type="button" class="btn sec piccolo" data-cfg="${esc(k)}">Dalla galleria</button>${i.nf ? `<span class="aiuto" style="align-self:center">${i.nf} foto</span>` : ''}</div>
@@ -3227,7 +3302,7 @@ function ctrlBloccoUno(c){
   return `<div class="cm" data-cm="${esc(c.id)}"><div class="cmt"><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small></div>
     <p class="aiuto" style="margin:6px 0 4px">${esc(m.gestTit || 'Gestione · tocca ✕ solo dove c\'è un problema')}</p>
     ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
-    ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>
+    ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>${ctrlRiga(m, c)}
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     ${m.senzaQr ? '' : `<div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>`}
     <select class="cadds" data-cadds="${esc(c.id)}" aria-label="Aggiungi un apparecchio"><option value="">+ Aggiungi un ${m.app}…</option>${m.tipi.map(t => `<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}<option value="altro">Altro (scrivi il nome)</option></select>`}
@@ -3248,7 +3323,7 @@ function collegaCtrl(){
   d.addEventListener('toggle', e => { if (e.target.id === 'ctrl-d') ctrlApr[lavoro.id] = e.target.open; else if (e.target.dataset && e.target.dataset.ck) ctrlApr[e.target.dataset.ck] = e.target.open; }, true);
   d.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || !b.closest('#ctrl-d')) return;
-    if (b.dataset.cnew) { const m = ctrlM(b.dataset.cnew); (lavoro.ctrl = lavoro.ctrl || []).push({id: ctrlId(), mod: b.dataset.cnew, idr: [], gest: {}, note: '', prossimo: ''}); ctrlApr[lavoro.id] = true; ctrlRidisegna(); bozzaModificata(); }
+    if (b.dataset.cnew) { const m = ctrlM(b.dataset.cnew); const nb = {id: ctrlId(), mod: b.dataset.cnew, idr: [], gest: {}, note: '', prossimo: ''}; if (m.mappa || ctrlConScad(m)) ctrlPreApparecchi(lavoro, lavoro.r || {}, m, nb); (lavoro.ctrl = lavoro.ctrl || []).push(nb); ctrlApr[lavoro.id] = true; ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cadd) { const q = b.dataset.cadd.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (!c) return; const n = {id: ctrlId(), tipo: q[1], matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cs) { const t = ctrlTrova(b.dataset.cs), v = b.dataset.v; if (!t) return;
       if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; if (v === 'ok') delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: 'ko', n: (t.c.gest[t.q[2]] || {}).n || ''}; }
@@ -3267,10 +3342,11 @@ function collegaCtrl(){
   const agg = e => { const t = e.target, ds = t.dataset || {}; if (!t.closest || !t.closest('#ctrl-d')) return;
     if (ds.cadds !== undefined) { if (e.type !== 'change' || !t.value) return; const c = (lavoro.ctrl || []).find(x => x.id === ds.cadds); if (!c) return; const n = {id: ctrlId(), tipo: t.value, matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); return; }
     if (ds.cfoto) { const fl = [...(t.files || [])]; t.value = ''; if (fl.length) ctrlFoto(ds.cfoto, fl); return; }
+    if (ds.ci && ds.f === 'nc') { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.nc = t.checked; ctrlApr[ds.ci] = true; ctrlRidisegna(); bozzaModificata(); } return; }
     if (ds.ci && ds.fd) { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.d = q.i.d || {}; q.i.d[ds.fd] = t.value; bozzaModificata(); } return; }
     if (ds.ci && ds.nv) { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.nv = q.i.nv || {}; q.i.nv[ds.nv] = t.value; bozzaModificata(); } return; }
     if (ds.clet) { const q = ds.clet.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c) { c.lett = c.lett || {}; c.lett[q[1]] = t.value; bozzaModificata(); } return; }
-    if (ds.ci) { const q = ctrlTrova(ds.ci); if (!q || !q.i) return; q.i[ds.f] = t.value; if (ds.f === 'tipo' || ds.f === 'matr' || ds.f === 'pos' || ds.f === 'tn') { if (e.type === 'change') ctrlRidisegna(); else { const s = t.closest('details').querySelector('summary b'); } } bozzaModificata(); }
+    if (ds.ci) { const q = ctrlTrova(ds.ci); if (!q || !q.i) return; q.i[ds.f] = t.value; if (ds.f === 'tipo' || ds.f === 'matr' || ds.f === 'pos' || ds.f === 'tn' || ds.f === 'ogni') { if (e.type === 'change') ctrlRidisegna(); else { const s = t.closest('details').querySelector('summary b'); } } bozzaModificata(); }
     else if (ds.cg) { const q = ds.cg.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c && c.gest && c.gest[q[1]]) { c.gest[q[1]].n = t.value; bozzaModificata(); } }
     else if (ds.cn) { const c = (lavoro.ctrl || []).find(x => x.id === ds.cn); if (c) { c[ds.f] = t.value; bozzaModificata(); } } };
   d.addEventListener('input', agg); d.addEventListener('change', agg);
@@ -3279,6 +3355,7 @@ function ctrlUfficioHtml(r){
   return (r.ctrl || []).map(c => { const n = c.neg || {g: [], a: []}, k = n.g.length + n.a.length;
     return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.solo ? '' : c.n + ' ' + (c.n === 1 ? 'apparecchio' : 'apparecchi') + ' · '}${k ? '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : 'tutto positivo'}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
       ((c.lett || []).length ? '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + (l.u ? ' ' + esc(l.u) : '') + '</b>').join(' · ') + '</p>' : '') +
+      ((c.sc || []).length ? '<p style="margin:4px 0 2px"><b>Prossime scadenze</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.sc.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.s.map(z => esc(z.v) + ' <b>' + esc(z.me ? ctrlMeseIT(z.d) : dataIT(z.d)) + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
       ((c.app || []).length ? '<p style="margin:4px 0 2px"><b>Dati tecnici dei componenti</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.app.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.d.map(f => esc(f.v) + ' <b>' + esc(f.val) + (f.u ? ' ' + esc(f.u) : '') + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
       (k ? '<ul style="margin:0;padding-left:20px">' + n.g.map(x => `<li>${c.pre != null ? esc(c.pre) : (c.solo ? '' : 'Gestione · ')}${esc(x.v)}${x.n ? ' — ' + esc(x.n) : ''}</li>`).join('') + n.a.map(x => `<li>${esc(x.t)} n. ${esc(x.matr || '—')}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${esc(x.v.join(', '))}${x.nota ? ' — ' + esc(x.nota) : ''}</li>`).join('') + '</ul>' : ''); }).join('');
 }
@@ -3286,7 +3363,7 @@ function ctrlUfficioHtml(r){
 let ctrlQrDest = '';            // controllo che sta ricevendo gli apparecchi letti col QR
 async function ctrlQrLib(){ if (window.qrcode) return; await caricaScript(['qrcode.js']); if (window.qrcode && qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8']; }
 const ctrlImpId = w => String((w.r && w.r.i && w.r.i.id) || '');
-const ctrlQrTesto = (w, c, i) => ['ASS1', 'IDR', i.tipo === 'altro' ? 'altro~' + String(i.tn || '').replace(/[|~]/g, ' ') : i.tipo, String(i.matr || '').replace(/\|/g, '/'), String(i.pos || '').replace(/\|/g, '/'), ctrlImpId(w)].join('|');
+const ctrlQrTesto = (w, c, i) => ['ASS1', (ctrlM(c.mod) || {}).qr || 'IDR', i.tipo === 'altro' ? 'altro~' + String(i.tn || '').replace(/[|~]/g, ' ') : i.tipo, String(i.matr || '').replace(/\|/g, '/'), String(i.pos || '').replace(/\|/g, '/'), ctrlImpId(w)].join('|');
 function ctrlRighe(x, testo, larg){ const out = []; let r = ''; String(testo).split(/\s+/).forEach(p => { const t = r ? r + ' ' + p : p; if (x.measureText(t).width > larg && r) { out.push(r); r = p; } else r = t; }); if (r) out.push(r); return out; }
 function ctrlEtichetta(w, c, i){
   const m = ctrlM(c.mod), t = ctrlTipo(m, i.tipo, i), q = qrcode(0, 'M'); q.addData(ctrlQrTesto(w, c, i), 'Byte'); q.make();
@@ -3325,8 +3402,8 @@ async function ctrlFoglioEtichette(cid){
   scaricaBlob(doc.output('blob'), 'Etichette_QR_' + String(lavoro.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30) + '.pdf');
 }
 function ctrlDaQr(testo){          // ASS1|IDR|tipo|matricola|posizione|impianto
-  const p = String(testo).split('|'); const c = (lavoro.ctrl || []).find(x => x.id === ctrlQrDest) || (lavoro.ctrl || []).find(x => x.mod === 'idranti');
-  if (!c) { scanMsg('Aggiungi prima il controllo della rete idranti, poi inquadra il QR.', true); return; }
+  const p = String(testo).split('|'); const mq = x => (ctrlM(x.mod) || {}).qr || 'IDR'; const c = (lavoro.ctrl || []).find(x => x.id === ctrlQrDest && mq(x) === p[1]) || (lavoro.ctrl || []).find(x => mq(x) === p[1]);
+  if (!c) { scanMsg('Aggiungi prima il controllo giusto (' + (p[1] === 'EST' ? 'estintori' : 'rete idranti') + '), poi inquadra il QR.', true); return; }
   const m = ctrlM(c.mod), tk = String(p[2] || '').split('~')[0], tn = String(p[2] || '').split('~').slice(1).join('~'), tipo = (m.tipi.some(t => t[0] === tk) || tk === 'altro') ? tk : m.tipi[0][0], imp = ctrlImpId(lavoro);
   if (p[5] && imp && p[5] !== imp && !confirm('Questo QR appartiene a un altro impianto. Lo aggiungo lo stesso a questo controllo?')) return;
   const ora = hhmm(new Date()), ex = c.idr.find(i => i.tipo === tipo && i.matr === p[3] && (tipo !== 'altro' || (i.tn || '') === tn));
@@ -3354,9 +3431,11 @@ function ctrlPreCompila(w, r, m, c, op){          // moduli a scheda unica: i da
   c.lett = {}; if (a) { const dv = {marca: [a.c, a.m].filter(Boolean).join(' '), matricola: a.s || '', anno: a.y || ''}; m.gest.forEach(g => { if (dv[g[0]]) c.lett[g[0]] = dv[g[0]]; }); }
   c.prossimo = fgSommaMesi(w.data || isoGiorno(new Date()), 12);
 }
-function ctrlPreApparecchi(w, r, m, c){          // centrale termica: i componenti registrati in Levante riempiono gia' la lista
-  c.lett = {}; c.prossimo = fgSommaMesi(w.data || isoGiorno(new Date()), 12);
+function ctrlPreApparecchi(w, r, m, c){          // i componenti ricordati sul dispositivo e quelli registrati in Levante riempiono la lista
+  c.lett = c.lett || {}; c.prossimo = fgSommaMesi(w.data || isoGiorno(new Date()), m.prossMesi || 12); c.idr = c.idr || [];
+  ctrlDaReg(w, m, c);
   (r.a || []).forEach(a => { const mp = (m.mappa || []).find(x => x[0].test([a.t, a.m].join(' '))); if (!mp) return;
+    if (a.s && c.idr.some(i => i.tipo === mp[1] && i.matr === a.s)) return;
     c.idr.push({id: ctrlId(), tipo: mp[1], matr: a.s || '', pos: a.u || '', es: {}, nota: '', d: a.c ? {cost: a.c} : {}}); });
 }
 function ctrlDaOperazioni(w, r){          // le operazioni pianificate di questa visita (da Levante) aprono il modulo giusto, come l'analisi fumi
@@ -3768,7 +3847,7 @@ function fgScadenzeHtml(){
 
 const ctrlLettDati = (m, c) => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt') && String((c.lett || {})[g[0]] || '').trim()).map(g => ({v: g[1], val: String(c.lett[g[0]]).trim(), u: g[4] || ''}));
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
-  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
+  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, sc: ctrlConScad(m) ? ctrlScadDati(m, c, w) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
   return `Controllo_${c.mod === 'idranti' ? 'Idranti' : c.mod}_${s}_${w.data || isoGiorno(new Date())}.pdf`; }
 function costruisciPdfCtrl(w, c){
@@ -3817,6 +3896,11 @@ function costruisciPdfCtrl(w, c){
   if (dta.length) { if (y + 18 > H - 12) nuova(); y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('DATI TECNICI DEI COMPONENTI', M, y + 3); y += 6;
     dta.forEach(x => { const ls = doc.splitTextToSize(x.d.map(f => f.v + ': ' + f.val + (f.u ? ' ' + f.u : '')).join('  ·  '), W - 2 * M - 80); const alt = Math.max(5, ls.length * 4) + 1.5; if (y + alt > H - 12) nuova();
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(doc.splitTextToSize(x.t + (x.matr ? ' n. ' + x.matr : '') + (x.pos ? ' · ' + x.pos : ''), 76), M + 1, y + 3.2); doc.setFont('helvetica', 'normal'); doc.text(ls, M + 80, y + 3.2); y += alt; }); }
+  /* prossime scadenze */
+  const scl = ctrlConScad(m) ? ctrlScadDati(m, c, w) : [];
+  if (scl.length) { if (y + 18 > H - 12) nuova(); y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text('PROSSIME SCADENZE', M, y + 3); y += 6;
+    scl.forEach(x => { const ls = doc.splitTextToSize(x.s.map(z => z.v + ': ' + (z.me ? ctrlMeseIT(z.d) : dataIT(z.d))).join('  ·  '), W - 2 * M - 80); const alt = Math.max(5, ls.length * 4) + 1.5; if (y + alt > H - 12) nuova();
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(doc.splitTextToSize(x.t + (x.matr ? ' n. ' + x.matr : '') + (x.pos ? ' · ' + x.pos : ''), 76), M + 1, y + 3.2); doc.setFont('helvetica', 'normal'); doc.text(ls, M + 80, y + 3.2); y += alt; }); }
   /* negativi */
   const ng = ctrlNegativi(m, c);
   if (ng.a.length || ng.g.length) {
@@ -3852,6 +3936,7 @@ function creaPdf(){
   registraMatUsati(lavoro.materiali);
   const files = [{blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda}), nome: nomePdf(lavoro), titolo: 'Rapportino'}];
   (lavoro.ctrl || []).forEach(c => { if (!ctrlM(c.mod)) return; try { files.push({blob: costruisciPdfCtrl(lavoro, c), nome: nomePdfCtrl(lavoro, c), titolo: ctrlM(c.mod).nome}); } catch(e) { alert('Non sono riuscito a creare il PDF «' + ctrlM(c.mod).nome + '»: ' + e.message); } });
+  try { ctrlSalvaReg(lavoro); } catch(e) {}
   (lavoro.fg || []).forEach(x => { if (!x.ints.length) return; try { files.push({blob: costruisciPdfFg(lavoro, x), nome: nomePdfFg(lavoro, x), titolo: 'Scheda F-gas'}); } catch(e) { alert('Non sono riuscito a creare il PDF F-gas: ' + e.message); } });
   ultimoPdfCliente = {blob: costruisciPdf(lavoro, {r: rr(), azienda: impostazioni.azienda, perCliente: true}), nome: nomePdf(lavoro)};
   destInvio = 'uff';
@@ -7136,7 +7221,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.75.1 (05/11/2026)';
+const VERSIONE_APP = '1.76.0 (05/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -7544,7 +7629,7 @@ function scanConferma(chiudi){
 }
 function scanRisultato(testo){
   if (/^ASS1\|FGAS\|/.test(testo) && lavoro) { scanPre = ''; fgDaQr(testo); return; }
-  if (/^ASS1\|IDR\|/.test(testo) && lavoro) { scanPre = ''; ctrlDaQr(testo); return; }
+  if (/^ASS1\|(IDR|EST)\|/.test(testo) && lavoro) { scanPre = ''; ctrlDaQr(testo); return; }
   const a = cercaBarre(testo);
   scanPre = '';
   if (a && (lavoro || (scanCn && regCorr))) { scanProponi(a, testo); return; }
@@ -8171,7 +8256,7 @@ function disegnaPosta(){
       <p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
       <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
   }).join('');
-  testa += fgScadenzeHtml();
+  testa += fgScadenzeHtml() + ctrlScadenzeHtml();
   { const nC = posta.filter(r => r.cant && !r.fatto).length; if (nC) testa += `<button class="btn sec piccolo" type="button" data-cantcsv="1" style="margin:0 0 12px 8px">Riepilogo ore dei cantieri da registrare (CSV, ${nC})</button>`; }
   box.innerHTML = testa + box.innerHTML;
 }
