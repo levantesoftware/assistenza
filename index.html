@@ -591,6 +591,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 #fg-d .cgrid label{display:flex;flex-direction:column;font-size:13px;color:#5b6d75}#fg-d .cgrid label.spunta{flex-direction:row;align-items:center;gap:8px;color:#14232b;font-size:15px}
 #fg-d .cadds{width:100%;margin-top:8px}
 #ctrl-d .cm{border:1px solid var(--bordo,#d5dcdf);border-radius:10px;padding:10px;margin:8px 0}
+select.rc-add{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margin-top:8px;border:1.5px solid #0e5a6b;border-radius:8px;background:#fff;color:#0e5a6b;font-weight:700}
 #ctrl-d details.cm>summary{cursor:pointer;list-style-position:inside;padding:2px 0}#ctrl-d details.cm>summary b{font-size:17px}#ctrl-d details.cm>summary small{display:block;color:#5b6d75;margin-left:18px}#ctrl-d details.cm>summary .aiuto{display:block;margin:2px 0 0 18px}#ctrl-d details.cm[open]>summary{margin-bottom:6px}#ctrl-d .cmt{display:flex;flex-direction:column;margin-bottom:4px}#ctrl-d .cmt small{color:#5b6d75}
 #ctrl-d .cv{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e6ebed;font-size:15px}
 #ctrl-d .cv small{display:block;color:#5b6d75;font-size:12px;font-weight:400}
@@ -2576,9 +2577,9 @@ function disegnaScheda(){
     <div class="passo"><h2>Altre operazioni</h2><p class="aiuto">Lavori fatti che non erano in programma.</p>
       <div id="extra">${sezioneExtra()}</div>
       <button class="btn sec piccolo" type="button" id="b-add-extra">Aggiungi un lavoro</button></div>
+    ${sezioneAggiungiLibero()}
     <div id="rcee">${rcBlocco()}</div>
     <div id="rcee-lib">${sezioniLibere()}</div>
-    ${sezioneAggiungiLibero()}
     ${ctrlHtml(w)}
     ${fgHtml(w)}
     <div class="passo" id="oss-rcee" hidden></div>
@@ -4779,7 +4780,7 @@ function nuovoRapportoLibero(tipo){
   lavoro.rc.push(r);
   applicaDatiLibero(r, m[nome], false, false);
   disegnaLiberi(); bozzaModificata();
-  const blocchi = document.querySelectorAll('#rcee-lib .rcee-blocco'); if (blocchi.length) blocchi[blocchi.length - 1].scrollIntoView({behavior: 'smooth', block: 'start'});
+  rcSoloNuovo('#rcee-lib');
 }
 /* ---- la scheda ---- */
 const chipLib = (i, k, testo, on) => `<button type="button" class="tri${on ? ' sel' : ''}" data-tog="${i}|${k}" aria-pressed="${on ? 'true' : 'false'}">${esc(testo)}</button>`;
@@ -4941,7 +4942,7 @@ function nuovoRapportoManuale(tipo){
   const R = lavoro.r || {}, ap = (R.a || []).filter(x => x.x)[0] || ((R.a || []).length === 1 ? R.a[0] : null);
   lavoro.rc.push(Object.assign({_tipo: tipo, _tpl: m.nome, _man: 1, _app: ap ? ap.id : ''}, inizialiMan(lavoro, tipo, ap)));
   ridisegnaRcee(); bozzaModificata();
-  const bl = document.querySelectorAll('#rcee .rcee-blocco'); if (bl.length) bl[bl.length - 1].scrollIntoView({behavior: 'smooth', block: 'start'});
+  rcSoloNuovo('#rcee');
 }
 function sezioneManuale(i, r, tpl, mappa){
   const d = descManuale(tpl, mappa), apps = (lavoro.r && lavoro.r.a) || [];
@@ -4977,15 +4978,23 @@ function sezioneManuale(i, r, tpl, mappa){
 }
 function sezioneAggiungiLibero(){
   const apr = rcApr['altri-rapporti'] === true;
-  return `<details class="passo rcee-blocco" data-rcd="altri-rapporti"${apr ? ' open' : ''}><summary><h2>Altri rapporti di efficienza energetica</h2><span class="aiuto">Tocca per scegliere il tipo di rapporto da aggiungere</span></summary>
-    <p class="aiuto">Se l'ufficio non ha creato l'allegato in Levante (per esempio un intervento non programmato), o se c'è anche uno scambiatore o un cogeneratore, aggiungi il rapporto qui: parte già compilato con i dati di Levante. Tocca il tipo che serve.</p>
-    <div class="rcee-sc">
-      <button class="btn sec" type="button" data-add-man="RCEE1">Tipo 1<small>gruppi termici</small></button>
-      <button class="btn sec" type="button" data-add-man="RCEE1B">Tipo 1B<small>biomassa</small></button>
-      <button class="btn sec" type="button" data-add-man="RCEE2">Tipo 2<small>frigo e pompe di calore</small></button>
-      <button class="btn sec" type="button" data-add-lib="RCEE3">Tipo 3<small>scambiatori</small></button>
-      <button class="btn sec" type="button" data-add-lib="RCEE4">Tipo 4<small>cogeneratori</small></button></div></details>`;
+  return `<details class="passo rcee-blocco" data-rcd="altri-rapporti"${apr ? ' open' : ''}><summary><h2>Altri rapporti di efficienza energetica</h2><span class="aiuto">Apri e scegli il tipo di rapporto da aggiungere</span></summary>
+    <p class="aiuto">Se l'ufficio non ha creato l'allegato in Levante (per esempio un intervento non programmato), o se c'è anche uno scambiatore o un cogeneratore, aggiungi il rapporto qui: parte già compilato con i dati di Levante.</p>
+    <select class="rc-add" data-addrc="1" aria-label="Aggiungi un rapporto di efficienza energetica"><option value="">+ Aggiungi un rapporto…</option>
+      <option value="man:RCEE1">Tipo 1 · gruppi termici</option><option value="man:RCEE1B">Tipo 1B · biomassa</option><option value="man:RCEE2">Tipo 2 · frigo e pompe di calore</option>
+      <option value="lib:RCEE3">Tipo 3 · scambiatori</option><option value="lib:RCEE4">Tipo 4 · cogeneratori</option></select></details>`;
 }
+/* dopo l'aggiunta di un rapporto: resta aperto solo quello nuovo, il menu si richiude e la scheda scorre fino al rapporto */
+function rcSoloNuovo(sel){
+  const ult = [...document.querySelectorAll(sel + ' details.rcee-blocco[data-rcd]')].pop();
+  document.querySelectorAll('details.rcee-blocco[data-rcd]').forEach(d => { if (d !== ult && d.open) d.open = false; });
+  if (ult) { ult.open = true; try { ult.scrollIntoView({behavior: 'smooth', block: 'start'}); } catch(e) {} }
+}
+document.addEventListener('change', e => {
+  const t = e.target; if (!t || !t.dataset || t.dataset.addrc === undefined || !t.value || !lavoro) return;
+  const v = t.value.split(':'); t.value = '';
+  if (v[0] === 'lib') nuovoRapportoLibero(v[1]); else nuovoRapportoManuale(v[1]);
+});
 /* ---- il PDF ---- */
 function valoreLibero(w, c, r, tot, pag){
   if (!c.auto) return r[c.field] || '';
@@ -7235,7 +7244,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.76.2 (05/11/2026)';
+const VERSIONE_APP = '1.76.3 (05/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
