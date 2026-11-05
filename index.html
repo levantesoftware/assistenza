@@ -3318,8 +3318,9 @@ function ctrlBloccoUno(c, idx){
 function ctrlHtml(w){
   const l = w.ctrl || [];
   return `<details class="passo rcee-blocco" id="ctrl-d" data-ck0="1"${ctrlApr[w.id] === true ? ' open' : ''}><summary><h2>Controlli e verifiche</h2><span class="aiuto" id="ctrl-sum">${esc(ctrlSomm(w))}</span></summary>
+    <select class="cadds" data-cnewsel="1" aria-label="Aggiungi un controllo"><option value="">+ Aggiungi un controllo…</option>${Object.keys(ctrlMods()).map(k => `<option value="${esc(k)}">${esc(ctrlM(k).nome)}</option>`).join('')}</select>
     <div id="ctrl-box">${l.map(ctrlBloccoUno).join('')}</div>
-    <select class="cadds" data-cnewsel="1" aria-label="Aggiungi un controllo"><option value="">+ Aggiungi un controllo…</option>${Object.keys(ctrlMods()).map(k => `<option value="${esc(k)}">${esc(ctrlM(k).nome)}</option>`).join('')}</select></details>`;
+</details>`;
 }
 function ctrlRidisegna(){ const b = $('#ctrl-box'); if (!b) return; b.innerHTML = (lavoro.ctrl || []).map(ctrlBloccoUno).join(''); const s = $('#ctrl-sum'); if (s) s.textContent = ctrlSomm(lavoro); }
 function ctrlNuovo(k){
@@ -7234,7 +7235,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.76.1 (05/11/2026)';
+const VERSIONE_APP = '1.76.2 (05/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
