@@ -3238,7 +3238,7 @@ const MODULI_CTRL = {
     campi: (() => { const c = [['cap', 'Carica', 'kg', 'num'], ['cl', 'Classe (es. 34A 233BC)', '', 'txt'], ['anno', 'Anno di costruzione', '', 'txt'], ['rev', 'Ultima revisione (mm/aaaa)', '', 'txt'], ['coll', 'Ultimo collaudo (anno)', '', 'txt']]; return {polvere: c, co2: c, idrico: c, carrell: c}; })(),
     periodi: {polvere: 6, co2: 6, idrico: 6, carrell: 6},
     /* scadenze calcolate: [nome, campo di partenza (il primo compilato), mesi] */
-    scad: {polvere: [['Revisione', 'rev', 36], ['Collaudo', 'coll|anno', 144]], co2: [['Revisione', 'rev', 60], ['Collaudo', 'coll|anno', 120]]},
+    scad: {polvere: [['Revisione', 'rev', 60], ['Collaudo', 'coll|anno', 120]], co2: [['Revisione', 'rev', 60], ['Collaudo', 'coll|anno', 120]]},
     mappa: [[/co2|anidride carbonica/i, 'co2'], [/carrellat/i, 'carrell'], [/estintor/i, 'polvere']]
   }
 };
@@ -7291,7 +7291,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.77.0 (05/11/2026)';
+const VERSIONE_APP = '1.77.1 (05/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
