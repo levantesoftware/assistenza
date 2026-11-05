@@ -3301,10 +3301,16 @@ function ctrlBadge(m, i){
   const sc = l.some(x => x.d < oggi);
   return `<span class="cbad"${sc ? '' : ' style="background:#fff4d6;color:#8a5a00"'}>${esc(l[0].v)} ${sc ? 'scaduto' : 'in scadenza'}</span>`;
 }
+function ctrlGiro(m, c){          // avanzamento del giro con la fotocamera: quanti componenti in lista sono stati inquadrati
+  const l = c.idr || []; if (m.solo || m.senzaQr || l.length < 2) return '';
+  const visti = l.filter(i => i.qr).length, manca = l.filter(i => !i.qr && !i.nc);
+  if (!visti) return '';
+  return `<p class="aiuto" style="margin:0 0 6px"><b>Giro con la fotocamera:</b> inquadrati ${visti} su ${l.length}${manca.length ? ' · ancora da trovare ' + manca.length + ': ' + manca.slice(0, 6).map(i => esc(ctrlTipo(m, i.tipo, i)[1] + (i.matr ? ' n. ' + i.matr : '') + (i.pos ? ' (' + i.pos + ')' : ''))).join('; ') + (manca.length > 6 ? '…' : '') : ' · hai trovato tutto'}.</p>`;
+}
 function ctrlRiga(m, c){
   if (!ctrlConScad(m) || !(c.idr || []).length) return ''; const oggi = (lavoro && lavoro.data) || isoGiorno(new Date()), lim = ctrlGg(oggi, 30);
   const n = c.idr.filter(i => ctrlScad(m, i, lavoro, false).some(x => x.d <= lim)).length;
-  return `<p class="aiuto" style="margin:0 0 6px">${n ? '<b>' + n + '</b> su ' + c.idr.length + ' da controllare ora (scaduti o in scadenza entro 30 giorni).' : 'Nessun ' + m.app + ' in scadenza.'} Dopo la prima visita l'app ricorda l'elenco su questo dispositivo.</p>`;
+  return `<p class="aiuto" style="margin:0 0 6px">${n ? '<b>' + n + '</b> su ' + c.idr.length + ' da controllare ora (scaduti o in scadenza entro 30 giorni).' : 'Nessun ' + m.app + ' in scadenza.'} Dopo la prima visita l'app ricorda l'elenco, e l'ufficio lo manda anche agli altri tecnici.</p>`;
 }
 function ctrlPerHtml(m, i, k){
   if (!ctrlConScad(m)) return '';
@@ -3318,11 +3324,33 @@ function ctrlDaReg(w, m, c){
   const e = store.get('ass_ctrlreg', []).find(r => r.k === fgChiave(w) && r.mod === c.mod); if (!e) return;
   e.items.forEach(x => c.idr.push({id: ctrlId(), tipo: x.tipo, tn: x.tn, matr: x.matr || '', pos: x.pos || '', es: {}, nota: '', d: Object.assign({}, x.d), ogni: x.ogni, ult: x.ult || ''}));
 }
+const ctrlRegVoci = (w, c, m) => (c.idr || []).map(i => ({tipo: i.tipo, tn: i.tn, matr: i.matr || '', pos: i.pos || '', d: Object.assign({}, i.d), ogni: ctrlOgni(m, i), ult: i.nc ? (i.ult || '') : (w.data || isoGiorno(new Date()))}));
 function ctrlSalvaReg(w){
   const k = fgChiave(w); if (!k) return; const reg = store.get('ass_ctrlreg', []), oggi = w.data || isoGiorno(new Date());
   (w.ctrl || []).forEach(c => { const m = ctrlM(c.mod); if (!m || m.solo || !ctrlConScad(m) || !(c.idr || []).length) return;
-    const e = {k, mod: c.mod, items: c.idr.map(i => ({tipo: i.tipo, tn: i.tn, matr: i.matr || '', pos: i.pos || '', d: Object.assign({}, i.d), ogni: ctrlOgni(m, i), ult: i.nc ? (i.ult || '') : oggi}))};
+    const e = {k, mod: c.mod, dt: oggi, items: ctrlRegVoci(w, c, m)};
     const n = reg.findIndex(r => r.k === k && r.mod === c.mod); if (n >= 0) reg[n] = e; else reg.push(e); });
+  store.set('ass_ctrlreg', reg.slice(-200));
+}
+/* registro condiviso: l'ufficio ricostruisce, per ogni impianto e controllo, l'elenco dei componenti dell'ultima visita ricevuta e lo manda nel file dei tecnici che ci devono andare */
+function ctrlRegUfficio(){
+  const mp = {};
+  (posta || []).forEach(r => (r.ctrl || []).forEach(c => { if (!c.rk || !Array.isArray(c.ri) || !c.ri.length) return; const dt = String(c.rd || r.data || ''), k = c.rk + '|' + c.mod;
+    if (!mp[k] || dt >= mp[k].dt) mp[k] = {k: c.rk, mod: c.mod, dt, items: c.ri}; }));
+  return Object.keys(mp).map(k => mp[k]);
+}
+function ctrlRegPer(apps){
+  const ids = new Set((apps || []).map(a => String((a.r && a.r.i && a.r.i.id) || '')).filter(Boolean)); if (!ids.size) return [];
+  return ctrlRegUfficio().filter(e => ids.has(e.k));
+}
+const ctrlRegFirma = apps => JSON.stringify(ctrlRegPer(apps).map(e => e.k + '|' + e.mod + '|' + e.dt).sort());
+function ctrlRegPulito(l){
+  const t = (x, n) => String(x == null ? '' : x).slice(0, n);
+  return (Array.isArray(l) ? l : []).slice(0, 200).filter(e => e && typeof e.k === 'string' && typeof e.mod === 'string' && Array.isArray(e.items)).map(e => ({k: t(e.k, 80), mod: t(e.mod, 30), dt: t(e.dt, 10), items: e.items.slice(0, 200).map(i => ({tipo: t(i.tipo, 30), tn: t(i.tn, 60), matr: t(i.matr, 60), pos: t(i.pos, 80), d: (i.d && typeof i.d === 'object') ? JSON.parse(JSON.stringify(i.d)) : {}, ogni: Math.max(0, parseInt(i.ogni, 10) || 0), ult: t(i.ult, 10)}))}));
+}
+function ctrlRegUnisci(ric){            // sul telefono: vale l'elenco della visita piu' recente (quella gia' presente resta se e' uguale o piu' nuova)
+  const l = ctrlRegPulito(ric); if (!l.length) return; const reg = store.get('ass_ctrlreg', []);
+  l.forEach(e => { const n = reg.findIndex(r => r.k === e.k && r.mod === e.mod); if (n < 0) reg.push(e); else if (e.dt && e.dt > (reg[n].dt || '')) reg[n] = e; });
   store.set('ass_ctrlreg', reg.slice(-200));
 }
 function ctrlScadenzeHtml(){          // in ufficio: componenti scaduti o in scadenza, da tutti gli interventi ricevuti
@@ -3354,7 +3382,7 @@ function ctrlBloccoUno(c, idx){
   return `<details class="cm" data-cm="${esc(c.id)}" data-ck="${esc(ka)}"${ap ? ' open' : ''}><summary><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small><span class="aiuto">${esc(ctrlSommUno(m, c))}</span></summary>
     <p class="aiuto" style="margin:6px 0 4px">${esc(m.gestTit || 'Gestione · tocca ✕ solo dove c\'è un problema')}</p>
     ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
-    ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>${ctrlRiga(m, c)}
+    ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>${ctrlRiga(m, c)}${ctrlGiro(m, c)}
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     ${m.senzaQr ? '' : `<div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>`}
     <select class="cadds" data-cadds="${esc(c.id)}" aria-label="Aggiungi un apparecchio"><option value="">+ Aggiungi un ${m.app}…</option>${m.tipi.map(t => `<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}<option value="altro">Altro (scrivi il nome)</option></select>`}
@@ -3908,7 +3936,7 @@ function fgScadenzeHtml(){
 
 const ctrlLettDati = (m, c) => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt') && String((c.lett || {})[g[0]] || '').trim()).map(g => ({v: g[1], val: String(c.lett[g[0]]).trim(), u: g[4] || ''}));
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
-  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, sc: ctrlConScad(m) ? ctrlScadDati(m, c, w) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
+  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, sc: ctrlConScad(m) ? ctrlScadDati(m, c, w) : undefined, rk: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) || undefined, rd: w.data || undefined, ri: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) ? ctrlRegVoci(w, c, m) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
   return `Controllo_${c.mod === 'idranti' ? 'Idranti' : c.mod}_${s}_${w.data || isoGiorno(new Date())}.pdf`; }
 function costruisciPdfCtrl(w, c){
@@ -6828,7 +6856,8 @@ function novitaChiamate(inv, id){
 }
 function haNovita(id, per, inviati, oggi){
   const inv = inviati[id]; if (!inv) return true;
-  if ((inv.cfg === undefined ? 'null' : inv.cfg) !== JSON.stringify(cfgPer(id))) return true;          // l'ufficio ha cambiato le sezioni del tecnico
+  if ((inv.cfg === undefined ? 'null' : inv.cfg) !== JSON.stringify(cfgPer(id))) return true;
+  if (inv.reg !== undefined && inv.reg !== ctrlRegFirma(per[id] || [])) return true;          // nuovi controlli ricevuti sugli impianti del tecnico (i vecchi invii senza questo dato non scattano)          // l'ufficio ha cambiato le sezioni del tecnico
   return !nessunaNovita(confrontaAgende(inv.apps, per[id] || [], oggi, giaEseguitoInPosta)) || novitaChiamate(inv, id).ha;
 }
 function riquadroChiamate(){
@@ -6855,7 +6884,7 @@ function salvaInviato(id, apps, chs, cants){
     apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', urgente: !!a.urgente, fatto: !!a.fatto})),
     ch: (chs || []).map(a => ({id: a.id, titolo: a.titolo, luogo: a.luogo})),
     cant: (cants || []).map(c => c.id),
-    docIds: apps.flatMap(a => (a.docs || []).map(d => d.id)), cfg: JSON.stringify(cfgPer(id))};
+    docIds: apps.flatMap(a => (a.docs || []).map(d => d.id)), cfg: JSON.stringify(cfgPer(id)), reg: ctrlRegFirma(apps)};
   store.set('ass_inviati', inv);
 }
 let infoUff = {trovati: [], mancanti: [], origine: '', messaggio: '', completo: false};
@@ -7115,7 +7144,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 async function salvaDati(d, leggero){
@@ -7262,6 +7291,7 @@ async function caricaPacchetto(file){
     let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
     if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
     await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    try { ctrlRegUnisci(d.reg); } catch(e) {}
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
     { const ids = new Set((d.chiamate || []).map(c => c.id)); store.set('ass_ch_nuove', Array.from(new Set(store.get('ass_ch_nuove', []).concat(chNuove.map(c => c.id)))).filter(x => ids.has(x))); }
@@ -7291,7 +7321,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.77.2 (05/11/2026)';
+const VERSIONE_APP = '1.78.1 (05/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
