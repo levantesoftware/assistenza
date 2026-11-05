@@ -591,7 +591,7 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 #fg-d .cgrid label{display:flex;flex-direction:column;font-size:13px;color:#5b6d75}#fg-d .cgrid label.spunta{flex-direction:row;align-items:center;gap:8px;color:#14232b;font-size:15px}
 #fg-d .cadds{width:100%;margin-top:8px}
 #ctrl-d .cm{border:1px solid var(--bordo,#d5dcdf);border-radius:10px;padding:10px;margin:8px 0}
-#ctrl-d .cmt{display:flex;flex-direction:column;margin-bottom:4px}#ctrl-d .cmt small{color:#5b6d75}
+#ctrl-d details.cm>summary{cursor:pointer;list-style-position:inside;padding:2px 0}#ctrl-d details.cm>summary b{font-size:17px}#ctrl-d details.cm>summary small{display:block;color:#5b6d75;margin-left:18px}#ctrl-d details.cm>summary .aiuto{display:block;margin:2px 0 0 18px}#ctrl-d details.cm[open]>summary{margin-bottom:6px}#ctrl-d .cmt{display:flex;flex-direction:column;margin-bottom:4px}#ctrl-d .cmt small{color:#5b6d75}
 #ctrl-d .cv{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e6ebed;font-size:15px}
 #ctrl-d .cv small{display:block;color:#5b6d75;font-size:12px;font-weight:400}
 #ctrl-d .cb{display:flex;gap:6px;flex:none}
@@ -3220,6 +3220,10 @@ function ctrlNegativi(m, c){            // elenco dei negativi: gestione e appar
   const a = (c.idr || []).map(i => ({i, ko: ctrlKo(m, null, i).map(v => m.voci[v][0])})).filter(x => x.ko.length);
   return {g, a};
 }
+function ctrlSommUno(m, c){
+  const n = ctrlNegativi(m, c), k = n.g.length + n.a.reduce((s, x) => s + x.ko.length, 0);
+  return (m.solo ? '' : (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + ', ') + (k ? k + ' negativ' + (k === 1 ? 'o' : 'i') : 'tutto positivo');
+}
 function ctrlSomm(w){
   const l = w.ctrl || []; if (!l.length) return 'Rete idranti e altri controlli';
   return l.map(c => { const m = ctrlM(c.mod); if (!m) return ''; const n = ctrlNegativi(m, c), k = n.g.length + n.a.reduce((s, x) => s + x.ko.length, 0);
@@ -3296,10 +3300,11 @@ function ctrlCard(m, c, i){
     ${i.qr ? `<p class="aiuto" style="margin:6px 0 0">Letto col QR alle ${esc(i.qr)}</p>` : ''}
     <div class="cadd">${m.senzaQr ? '' : `<button type="button" class="btn sec piccolo" data-cqr="${esc(k)}">Etichetta QR</button>`}<button type="button" class="btn chiaro piccolo" data-cdel-i="${esc(k)}">Togli questo ${m.app}</button></div></details>`;
 }
-function ctrlBloccoUno(c){
+function ctrlBloccoUno(c, idx){
   const m = ctrlM(c.mod); if (!m) return '';
   c.gest = c.gest || {}; c.idr = c.idr || [];
-  return `<div class="cm" data-cm="${esc(c.id)}"><div class="cmt"><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small></div>
+  const ka = 'M|' + c.id, ap = ctrlApr[ka] !== undefined ? ctrlApr[ka] : !idx;          // il primo si apre da solo, gli altri restano chiusi
+  return `<details class="cm" data-cm="${esc(c.id)}" data-ck="${esc(ka)}"${ap ? ' open' : ''}><summary><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small><span class="aiuto">${esc(ctrlSommUno(m, c))}</span></summary>
     <p class="aiuto" style="margin:6px 0 4px">${esc(m.gestTit || 'Gestione · tocca ✕ solo dove c\'è un problema')}</p>
     ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
     ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>${ctrlRiga(m, c)}
@@ -3308,22 +3313,29 @@ function ctrlBloccoUno(c){
     <select class="cadds" data-cadds="${esc(c.id)}" aria-label="Aggiungi un apparecchio"><option value="">+ Aggiungi un ${m.app}…</option>${m.tipi.map(t => `<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}<option value="altro">Altro (scrivi il nome)</option></select>`}
     <label class="cw" style="display:block;margin-top:10px">Note<textarea data-cn="${esc(c.id)}" data-f="note" rows="2">${esc(c.note || '')}</textarea></label>
     <label class="cw" style="display:block;margin-top:8px;max-width:220px">Prossimo controllo<input type="date" data-cn="${esc(c.id)}" data-f="prossimo" value="${esc(c.prossimo || '')}"></label>
-    <button type="button" class="btn chiaro piccolo" data-cdel="${esc(c.id)}" style="margin-top:10px">Togli questo controllo</button></div>`;
+    <button type="button" class="btn chiaro piccolo" data-cdel="${esc(c.id)}" style="margin-top:10px">Togli questo controllo</button></details>`;
 }
 function ctrlHtml(w){
   const l = w.ctrl || [];
   return `<details class="passo rcee-blocco" id="ctrl-d" data-ck0="1"${ctrlApr[w.id] === true ? ' open' : ''}><summary><h2>Controlli e verifiche</h2><span class="aiuto" id="ctrl-sum">${esc(ctrlSomm(w))}</span></summary>
     <div id="ctrl-box">${l.map(ctrlBloccoUno).join('')}</div>
-    <div class="cadd">${Object.keys(ctrlMods()).map(k => `<button type="button" class="btn sec piccolo" data-cnew="${k}">Aggiungi: ${esc(ctrlM(k).nome)}</button>`).join('')}</div></details>`;
+    <select class="cadds" data-cnewsel="1" aria-label="Aggiungi un controllo"><option value="">+ Aggiungi un controllo…</option>${Object.keys(ctrlMods()).map(k => `<option value="${esc(k)}">${esc(ctrlM(k).nome)}</option>`).join('')}</select></details>`;
 }
 function ctrlRidisegna(){ const b = $('#ctrl-box'); if (!b) return; b.innerHTML = (lavoro.ctrl || []).map(ctrlBloccoUno).join(''); const s = $('#ctrl-sum'); if (s) s.textContent = ctrlSomm(lavoro); }
+function ctrlNuovo(k){
+  const m = ctrlM(k); if (!m) return;
+  const nb = {id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: ''}; if (m.mappa || ctrlConScad(m)) ctrlPreApparecchi(lavoro, lavoro.r || {}, m, nb);
+  (lavoro.ctrl || []).forEach(x => { ctrlApr['M|' + x.id] = false; });          // gli altri si chiudono: si scorre meno
+  (lavoro.ctrl = lavoro.ctrl || []).push(nb); ctrlApr['M|' + nb.id] = true; ctrlApr[lavoro.id] = true; ctrlRidisegna(); bozzaModificata();
+  const e = document.querySelector('details.cm[data-cm="' + nb.id + '"]'); if (e) { try { e.scrollIntoView({block: 'start'}); } catch(x) {} }
+}
 function ctrlTrova(k){ const q = k.split('|'); const c = (lavoro.ctrl || []).find(x => x.id === q[0]); return c ? {c, i: q[1] && q[1] !== 'G' ? (c.idr || []).find(x => x.id === q[1]) : null, q} : null; }
 function collegaCtrl(){
   const d = $('#form'); if (!d) return;       // il modulo si ridisegna a ogni intervento: gli ascoltatori stanno sul contenitore fisso
   d.addEventListener('toggle', e => { if (e.target.id === 'ctrl-d') ctrlApr[lavoro.id] = e.target.open; else if (e.target.dataset && e.target.dataset.ck) ctrlApr[e.target.dataset.ck] = e.target.open; }, true);
   d.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || !b.closest('#ctrl-d')) return;
-    if (b.dataset.cnew) { const m = ctrlM(b.dataset.cnew); const nb = {id: ctrlId(), mod: b.dataset.cnew, idr: [], gest: {}, note: '', prossimo: ''}; if (m.mappa || ctrlConScad(m)) ctrlPreApparecchi(lavoro, lavoro.r || {}, m, nb); (lavoro.ctrl = lavoro.ctrl || []).push(nb); ctrlApr[lavoro.id] = true; ctrlRidisegna(); bozzaModificata(); }
+    if (b.dataset.cnew) ctrlNuovo(b.dataset.cnew);
     else if (b.dataset.cadd) { const q = b.dataset.cadd.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (!c) return; const n = {id: ctrlId(), tipo: q[1], matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cs) { const t = ctrlTrova(b.dataset.cs), v = b.dataset.v; if (!t) return;
       if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; if (v === 'ok') delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: 'ko', n: (t.c.gest[t.q[2]] || {}).n || ''}; }
@@ -3340,6 +3352,7 @@ function collegaCtrl(){
     else if (b.dataset.cdel) { if (confirm('Togliere tutto questo controllo?')) { lavoro.ctrl = (lavoro.ctrl || []).filter(x => x.id !== b.dataset.cdel); ctrlRidisegna(); bozzaModificata(); } }
   });
   const agg = e => { const t = e.target, ds = t.dataset || {}; if (!t.closest || !t.closest('#ctrl-d')) return;
+    if (ds.cnewsel !== undefined) { if (e.type !== 'change' || !t.value) return; const v = t.value; t.value = ''; ctrlNuovo(v); return; }
     if (ds.cadds !== undefined) { if (e.type !== 'change' || !t.value) return; const c = (lavoro.ctrl || []).find(x => x.id === ds.cadds); if (!c) return; const n = {id: ctrlId(), tipo: t.value, matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); return; }
     if (ds.cfoto) { const fl = [...(t.files || [])]; t.value = ''; if (fl.length) ctrlFoto(ds.cfoto, fl); return; }
     if (ds.ci && ds.f === 'nc') { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.nc = t.checked; ctrlApr[ds.ci] = true; ctrlRidisegna(); bozzaModificata(); } return; }
@@ -7221,7 +7234,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.76.0 (05/11/2026)';
+const VERSIONE_APP = '1.76.1 (05/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
