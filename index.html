@@ -906,6 +906,11 @@ select.rc-add{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margi
     <div id="cfg-sez"></div>
     </div>
     <div class="solo-uff">
+    <h2 class="giorno" style="margin-top:26px">Schede di manutenzione</h2>
+    <p class="aiuto" style="margin:0 0 8px">Le schede con le voci da controllare (una per tipo di apparecchio, con «eseguito», «non presente» e i campi da compilare). Si caricano da un file e si abbinano da sole alle operazioni di Levante: basta che la descrizione dell'operazione inizi col codice della scheda (per esempio «CT1 - Manutenzione…»). Vanno ai tecnici col prossimo file; quali schede vede ognuno si sceglie qui sopra, in «Sezioni dell'app dei tecnici».</p>
+    <div id="schede-lib"></div>
+    </div>
+    <div class="solo-uff">
     <h2 class="giorno" style="margin-top:26px">Numero delle ricevute</h2>
     <p class="aiuto" style="margin:0 0 8px">Ogni ricevuta ha un numero progressivo del tecnico, che riparte da 1 ogni anno (esempio RIC-ROSSI-2026-0001). Qui scegliete la sigla di ciascun tecnico; se la lasciate vuota si usa il nome. Non è un numero fiscale.</p>
     <div id="sigle-ric"></div>
@@ -1876,6 +1881,7 @@ function apriDettaglio(id, push = true){
       <a class="btn sec" href="${esc(mappa)}" target="_blank" rel="noopener">${ICONE.mappa}Naviga</a>
     </div>`;
   if (a.urgente) h += `<div class="avviso rosso"><b>Intervento urgente</b>Il cliente aspetta: chiamalo prima di partire.</div>`;
+  if (a.rda) h += `<div class="avviso info"><b>Ordine di lavoro</b>${esc(a.rda)}</div>`;
   if (a.messaggio) h += `<div class="avviso info"><b>Richiesta del cliente</b>${esc(a.messaggio)}</div>`;
   if (a.chiamata && a.programmata && !bozze[a.id]) h += '<p style="margin:8px 0"><button class="btn chiaro piccolo" id="b-disfissa" type="button">Rimetti tra le chiamate</button></p>';
   if (libera && !sola()) {
@@ -2052,7 +2058,7 @@ function nuovaScheda(a){
     id: a ? a.id : 'man-' + Date.now(), stato:'nuova', aggiornata: Date.now(), manuale: !a,
     titolo: a ? a.titolo : 'Intervento senza appuntamento',
     cliente: a ? a.titolo : '', indirizzo: i.u || (a ? a.luogo : ''), data: isoGiorno(a ? a.inizio : new Date()),
-    tecnico: impostazioni.tecnico || '', richiesta: a ? a.messaggio || '' : '',
+    tecnico: impostazioni.tecnico || '', richiesta: a ? a.messaggio || '' : '', ol: a ? a.rda || '' : '',
     impianto: i.d || '', levante: a && r.li ? {li:r.li, mi:r.mi} : null, r: a ? a.r || null : null,
     rc: a && a.rc ? JSON.parse(JSON.stringify(a.rc)) : [],
     ops: {}, ops_extra: [], analisi: {}, orari: [{data: isoGiorno(a ? a.inizio : new Date()), dal: a ? hhmm(a.inizio) : '', al: ''}],
@@ -2676,6 +2682,13 @@ let timer = null;
 const SEZ_CFG = [['altre', 'Altre operazioni'], ['rcee', 'Altri rapporti di efficienza energetica'], ['ctrl', 'Controlli e verifiche'], ['fgas', 'F-gas'], ['portato', 'Materiale portato'], ['materiali', 'Materiali'], ['importi', 'Importi e pagamento'], ['foto', 'Foto']];
 /* profili: [chiave, nome, sezioni spente, controlli spenti] */
 const CFG_PROFILI = [['tutto', 'Tutte le sezioni', [], []], ['termo', 'Termoidraulico', [], ['idranti', 'estintori']], ['antincendio', 'Antincendio', ['rcee', 'fgas'], ['centrale', 'addolcitore']], ['frigo', 'Frigorista (F-gas e pompe di calore)', ['ctrl'], []]];
+/* libreria schede di manutenzione (impostazioni.ctrlModuli): al tecnico vanno quelle non spente per lui */
+function cmPer(id){
+  const lib = impostazioni.ctrlModuli; if (!lib || typeof lib !== 'object') return undefined; const c = cfgPer(id), off = (c && c.ctrl) || [], o = {};
+  Object.keys(lib).forEach(k => { if (off.indexOf(k) < 0) o[k] = lib[k]; });
+  return Object.keys(o).length ? o : undefined;
+}
+function cmFirma(id){ const c = cmPer(id); if (!c) return ''; const t = JSON.stringify(c); let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return Object.keys(c).length + ':' + t.length + ':' + h; }
 function cfgTec(){ const c = (typeof inUfficio !== 'undefined' && !inUfficio && datiReali && datiReali.cfg) || null; return c && typeof c === 'object' ? c : null; }
 const sezOff = k => { const c = cfgTec(); return !!(c && (c.off || []).indexOf(k) >= 0); };
 const ctrlOff = k => { const c = cfgTec(); return !!(c && (c.ctrl || []).indexOf(k) >= 0); };
@@ -2683,7 +2696,7 @@ function cfgPer(id){          // la configurazione che l'ufficio manda a questo 
   const c = impostazioni.cfgSez; if (!c || typeof c !== 'object') return null; const b = (c.tec || {})[id || ''] || c.az; if (!b) return null;
   return {off: (b.off || []).slice(), ctrl: (b.ctrl || []).slice()};
 }
-const cfgPulita = c => (c && typeof c === 'object') ? {off: Array.isArray(c.off) ? c.off.map(String).slice(0, 30) : [], ctrl: Array.isArray(c.ctrl) ? c.ctrl.map(String).slice(0, 30) : []} : null;
+const cfgPulita = c => (c && typeof c === 'object') ? {off: Array.isArray(c.off) ? c.off.map(String).slice(0, 30) : [], ctrl: Array.isArray(c.ctrl) ? c.ctrl.map(String).slice(0, 400) : []} : null;
 function sezHaDati(k, w){
   try { switch (k) {
     case 'altre': return (w.ops_extra || []).length > 0;
@@ -3244,12 +3257,17 @@ const MODULI_CTRL = {
 };
 /* Predisposizione per l'elenco modificabile dall'ufficio: impostazioni.ctrlModuli puo' aggiungere tipi, voci e voci di gestione a un modulo
    esistente, oppure definire un modulo nuovo (nome, rif, voci{chiave:[nome, corto]}, tipi[[chiave, nome, corto, [voci]]], gest[[chiave, nome, descrizione]], parole). */
+let cmVer = 0, cmCache = null;          // cmVer sale quando l'ufficio cambia la libreria schede
 function ctrlMods(){
-  const c = typeof impostazioni === 'object' && impostazioni && impostazioni.ctrlModuli; if (!c || typeof c !== 'object') return MODULI_CTRL;
+  const lib = (typeof inUfficio !== 'undefined' && !inUfficio && typeof datiReali === 'object' && datiReali && datiReali.cm && typeof datiReali.cm === 'object') ? datiReali.cm : null;
+  const imp = (typeof impostazioni === 'object' && impostazioni && impostazioni.ctrlModuli && typeof impostazioni.ctrlModuli === 'object') ? impostazioni.ctrlModuli : null;
+  if (cmCache && cmCache.l === lib && cmCache.i === imp && cmCache.v === cmVer) return cmCache.o;
+  const c = (lib || imp) ? Object.assign({}, lib || {}, imp || {}) : null; if (!c) return MODULI_CTRL;
   const out = Object.assign({}, MODULI_CTRL);
   Object.keys(c).forEach(k => { const d = c[k]; if (!d || typeof d !== 'object') return; const b = MODULI_CTRL[k];
     if (!b) { if (d.nome && d.voci && d.tipi) out[k] = Object.assign({rif: '', app: 'apparecchio', apps: 'apparecchi', gest: []}, d, {parole: d.parole ? new RegExp(d.parole, 'i') : null}); return; }
     out[k] = Object.assign({}, b, {voci: Object.assign({}, b.voci, d.voci || {}), tipi: b.tipi.concat(d.tipi || []), gest: b.gest.concat(d.gest || [])}); });
+  cmCache = {l: lib, i: imp, v: cmVer, o: out};
   return out;
 }
 const ctrlM = k => ctrlMods()[k];
@@ -3267,14 +3285,16 @@ function ctrlNegativi(m, c){            // elenco dei negativi: gestione e appar
   const a = (c.idr || []).map(i => ({i, ko: ctrlKo(m, null, i).map(v => m.voci[v][0])})).filter(x => x.ko.length);
   return {g, a};
 }
+const ctrlPmpConta = (m, c) => { const v = m.gest.filter(g => !g[3]); return {t: v.length, f: v.filter(g => c.gest && c.gest[g[0]] && c.gest[g[0]].e).length}; };
 function ctrlSommUno(m, c){
   const n = ctrlNegativi(m, c), k = n.g.length + n.a.reduce((s, x) => s + x.ko.length, 0);
+  if (m.pmp) { const q = ctrlPmpConta(m, c); return q.f + ' su ' + q.t + ' voci' + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ''); }
   return (m.solo ? '' : (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + ', ') + (k ? k + ' negativ' + (k === 1 ? 'o' : 'i') : 'tutto positivo');
 }
 function ctrlSomm(w){
   const l = w.ctrl || []; if (!l.length) return 'Rete idranti e altri controlli';
   return l.map(c => { const m = ctrlM(c.mod); if (!m) return ''; const n = ctrlNegativi(m, c), k = n.g.length + n.a.reduce((s, x) => s + x.ko.length, 0);
-    return m.nome + ': ' + (m.solo ? (k ? k + ' negativ' + (k === 1 ? 'o' : 'i') : 'tutto positivo') : (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ', tutto positivo')); }).filter(Boolean).join(' · ');
+    return m.nome + ': ' + (m.pmp ? ctrlSommUno(m, c) : m.solo ? (k ? k + ' negativ' + (k === 1 ? 'o' : 'i') : 'tutto positivo') : (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ', tutto positivo')); }).filter(Boolean).join(' · ');
 }
 const ctrlSt = (att, v, d, extra) => `<button type="button" class="cs ${v}${att === v ? ' su' : ''}" data-cs="${esc(d)}" data-v="${v}" aria-pressed="${att === v}" aria-label="${v === 'ok' ? 'Positivo' : v === 'ko' ? 'Negativo' : 'Non applicabile'}">${v === 'ok' ? '✓' : v === 'ko' ? '✕' : 'n.a.'}</button>`;
 const ctrlCampiHtml = (m, i, k) => ((m.campi || {})[i.tipo] || []).map(f => `<label>${esc(f[1])}${f[2] ? ' (' + esc(f[2]) + ')' : ''}<input type="text"${f[3] === 'txt' ? '' : ' inputmode="decimal"'} data-ci="${esc(k)}" data-fd="${esc(f[0])}" value="${esc((i.d || {})[f[0]] || '')}" autocomplete="off"></label>`).join('');
@@ -3379,9 +3399,10 @@ function ctrlBloccoUno(c, idx){
   const m = ctrlM(c.mod); if (!m) return '';
   c.gest = c.gest || {}; c.idr = c.idr || [];
   const ka = 'M|' + c.id, ap = ctrlApr[ka] !== undefined ? ctrlApr[ka] : !idx;          // il primo si apre da solo, gli altri restano chiusi
-  return `<details class="cm" data-cm="${esc(c.id)}" data-ck="${esc(ka)}"${ap ? ' open' : ''}><summary><b>${esc(m.nome)}</b><small>${esc(m.rif)}</small><span class="aiuto">${esc(ctrlSommUno(m, c))}</span></summary>
+  return `<details class="cm" data-cm="${esc(c.id)}" data-ck="${esc(ka)}"${ap ? ' open' : ''}><summary><b>${esc(m.nome)}${c.et ? ' · ' + esc(c.et) : ''}</b><small>${esc(m.rif)}</small><span class="aiuto">${esc(ctrlSommUno(m, c))}</span></summary>
     <p class="aiuto" style="margin:6px 0 4px">${esc(m.gestTit || 'Gestione · tocca ✕ solo dove c\'è un problema')}</p>
-    ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || 'ok'; return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${['ok', 'ko'].map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
+    ${m.pmp ? `<p style="margin:4px 0 6px"><button type="button" class="btn chiaro piccolo" data-cpmp="${esc(c.id)}">Segna come eseguite tutte le voci ancora vuote</button></p>` : ''}
+    ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || (m.pmp ? '' : 'ok'); return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${(m.pmp ? ['ok', 'na', 'ko'] : ['ok', 'ko']).map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
     ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>${ctrlRiga(m, c)}${ctrlGiro(m, c)}
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     ${m.senzaQr ? '' : `<div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>`}
@@ -3400,7 +3421,7 @@ function ctrlHtml(w){
 function ctrlRidisegna(){ const b = $('#ctrl-box'); if (!b) return; b.innerHTML = (lavoro.ctrl || []).map(ctrlBloccoUno).join(''); const s = $('#ctrl-sum'); if (s) s.textContent = ctrlSomm(lavoro); }
 function ctrlNuovo(k){
   const m = ctrlM(k); if (!m) return;
-  const nb = {id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: ''}; if (m.mappa || ctrlConScad(m)) ctrlPreApparecchi(lavoro, lavoro.r || {}, m, nb);
+  const nb = {id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: ''}; if (m.mappa || ctrlConScad(m)) ctrlPreApparecchi(lavoro, lavoro.r || {}, m, nb); else if (m.pmp) ctrlPreCompila(lavoro, lavoro.r || {}, m, nb, null);
   (lavoro.ctrl || []).forEach(x => { ctrlApr['M|' + x.id] = false; });          // gli altri si chiudono: si scorre meno
   (lavoro.ctrl = lavoro.ctrl || []).push(nb); ctrlApr['M|' + nb.id] = true; ctrlApr[lavoro.id] = true; ctrlRidisegna(); bozzaModificata();
   const e = document.querySelector('details.cm[data-cm="' + nb.id + '"]'); if (e) { try { e.scrollIntoView({block: 'start'}); } catch(x) {} }
@@ -3414,11 +3435,14 @@ function collegaCtrl(){
     if (b.dataset.cnew) ctrlNuovo(b.dataset.cnew);
     else if (b.dataset.cadd) { const q = b.dataset.cadd.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (!c) return; const n = {id: ctrlId(), tipo: q[1], matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cs) { const t = ctrlTrova(b.dataset.cs), v = b.dataset.v; if (!t) return;
-      if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; if (v === 'ok') delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: 'ko', n: (t.c.gest[t.q[2]] || {}).n || ''}; }
+      if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; const mm = ctrlM(t.c.mod), cur = (t.c.gest[t.q[2]] || {}).e || '';
+        if (mm && mm.pmp) { if (v === cur) delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: v, n: (t.c.gest[t.q[2]] || {}).n || ''}; }
+        else if (v === 'ok') delete t.c.gest[t.q[2]]; else t.c.gest[t.q[2]] = {e: 'ko', n: (t.c.gest[t.q[2]] || {}).n || ''}; }
       else if (t.i) { t.i.es = t.i.es || {}; const tp = ctrlTipo(ctrlM(t.c.mod), t.i.tipo, t.i), def = tp[3].indexOf(t.q[2]) >= 0 ? 'ok' : 'na'; if (v === def) delete t.i.es[t.q[2]]; else t.i.es[t.q[2]] = v; }
       ctrlRidisegna(); bozzaModificata();
       if (v === 'ko') { const sel = t.q[1] === 'G' ? 'input.cnote[data-cg="' + t.c.id + '|' + t.q[2] + '"]' : 'input.cnote[data-ci="' + b.dataset.cs.split('|').slice(0, 2).join('|') + '"][data-nv="' + t.q[2] + '"]', n = document.querySelector(sel);
         if (n) { try { n.focus(); } catch(x) {} } } }
+    else if (b.dataset.cpmp) { const c = (lavoro.ctrl || []).find(x => x.id === b.dataset.cpmp), m = c && ctrlM(c.mod); if (!m) return; c.gest = c.gest || {}; m.gest.forEach(g => { if (!g[3] && !(c.gest[g[0]] && c.gest[g[0]].e)) c.gest[g[0]] = {e: 'ok', n: ''}; }); ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cscan) { ctrlQrDest = b.dataset.cscan; scanCn = false; scanApri(); }
     else if (b.dataset.cfoglio) ctrlFoglioEtichette(b.dataset.cfoglio);
     else if (b.dataset.cqr) ctrlMostraEtichetta(b.dataset.cqr);
@@ -3442,7 +3466,7 @@ function collegaCtrl(){
 }
 function ctrlUfficioHtml(r){
   return (r.ctrl || []).map(c => { const n = c.neg || {g: [], a: []}, k = n.g.length + n.a.length;
-    return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.solo ? '' : c.n + ' ' + (c.n === 1 ? 'apparecchio' : 'apparecchi') + ' · '}${k ? '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : 'tutto positivo'}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
+    return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.solo ? '' : c.n + ' ' + (c.n === 1 ? 'apparecchio' : 'apparecchi') + ' · '}${k ? (c.pm ? c.pm.f + ' su ' + c.pm.t + ' voci · ' : '') + '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : (c.pm ? c.pm.f + ' su ' + c.pm.t + ' voci compilate' : 'tutto positivo')}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
       ((c.lett || []).length ? '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + (l.u ? ' ' + esc(l.u) : '') + '</b>').join(' · ') + '</p>' : '') +
       ((c.sc || []).length ? '<p style="margin:4px 0 2px"><b>Prossime scadenze</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.sc.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.s.map(z => esc(z.v) + ' <b>' + esc(z.me ? ctrlMeseIT(z.d) : dataIT(z.d)) + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
       ((c.app || []).length ? '<p style="margin:4px 0 2px"><b>Dati tecnici dei componenti</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.app.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.d.map(f => esc(f.v) + ' <b>' + esc(f.val) + (f.u ? ' ' + esc(f.u) : '') + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
@@ -3518,7 +3542,8 @@ async function ctrlFoto(k, files){
 function ctrlPreCompila(w, r, m, c, op){          // moduli a scheda unica: i dati dell'apparecchio arrivano da Levante (marca, modello, matricola, anno)
   const ap = (r.a || []), a = (op && op.a && ap.find(x => x.id === op.a)) || ap.find(x => m.parole.test([x.t, x.c, x.m].join(' '))) || (ap.length === 1 ? ap[0] : null);
   c.lett = {}; if (a) { const dv = {marca: [a.c, a.m].filter(Boolean).join(' '), matricola: a.s || '', anno: a.y || ''}; m.gest.forEach(g => { if (dv[g[0]]) c.lett[g[0]] = dv[g[0]]; }); }
-  c.prossimo = fgSommaMesi(w.data || isoGiorno(new Date()), 12);
+  if (m.pmp && w.ol) c.lett.ol = w.ol;
+  c.prossimo = (m.pmp && !m.prossMesi) ? '' : fgSommaMesi(w.data || isoGiorno(new Date()), m.prossMesi || 12);
 }
 function ctrlPreApparecchi(w, r, m, c){          // i componenti ricordati sul dispositivo e quelli registrati in Levante riempiono la lista
   c.lett = c.lett || {}; c.prossimo = fgSommaMesi(w.data || isoGiorno(new Date()), m.prossMesi || 12); c.idr = c.idr || [];
@@ -3530,9 +3555,14 @@ function ctrlPreApparecchi(w, r, m, c){          // i componenti ricordati sul d
 function ctrlDaOperazioni(w, r){          // le operazioni pianificate di questa visita (da Levante) aprono il modulo giusto, come l'analisi fumi
   const crea = (k, m, da, op) => { const c = {id: ctrlId(), mod: k, idr: [], gest: {}, note: '', prossimo: '', da}; if (m.solo) ctrlPreCompila(w, r, m, c, op); else if (m.autoImp) ctrlPreApparecchi(w, r, m, c); (w.ctrl = w.ctrl || []).push(c); ctrlApr[w.id] = true; };
   (r.o || []).filter(o => o.f).forEach(o => Object.keys(ctrlMods()).forEach(k => { const m = ctrlM(k);
+    if (m.pmp) {          // schede di manutenzione: una per ogni operazione della visita (stesso codice su apparecchi diversi = schede diverse)
+      if (!m.parole || ctrlOff(k) || !m.parole.test(o.c + ' ' + o.d) || (w.ctrl || []).some(c => c.opId === o.id)) return;
+      crea(k, m, o.d, o); const nc = w.ctrl[w.ctrl.length - 1]; nc.opId = o.id; const ap = (r.a || []).find(x => x.id === o.a);
+      nc.et = ap ? [ap.t, ap.c, ap.m].filter(Boolean).join(' ').slice(0, 40) + (ap.u ? ' · ' + String(ap.u).slice(0, 30) : '') : ''; return; }
+    if (Object.keys(ctrlMods()).some(k2 => { const m2 = ctrlM(k2); return m2.pmp && m2.parole && !ctrlOff(k2) && m2.parole.test(o.c + ' ' + o.d); })) return;          // se c'e' la scheda di manutenzione per questa operazione, non si apre anche il modulo generico
     if (m.parole && m.parole.test(o.c + ' ' + o.d) && !(w.ctrl || []).some(c => c.mod === k)) crea(k, m, o.d, o); }));
   Object.keys(ctrlMods()).forEach(k => { const m = ctrlM(k);          // moduli a scheda unica: basta che l'impianto o l'apparecchio in Levante si chiami "addolcitore"
-    if (!(m.solo || m.autoImp) || !m.parole || ctrlOff(k) || (w.ctrl || []).some(c => c.mod === k)) return;
+    if (m.pmp || !(m.solo || m.autoImp) || !m.parole || ctrlOff(k) || (w.ctrl || []).some(c => c.mod === k)) return;
     const testo = [r.i && r.i.d, r.i && r.i.tp].concat((r.a || []).map(a => [a.t, a.c, a.m].join(' '))).join(' ');
     if (m.parole.test(testo)) crea(k, m, 'impianto', null); });
 }
@@ -3936,9 +3966,10 @@ function fgScadenzeHtml(){
 
 const ctrlLettDati = (m, c) => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt') && String((c.lett || {})[g[0]] || '').trim()).map(g => ({v: g[1], val: String(c.lett[g[0]]).trim(), u: g[4] || ''}));
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
-  return {mod: c.mod, nome: m.nome, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, sc: ctrlConScad(m) ? ctrlScadDati(m, c, w) : undefined, rk: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) || undefined, rd: w.data || undefined, ri: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) ? ctrlRegVoci(w, c, m) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
+  return {mod: c.mod, nome: m.nome + (c.et ? ' · ' + c.et : ''), pm: m.pmp ? ctrlPmpConta(m, c) : undefined, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, sc: ctrlConScad(m) ? ctrlScadDati(m, c, w) : undefined, rk: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) || undefined, rd: w.data || undefined, ri: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) ? ctrlRegVoci(w, c, m) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
-  return `Controllo_${c.mod === 'idranti' ? 'Idranti' : c.mod}_${s}_${w.data || isoGiorno(new Date())}.pdf`; }
+  const et = c.et ? '_' + String(c.et).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 20) : '';
+  return `Controllo_${c.mod === 'idranti' ? 'Idranti' : c.mod}_${s}${et}_${w.data || isoGiorno(new Date())}.pdf`; }
 function costruisciPdfCtrl(w, c){
   const m = ctrlM(c.mod), { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', orientation: 'landscape', compress: true});
   const M = 10, W = 297, H = 210, INK = [20, 35, 43], GR = [91, 109, 117], PET = [14, 90, 107], ROSSO = [185, 28, 28];
@@ -3946,25 +3977,28 @@ function costruisciPdfCtrl(w, c){
   const az = impostazioni.azienda || (datiReali && datiReali.azienda && datiReali.azienda.RAGIONESOCIALE) || '';
   let y = M, pag = 1;
   const testa = () => { doc.setFont('helvetica', 'bold'); doc.setFontSize(14); col(INK); doc.text(az || m.nome, M, y + 5);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); col(GR); doc.text(m.nome + ' · ' + m.rif, W - M, y + 5, {align: 'right'}); y += 8; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.5); doc.line(M, y, W - M, y); y += 4; };
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); col(GR); doc.text(m.nome + (c.et ? ' · ' + c.et : '') + ' · ' + m.rif, W - M, y + 5, {align: 'right'}); y += 8; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.5); doc.line(M, y, W - M, y); y += 4; };
   const piede = () => { doc.setFontSize(7.5); col(GR); doc.text(az + (impostazioni.aziendaTel ? ' · ' + impostazioni.aziendaTel : ''), M, H - 5); doc.text('Pag. ' + pag, W - M, H - 5, {align: 'right'}); };
   const nuova = () => { piede(); doc.addPage(); pag++; y = M; testa(); };
   testa();
   doc.setFontSize(10); col(INK);
-  [['Cliente', w.cliente], ['Indirizzo', w.indirizzo], ['Data', dataIT(w.data)], ['Tecnico', w.tecnico]].forEach((r, n) => { const x = M + (n % 2) * 140, yy = y + Math.floor(n / 2) * 6;
+  [['Cliente', w.cliente], ['Indirizzo', w.indirizzo], ['Data', dataIT(w.data)], ['Tecnico', w.tecnico]].concat(m.pmp ? [['OL', (c.lett || {}).ol || w.ol || '']] : []).forEach((r, n) => { const x = M + (n % 2) * 140, yy = y + Math.floor(n / 2) * 6;
     doc.setFont('helvetica', 'normal'); col(GR); doc.setFontSize(8); doc.text(r[0], x, yy + 3); doc.setFontSize(10); col(INK); doc.setFont('helvetica', 'bold'); doc.text(String(r[1] || ''), x + 18, yy + 3.2); });
-  y += 14;
+  y += m.pmp ? 20 : 14;
   /* gestione */
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text(m.solo ? 'CONTROLLI' : (m.gestPdf || 'GESTIONE'), M, y + 3); y += 5;
   m.gest.forEach(g => { if (g[3] === 'tit') { if (y + 12 > H - 20) nuova(); y += 1.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(8); col(PET); doc.text(String(g[1]).toUpperCase(), M + 1, y + 3.4); y += 5.2; return; }
     if (g[3] === 'num' || g[3] === 'txt') { const val = String((c.lett || {})[g[0]] || '').trim(); if (y + 6 > H - 20) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(g[2], M + 62, y + 3.4); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(val ? val + (g[4] ? ' ' + g[4] : '') : (g[3] === 'txt' ? '—' : 'non rilevata'), W - M - 2, y + 3.4, {align: 'right'}); doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 5, W - M, y + 5); y += 5.6; return; }
     const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko';
     /* positivo: la descrizione in grigio; negativo: al suo posto la spiegazione del problema (in rosso) */
-    const testo = ko ? (c.gest[g[0]].n || 'Negativo, nessuna spiegazione scritta') : g[2], righe = doc.splitTextToSize(testo, 175).slice(0, 4), alt = Math.max(5.6, righe.length * 3.7 + 2);
+    const testo = ko ? (c.gest[g[0]].n || 'Negativo, nessuna spiegazione scritta') : g[2], righe = doc.splitTextToSize(testo, m.pmp ? 225 : 175).slice(0, 4);
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); const lb = m.pmp ? doc.splitTextToSize(g[1], 225) : [g[1]];          // schede di manutenzione: la voce va a capo e l'eventuale spiegazione sta sotto
+    const alt = m.pmp ? Math.max(5.6, lb.length * 3.7 + (ko ? righe.length * 3.4 : 0) + 2) : Math.max(5.6, righe.length * 3.7 + 2);
     if (y + alt > H - 20) nuova();
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4);
-    doc.setFont('helvetica', ko ? 'bold' : 'normal'); doc.setFontSize(ko ? 8 : 7.5); col(ko ? ROSSO : GR); doc.text(righe, M + 62, y + 3.4);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(ko ? ROSSO : INK); doc.text(ko ? 'NEGATIVO' : 'POSITIVO', W - M - 2, y + 3.4, {align: 'right'});
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(lb, M + 1, y + 3.4);
+    doc.setFont('helvetica', ko ? 'bold' : 'normal'); doc.setFontSize(ko ? 8 : 7.5); col(ko ? ROSSO : GR);
+    if (m.pmp) { if (ko) doc.text(righe, M + 4, y + 3.4 + lb.length * 3.7); } else doc.text(righe, M + 62, y + 3.4);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(ko ? ROSSO : (m.pmp && !((c.gest || {})[g[0]] || {}).e) ? GR : INK); doc.text(m.pmp ? (ko ? 'NEGATIVO' : ((c.gest || {})[g[0]] || {}).e === 'ok' ? 'ESEGUITO' : ((c.gest || {})[g[0]] || {}).e === 'na' ? 'NON PRESENTE' : 'NON COMPILATO') : (ko ? 'NEGATIVO' : 'POSITIVO'), W - M - 2, y + 3.4, {align: 'right'});
     doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + alt - 0.6, W - M, y + alt - 0.6); y += alt; });
   y += 4;
   /* matrice apparecchi x controlli */
@@ -6514,6 +6548,7 @@ function confrontaAgende(vecchie, nuove, oggiISO, scarta){       // scarta(p): v
     if ((p.luogo || '') !== (a.luogo || '')) cosa.push('indirizzo');
     if ((p.titolo || '') !== (a.titolo || '')) cosa.push('cliente');
     if ((p.messaggio || '') !== (a.messaggio || '')) cosa.push('richiesta');
+    if ((p.rda || '') !== (a.rda || '')) cosa.push('ordine di lavoro');
     if (!!p.urgente !== !!a.urgente) cosa.push(a.urgente ? 'ora urgente' : 'non più urgente');
     if (cosa.length) c.modificati.push({a, prima: p, cosa});
   });
@@ -6670,7 +6705,7 @@ function costruisciDaLevante(T){
       return o;
     });
     const fatto = (a.FATTO || '').toUpperCase() === 'T' || (a.TIPOIMPEGNO || '') === 'Intervento'; if (fatto) stat.fatti++;      // Levante non segna FATTO: l'appuntamento diventa di tipo "Intervento" quando l'ufficio lo registra con F12
-    return ({id:'lev-' + a.ID, fatto: fatto || undefined, rc: rcs.length ? rcs : undefined, docs: (docsApp.length || docsAltri.length) ? docsApp.concat(docsAltri) : undefined, inizio, fine, titolo:(c0 && c0.RAGIONESOCIALE) || a.RAGSOCCLI || 'Appuntamento', luogo, messaggio:a.EVENTMESSAGE || '',
+    return ({id:'lev-' + a.ID, fatto: fatto || undefined, rc: rcs.length ? rcs : undefined, docs: (docsApp.length || docsAltri.length) ? docsApp.concat(docsAltri) : undefined, inizio, fine, titolo:(c0 && c0.RAGIONESOCIALE) || a.RAGSOCCLI || 'Appuntamento', luogo, messaggio:a.EVENTMESSAGE || '', rda:String(a.RDA || '').trim() || undefined,
       urgente:(a.URGENTE || '').toUpperCase() === 'T', tecnico_id:a.RESOURCEID || '', tecnico_nome:tecnici[a.RESOURCEID] || '', r});
   };
   (T.appuntamenti || []).forEach(a => {
@@ -6857,6 +6892,7 @@ function novitaChiamate(inv, id){
 function haNovita(id, per, inviati, oggi){
   const inv = inviati[id]; if (!inv) return true;
   if ((inv.cfg === undefined ? 'null' : inv.cfg) !== JSON.stringify(cfgPer(id))) return true;
+  if (inv.cmf !== undefined && inv.cmf !== cmFirma(id)) return true;          // libreria schede cambiata
   if (inv.reg !== undefined && inv.reg !== ctrlRegFirma(per[id] || [])) return true;          // nuovi controlli ricevuti sugli impianti del tecnico (i vecchi invii senza questo dato non scattano)          // l'ufficio ha cambiato le sezioni del tecnico
   return !nessunaNovita(confrontaAgende(inv.apps, per[id] || [], oggi, giaEseguitoInPosta)) || novitaChiamate(inv, id).ha;
 }
@@ -6881,10 +6917,10 @@ function salvaInviato(id, apps, chs, cants){
   setTimeout(() => { try { aggiornaNav(); } catch(e) {} }, 0);
   const inv = leggiInviati();
   inv[id] = {quando: new Date().toISOString(),
-    apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', urgente: !!a.urgente, fatto: !!a.fatto})),
+    apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', rda: a.rda || undefined, urgente: !!a.urgente, fatto: !!a.fatto})),
     ch: (chs || []).map(a => ({id: a.id, titolo: a.titolo, luogo: a.luogo})),
     cant: (cants || []).map(c => c.id),
-    docIds: apps.flatMap(a => (a.docs || []).map(d => d.id)), cfg: JSON.stringify(cfgPer(id)), reg: ctrlRegFirma(apps)};
+    docIds: apps.flatMap(a => (a.docs || []).map(d => d.id)), cfg: JSON.stringify(cfgPer(id)), cmf: cmFirma(id), reg: ctrlRegFirma(apps)};
   store.set('ass_inviati', inv);
 }
 let infoUff = {trovati: [], mancanti: [], origine: '', messaggio: '', completo: false};
@@ -7144,7 +7180,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 async function salvaDati(d, leggero){
@@ -7290,7 +7326,7 @@ async function caricaPacchetto(file){
     try { ricImporta(d.ric); } catch(e) {}
     let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
     if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), cm: (d.cm && typeof d.cm === 'object') ? d.cm : undefined, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     try { ctrlRegUnisci(d.reg); } catch(e) {}
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
@@ -7321,7 +7357,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.78.1 (05/11/2026)';
+const VERSIONE_APP = '1.79.0 (05/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8918,7 +8954,7 @@ function cercaTutto(q){
   const t = normR(q).split(/\s+/).filter(Boolean); if (!t.length) return null;
   const ok = txt => { const n = normR(txt); return t.every(x => n.indexOf(x) >= 0); };
   const adesso = Date.now();
-  const ag = appuntamenti.filter(a => ok([a.titolo, a.luogo, a.tecnico_nome, a.messaggio, a.r && a.r.li, a.r && a.r.c && [a.r.c.n, a.r.c.t, a.r.c.m].join(' '), a.r && a.r.i && [a.r.i.u, a.r.i.d].join(' ')].join(' ')))
+  const ag = appuntamenti.filter(a => ok([a.titolo, a.luogo, a.tecnico_nome, a.messaggio, a.rda, a.r && a.r.li, a.r && a.r.c && [a.r.c.n, a.r.c.t, a.r.c.m].join(' '), a.r && a.r.i && [a.r.i.u, a.r.i.d].join(' ')].join(' ')))
     .sort((x, y) => Math.abs(x.inizio - adesso) - Math.abs(y.inizio - adesso));
   const pt = posta.map((r, i) => ({r, i})).filter(x => ok([x.r.cliente, x.r.indirizzo, x.r.li, x.r.tecnico, x.r.relazione, x.r.testo, x.r.data].join(' ')))
     .sort((x, y) => String(y.r.data).localeCompare(String(x.r.data)));
@@ -9440,6 +9476,40 @@ function disegnaSigle(){
 }
 let cfgChi = 'az';
 function cfgBlocco(chi){ const c = impostazioni.cfgSez || {}; return chi === 'az' ? (c.az || null) : ((c.tec || {})[chi] || null); }
+/* ---- ufficio: libreria schede di manutenzione (file schede-v1) ---- */
+function schedeValida(m){
+  if (!m || typeof m !== 'object' || typeof m.nome !== 'string' || !Array.isArray(m.gest) || m.gest.length > 600) return null;
+  const t = (x, n) => String(x == null ? '' : x).slice(0, n);
+  const gest = m.gest.filter(g => Array.isArray(g) && g.length >= 2).map(g => { const r = [t(g[0], 40), t(g[1], 400), t(g[2], 300)]; if (g[3]) r.push(t(g[3], 4)); if (g[4]) r.push(t(g[4], 12)); return r; });
+  let parole = ''; try { parole = t(m.parole, 200); if (parole) new RegExp(parole, 'i'); } catch(e) { parole = ''; }
+  const o = {nome: t(m.nome, 120), rif: t(m.rif, 200), pmp: true, solo: true, gestPre: '', gestTit: t(m.gestTit, 200) || undefined, gest, voci: {}, tipi: [], parole};
+  if (m.prossMesi > 0 && m.prossMesi <= 60) o.prossMesi = Math.round(m.prossMesi);
+  return o;
+}
+function schedeDisegna(){
+  const bx = $('#schede-lib'); if (!bx) return;
+  const lib = impostazioni.ctrlModuli || {}, ks = Object.keys(lib).filter(k => lib[k] && lib[k].pmp);
+  bx.innerHTML = `<p class="aiuto" style="margin:0 0 8px">${ks.length ? '<b>' + ks.length + '</b> ' + (ks.length === 1 ? 'scheda caricata' : 'schede caricate') + '.' : 'Nessuna scheda caricata.'}</p>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 8px"><button type="button" class="btn sec piccolo" id="schede-imp">Carica schede da file…</button>${ks.length ? '<button type="button" class="btn chiaro piccolo" id="schede-tutte">Togli tutte</button>' : ''}</div>
+    <input type="file" id="schede-file" accept=".json,application/json" hidden>
+    <p class="aiuto" id="schede-msg" role="status" style="margin:0 0 8px"></p>
+    ${ks.length ? `<details class="fs"><summary>Elenco delle schede</summary>${ks.map(k => `<div class="cv" style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #e6ebed"><span><b>${esc(lib[k].nome)}</b><small style="display:block;color:#5b6d75">${(lib[k].gest || []).filter(g => !g[3]).length} voci${lib[k].prossMesi ? ' · ogni ' + lib[k].prossMesi + ' mesi' : ''}</small></span><button type="button" class="btn chiaro piccolo" data-sch-del="${esc(k)}">Togli</button></div>`).join('')}</details>` : ''}`;
+  const msg = t => { const e = $('#schede-msg'); if (e) e.textContent = t; };
+  $('#schede-imp').onclick = () => $('#schede-file').click();
+  $('#schede-file').onchange = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const d = JSON.parse(await f.text()); if (!d || d.formato !== 'schede-v1' || !d.moduli || typeof d.moduli !== 'object') throw new Error('formato');
+      const c = impostazioni.ctrlModuli = (impostazioni.ctrlModuli && typeof impostazioni.ctrlModuli === 'object') ? impostazioni.ctrlModuli : {};
+      let nuove = 0, agg = 0, scartate = 0;
+      Object.keys(d.moduli).slice(0, 200).forEach(k => { const m = schedeValida(d.moduli[k]), kk = String(k).replace(/[^A-Za-z0-9_]/g, '').slice(0, 30); if (!m || !kk) { scartate++; return; } if (c[kk]) agg++; else nuove++; c[kk] = m; });
+      cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna();
+      const e2 = $('#schede-msg'); if (e2) e2.textContent = 'Fatto: ' + nuove + ' nuove, ' + agg + ' aggiornate' + (scartate ? ', ' + scartate + ' non valide' : '') + '. Arrivano ai tecnici col prossimo file.';
+    } catch(x) { msg('Questo file non è un elenco di schede valido.'); }
+  };
+  const tt = $('#schede-tutte'); if (tt) tt.onclick = () => { if (!confirm('Tolgo tutte le schede di manutenzione? I tecnici le perdono col prossimo file.')) return; ks.forEach(k => delete impostazioni.ctrlModuli[k]); cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna(); };
+  bx.querySelectorAll('[data-sch-del]').forEach(b => b.onclick = () => { const k = b.dataset.schDel; if (!confirm('Tolgo la scheda ' + (lib[k] ? lib[k].nome : k) + '?')) return; delete impostazioni.ctrlModuli[k]; cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna(); });
+}
 function cfgSezDisegna(){
   const bx = $('#cfg-sez'); if (!bx) return;
   const T = (datiLevante && datiLevante.tecnici) || {}, ids = Object.keys(T).filter(id => !/^d-/.test(id));
@@ -9450,19 +9520,24 @@ function cfgSezDisegna(){
     + (cfgChi !== 'az' ? `<label class="spunta" style="margin:4px 0 8px"><input type="checkbox" data-cfg="come"${come ? ' checked' : ''}> <span>Come tutta l'azienda</span></label>` : '')
     + `<div class="campo"><label>Profilo</label><select id="cfg-prof"${come ? ' disabled' : ''}><option value="">Applica un profilo…</option>${CFG_PROFILI.map(p => `<option value="${p[0]}">${esc(p[1])}</option>`).join('')}</select></div>`
     + `<p class="aiuto" style="margin:8px 0 2px"><b>Sezioni</b></p>` + SEZ_CFG.map(x => ck('sez', x[0], x[1], (ef.off || []).indexOf(x[0]) < 0)).join('')
-    + `<p class="aiuto" style="margin:10px 0 2px"><b>Controlli e verifiche</b></p>` + Object.keys(ctrlMods()).map(k => ck('ctrl', k, ctrlM(k).nome, (ef.ctrl || []).indexOf(k) < 0)).join('');
+    + `<p class="aiuto" style="margin:10px 0 2px"><b>Controlli e verifiche</b></p>` + Object.keys(ctrlMods()).filter(k => !ctrlM(k).pmp).map(k => ck('ctrl', k, ctrlM(k).nome, (ef.ctrl || []).indexOf(k) < 0)).join('')
+    + (() => { const pk = Object.keys(ctrlMods()).filter(k => ctrlM(k).pmp); if (!pk.length) return ''; const on = pk.filter(k => (ef.ctrl || []).indexOf(k) < 0).length;
+      return `<p class="aiuto" style="margin:10px 0 2px"><b>Schede di manutenzione</b> · ${on} su ${pk.length}</p>` + `<label class="spunta" style="margin:4px 0"><input type="checkbox" data-cfg="pmpall"${on === pk.length ? ' checked' : ''}${come ? ' disabled' : ''}> <span>Tutte le schede</span></label>`
+        + `<details class="fs"><summary>Scegli le singole schede</summary>${pk.map(k => ck('ctrl', k, ctrlM(k).nome, (ef.ctrl || []).indexOf(k) < 0)).join('')}</details>`; })();
   bx.onchange = e => {
     const t = e.target, d = t.dataset || {};
     if (t.id === 'cfg-chi') { cfgChi = t.value; cfgSezDisegna(); return; }
     const c = impostazioni.cfgSez = impostazioni.cfgSez || {az: {off: [], ctrl: []}, tec: {}}; c.az = c.az || {off: [], ctrl: []}; c.tec = c.tec || {};
     if (t.id === 'cfg-prof') { const p = CFG_PROFILI.find(x => x[0] === t.value); if (p) { const v = {off: p[2].slice(), ctrl: p[3].slice()}; if (cfgChi === 'az') c.az = v; else c.tec[cfgChi] = v; salvaImpostazioni(); } cfgSezDisegna(); return; }
     if (d.cfg === 'come') { if (t.checked) delete c.tec[cfgChi]; else c.tec[cfgChi] = JSON.parse(JSON.stringify(c.az)); salvaImpostazioni(); cfgSezDisegna(); return; }
+    if (d.cfg === 'pmpall') { const bb = cfgChi === 'az' ? c.az : c.tec[cfgChi]; if (!bb) return; const pk = Object.keys(ctrlMods()).filter(k => ctrlM(k).pmp); bb.ctrl = (bb.ctrl || []).filter(k => pk.indexOf(k) < 0); if (!t.checked) bb.ctrl = bb.ctrl.concat(pk); salvaImpostazioni(); cfgSezDisegna(); return; }
     if (d.cfg) { const q = d.cfg.split(':'), bb = cfgChi === 'az' ? c.az : c.tec[cfgChi]; if (!bb) return; const l = q[0] === 'sez' ? (bb.off = bb.off || []) : (bb.ctrl = bb.ctrl || []), i = l.indexOf(q[1]);
       if (t.checked && i >= 0) l.splice(i, 1); else if (!t.checked && i < 0) l.push(q[1]); salvaImpostazioni(); }
   };
 }
 function disegnaVociPred(){
   try { disegnaSigle(); } catch(e) {}
+  try { schedeDisegna(); } catch(e) {}
   try { cfgSezDisegna(); } catch(e) {}
   { const ta = $('#tipi-int'); if (ta) { ta.value = impostazioniTipi().join('\n'); ta.oninput = ta.onchange = () => { impostazioni.tipiInt = ta.value; salvaImpostazioni(); }; } }
   { const bx = $('#voci-pred'); if (bx) { const v = impostazioni.voci = impostazioni.voci || {};
