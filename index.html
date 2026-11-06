@@ -7460,7 +7460,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.80.1 (06/11/2026)';
+const VERSIONE_APP = '1.81.0 (06/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8381,6 +8381,32 @@ function sqPersone(r){
   const minM = m => m.dal && m.al ? minuti(m.dal, m.al) : m.dal ? (ultimo ? minuti(m.dal, ultimo) : tot) : m.al ? (primo ? minuti(primo, m.al) : tot) : tot;
   return [{n: r.tecnico || 'Capo squadra', op: q.capoOp, min: tot, capo: true}].concat((q.membri || []).map(m => ({n: m.n, op: m.op, min: minM(m)})));
 }
+/* ore sovrapposte: la stessa persona in due interventi (o in un cantiere) nella stessa fascia, per esempio in squadra e in un appuntamento suo */
+const hmMin = t => { const q = String(t || '').split(':'); return (+q[0]) * 60 + (+q[1] || 0); };
+const minHm = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+function fascePersone(r){          // [{n, f: [[giorno, da, a]]}]
+  if (!r || r.rich) return [];
+  if (r.cant) { const n = (r.operaio && r.operaio.n) || r.tecnico; return (n && r.dal && r.al) ? [{n, f: [[r.data, hmMin(r.dal), hmMin(r.al)]]}] : []; }
+  const ff = (r.orari || []).filter(o => o.dal && o.al).map(o => [o.data || r.data, hmMin(o.dal), hmMin(o.al)]), out = [];
+  if (r.tecnico && ff.length) out.push({n: r.tecnico, f: ff});
+  if (r.squadra) (r.squadra.membri || []).forEach(m => {
+    let f = ff;
+    if ((m.dal || m.al) && ff.length) f = [[ff[0][0], m.dal ? hmMin(m.dal) : Math.min.apply(null, ff.map(x => x[1])), m.al ? hmMin(m.al) : Math.max.apply(null, ff.map(x => x[2]))]];
+    else if (m.dal || m.al) f = (m.dal && m.al) ? [[r.data, hmMin(m.dal), hmMin(m.al)]] : [];
+    if (f.length) out.push({n: m.n, f});
+  });
+  return out;
+}
+function ctrlSovrapposte(r){
+  const mie = fascePersone(r), c = [], visti = {};
+  if (!mie.length || typeof posta === 'undefined') return c;
+  posta.forEach(x => { if (x === r || x.rich) return;
+    fascePersone(x).forEach(q => mie.forEach(p => { if (p.n !== q.n) return;
+      p.f.forEach(a => q.f.forEach(b => { if (a[0] !== b[0] || !(a[1] < b[2] && b[1] < a[2])) return;
+        const k = p.n + '|' + chiavePosta(x); if (visti[k]) return; visti[k] = 1;
+        c.push({t: 'Ore sovrapposte: ' + p.n + ' risulta anche in «' + (x.cliente || 'un altro intervento') + '» il ' + dataIT(b[0]) + ' (' + minHm(b[1]) + '–' + minHm(b[2]) + '). Controlla che le ore non siano contate due volte.', grave: true}); })); })); });
+  return c;
+}
 const minutiAttesi = r => { const p = sqPersone(r); return p ? p.reduce((s, x) => s + x.min, 0) : minutiTotali(r); };
 function codiceDi(c, op){ return (op != null && c.man[op] && c.man[op].cod) ? c.man[op].cod : ''; }
 function ripartizione(r){
@@ -8459,6 +8485,7 @@ function controlliIntervento(r){
   if (!(r.file || []).length) c.push({t: 'Nessun PDF del rapporto indicato.', grave: false});
   else (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF non ancora arrivato: ' + n + '.', grave: true}));
   if (min > 0) { const somma = ripartizione(r).reduce((q, x) => q + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0); if (Math.abs(somma - minutiAttesi(r) / 60) > 0.011) c.push({t: 'Le ore ripartite per la manodopera non tornano con il totale.', grave: true}); }
+  ctrlSovrapposte(r).forEach(x => c.push(x));
   const sp = sqPersone(r);
   if (sp) {
     if (r.importi && (r.importi.righe || []).length) c.push({t: 'Squadra: con la ricevuta il CSV segue la ricevuta, le ore per persona non sono separate.', grave: false});
@@ -8693,6 +8720,7 @@ function controlliCantiere(r){
   if (!r.operaio) c.push({t: 'Non so a quale dipendente appartengono queste ore (il tecnico non è abbinato a un dipendente in Levante): scrivilo tu.', grave: false});
   if (!(r.relazione || '').trim() && !r.voce) c.push({t: 'Manca la descrizione dei lavori.', grave: false});
   (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF delle foto non ancora arrivato: ' + n + '.', grave: true}));
+  ctrlSovrapposte(r).forEach(x => c.push(x));
   return c;
 }
 function etArrivoRq(g){ if (!g) return 'Arrivo non registrato'; const o = isoGiorno(new Date()), ie = isoGiorno(new Date(Date.now() - 864e5)); return g === o ? 'Arrivate oggi' : g === ie ? 'Arrivate ieri' : 'Arrivate il ' + dataIT(g); }
@@ -8972,7 +9000,7 @@ async function avviaPulsantiServizio(){
     return;
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
-  inUfficio = true; aggiornaSola(); try { limiteTecniciCambiato(); } catch(e) {} try { disegnaAgenda(); } catch(e) {}
+  inUfficio = true; aggiornaSola(); try { limiteTecniciCambiato(); } catch(e) {} try { disegnaAgenda(); } catch(e) {} try { schedeBaseCarica(); } catch(e) {}
   if (inWorker) { const batti = () => chiamaJson('worker-battito', {v: VERSIONE_APP}).catch(() => {}); batti(); setInterval(batti, 10000); }
   if (!s.remoto) { try { avviaRete(); } catch(e) { console.error(e); } }
   try { avviaExtraUfficio(); } catch(e) { console.error(e); }
@@ -9608,11 +9636,34 @@ function schedeValida(m){
   if (m.prossMesi > 0 && m.prossMesi <= 60) o.prossMesi = Math.round(m.prossMesi);
   return o;
 }
+/* schede di base: il file schede-base.json sta accanto all'app (e nel Setup). Alla prima apertura dell'ufficio, se non ci sono schede, si caricano da sole.
+   impostazioni.schedeBase = {v: versione caricata, no: 1 se l'azienda le ha tolte tutte, tolte: [codici tolti a mano]} */
+let schedeBaseDati = null;
+function schedeImporta(d, rispettaTolte){
+  if (!d || d.formato !== 'schede-v1' || !d.moduli || typeof d.moduli !== 'object') throw new Error('formato');
+  const c = impostazioni.ctrlModuli = (impostazioni.ctrlModuli && typeof impostazioni.ctrlModuli === 'object') ? impostazioni.ctrlModuli : {};
+  const tolte = rispettaTolte ? ((impostazioni.schedeBase || {}).tolte || []) : [];
+  let nuove = 0, agg = 0, scartate = 0;
+  Object.keys(d.moduli).slice(0, 200).forEach(k => { const m = schedeValida(d.moduli[k]), kk = String(k).replace(/[^A-Za-z0-9_]/g, '').slice(0, 30); if (!m || !kk) { scartate++; return; } if (tolte.indexOf(kk) >= 0) return; if (c[kk]) agg++; else nuove++; c[kk] = m; });
+  cmVer++; salvaImpostazioni(); try { cfgSezDisegna(); } catch(e) {}
+  return {nuove, agg, scartate};
+}
+async function schedeBaseCarica(){
+  try { const r = await fetch('schede-base.json', {cache: 'no-store'}); if (!r.ok) return; const d = await r.json(); if (!d || d.formato !== 'schede-v1' || !d.moduli) return; schedeBaseDati = d; } catch(e) { return; }
+  const lib = impostazioni.ctrlModuli || {}, haPmp = Object.keys(lib).some(k => lib[k] && lib[k].pmp), v = +schedeBaseDati.versione || 1;
+  if (!impostazioni.schedeBase) {
+    if (haPmp) impostazioni.schedeBase = {v};                       // schede gia' caricate da file: non si toccano
+    else { try { schedeImporta(schedeBaseDati, false); impostazioni.schedeBase = {v}; } catch(e) { return; } }
+    salvaImpostazioni();
+  }
+  try { schedeDisegna(); } catch(e) {}
+}
 function schedeDisegna(){
   const bx = $('#schede-lib'); if (!bx) return;
   const lib = impostazioni.ctrlModuli || {}, ks = Object.keys(lib).filter(k => lib[k] && lib[k].pmp);
   bx.innerHTML = `<p class="aiuto" style="margin:0 0 8px">${ks.length ? '<b>' + ks.length + '</b> ' + (ks.length === 1 ? 'scheda caricata' : 'schede caricate') + '.' : 'Nessuna scheda caricata.'}</p>
-    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 8px"><button type="button" class="btn sec piccolo" id="schede-imp">Carica schede da file…</button>${ks.length ? '<button type="button" class="btn chiaro piccolo" id="schede-tutte">Togli tutte</button>' : ''}</div>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 8px"><button type="button" class="btn sec piccolo" id="schede-imp">Carica schede da file…</button>${ks.length ? '<button type="button" class="btn chiaro piccolo" id="schede-tutte">Togli tutte</button>' : ''}${(() => { const sb = impostazioni.schedeBase || {}, n = schedeBaseDati ? Object.keys(schedeBaseDati.moduli).length : 0; if (!n) return ''; return (!ks.length || sb.no || (sb.tolte || []).length) ? '<button type="button" class="btn sec piccolo" id="schede-base">Carica le schede di base (' + n + ')</button>' : ((+schedeBaseDati.versione || 1) > (sb.v || 0) ? '<button type="button" class="btn sec piccolo" id="schede-base-agg">Aggiorna le schede di base</button>' : ''); })()}</div>
+    <p class="aiuto" style="margin:0 0 8px">Le schede di base sono incluse nel programma e si caricano da sole la prima volta. Se un'azienda non vuole usarle, «Togli tutte»: non tornano da sole.</p>
     <input type="file" id="schede-file" accept=".json,application/json" hidden>
     <p class="aiuto" id="schede-msg" role="status" style="margin:0 0 8px"></p>
     ${ks.length ? `<details class="fs"><summary>Elenco delle schede</summary>${ks.map(k => `<div class="cv" style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #e6ebed"><span><b>${esc(lib[k].nome)}</b><small style="display:block;color:#5b6d75">${(lib[k].gest || []).filter(g => !g[3]).length} voci${lib[k].prossMesi ? ' · ogni ' + lib[k].prossMesi + ' mesi' : ''}</small></span><button type="button" class="btn chiaro piccolo" data-sch-del="${esc(k)}">Togli</button></div>`).join('')}</details>` : ''}`;
@@ -9621,16 +9672,16 @@ function schedeDisegna(){
   $('#schede-file').onchange = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
     try {
-      const d = JSON.parse(await f.text()); if (!d || d.formato !== 'schede-v1' || !d.moduli || typeof d.moduli !== 'object') throw new Error('formato');
-      const c = impostazioni.ctrlModuli = (impostazioni.ctrlModuli && typeof impostazioni.ctrlModuli === 'object') ? impostazioni.ctrlModuli : {};
-      let nuove = 0, agg = 0, scartate = 0;
-      Object.keys(d.moduli).slice(0, 200).forEach(k => { const m = schedeValida(d.moduli[k]), kk = String(k).replace(/[^A-Za-z0-9_]/g, '').slice(0, 30); if (!m || !kk) { scartate++; return; } if (c[kk]) agg++; else nuove++; c[kk] = m; });
-      cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna();
+      const d = JSON.parse(await f.text()), {nuove, agg, scartate} = schedeImporta(d, false); schedeDisegna();
       const e2 = $('#schede-msg'); if (e2) e2.textContent = 'Fatto: ' + nuove + ' nuove, ' + agg + ' aggiornate' + (scartate ? ', ' + scartate + ' non valide' : '') + '. Arrivano ai tecnici col prossimo file.';
     } catch(x) { msg('Questo file non è un elenco di schede valido.'); }
   };
-  const tt = $('#schede-tutte'); if (tt) tt.onclick = () => { if (!confirm('Tolgo tutte le schede di manutenzione? I tecnici le perdono col prossimo file.')) return; ks.forEach(k => delete impostazioni.ctrlModuli[k]); cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna(); };
-  bx.querySelectorAll('[data-sch-del]').forEach(b => b.onclick = () => { const k = b.dataset.schDel; if (!confirm('Tolgo la scheda ' + (lib[k] ? lib[k].nome : k) + '?')) return; delete impostazioni.ctrlModuli[k]; cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna(); });
+  const tt = $('#schede-tutte'); if (tt) tt.onclick = () => { if (!confirm('Tolgo tutte le schede di manutenzione? I tecnici le perdono col prossimo file.')) return; ks.forEach(k => delete impostazioni.ctrlModuli[k]); impostazioni.schedeBase = Object.assign({}, impostazioni.schedeBase, {no: 1, tolte: []}); cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna(); };
+  const sbx = $('#schede-base'), sba = $('#schede-base-agg');
+  const daBase = (tutte) => { try { const q = schedeImporta(schedeBaseDati, !tutte), v = +schedeBaseDati.versione || 1; impostazioni.schedeBase = tutte ? {v} : Object.assign({}, impostazioni.schedeBase, {v}); if (tutte) delete impostazioni.schedeBase.no; salvaImpostazioni(); schedeDisegna(); const e2 = $('#schede-msg'); if (e2) e2.textContent = 'Fatto: ' + q.nuove + ' nuove, ' + q.agg + ' aggiornate. Arrivano ai tecnici col prossimo file.'; } catch(x) { msg('Non riesco a leggere le schede di base.'); } };
+  if (sbx) sbx.onclick = () => daBase(true);
+  if (sba) sba.onclick = () => daBase(false);
+  bx.querySelectorAll('[data-sch-del]').forEach(b => b.onclick = () => { const k = b.dataset.schDel; if (!confirm('Tolgo la scheda ' + (lib[k] ? lib[k].nome : k) + '?')) return; delete impostazioni.ctrlModuli[k]; { const sb = impostazioni.schedeBase = impostazioni.schedeBase || {}; sb.tolte = (sb.tolte || []).concat([k]); } cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna(); });
 }
 function cfgSezDisegna(){
   const bx = $('#cfg-sez'); if (!bx) return;
