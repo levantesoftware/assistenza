@@ -7244,10 +7244,11 @@ function riepilogoDocumenti(){
 function riepilogoRcee(){
   const nAll = datiLevante.appuntamenti.reduce((s, a) => s + (a.rc ? a.rc.length : 0), 0);
   if (!nAll) return '';
-  const usati = new Set(); let senza = 0, nonSupp = 0;
-  datiLevante.appuntamenti.forEach(a => (a.rc || []).forEach(r => { if (!window.MAPPE_RCEE[r._tipo]) nonSupp++; else if (!datiLevante.modelli[r._tpl]) senza++; else usati.add(r._tpl); }));
+  const usati = new Set(); let senza = 0, nonSupp = 0, senzaNome = 0; const nomiMancanti = new Set();
+  datiLevante.appuntamenti.forEach(a => (a.rc || []).forEach(r => { if (!window.MAPPE_RCEE[r._tipo]) nonSupp++; else if (!datiLevante.modelli[r._tpl]) { if (r._tpl) { senza++; nomiMancanti.add(r._tpl); } else senzaNome++; } else usati.add(r._tpl); }));
   let h = `<br>Allegati RCEE: <b>${nAll}</b>`;
-  if (senza) h += `<br>Per ${senza} manca il file del modello di stampa (modello_….json): rilancia Esporta_Levante.bat.`;
+  if (senzaNome) h += `<br>Per ${senzaNome} l'ente dell'impianto in Levante non ha il modello di stampa per questo tipo di RCEE: va indicato in Levante (nei dati dell'ente collegato all'impianto), poi rilancia Esporta_Levante.bat.`;
+  if (senza) h += `<br>Per ${senza} manca il file del modello di stampa «${esc([...nomiMancanti].join(', '))}»: rilancia Esporta_Levante.bat e guarda nella finestra la riga «modello …» (cartella reports non trovata, file non trovato o errore di conversione).`;
   if (nonSupp) h += `<br>${nonSupp} sono di un tipo non ancora gestito dall'app: restano in Levante.`;
   if (!datiLevante.azienda) h += '<br>Mancano i dati azienda (azienda.csv): l\'impresa manutentrice resterà vuota.';
   return h;
@@ -7460,7 +7461,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.81.1 (06/11/2026)';
+const VERSIONE_APP = '1.81.2 (06/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
