@@ -3289,7 +3289,7 @@ function ctrlMods(){
   const c = (lib || imp) ? Object.assign({}, lib || {}, imp || {}) : null; if (!c) return MODULI_CTRL;
   const out = Object.assign({}, MODULI_CTRL);
   Object.keys(c).forEach(k => { const d = c[k]; if (!d || typeof d !== 'object') return; const b = MODULI_CTRL[k];
-    if (!b) { if (d.nome && d.voci && d.tipi) out[k] = Object.assign({rif: '', app: 'apparecchio', apps: 'apparecchi', gest: []}, d, {parole: d.parole ? new RegExp(d.parole, 'i') : null}); return; }
+    if (!b) { if (d.nome && d.voci && d.tipi) out[k] = Object.assign({rif: '', app: 'apparecchio', apps: 'apparecchi', gest: []}, d, {parole: d.parole ? new RegExp(d.pmp ? String(d.parole).replace(/\\s\*-$/, '(?![A-Z0-9])') : d.parole, 'i') : null}); return; }   // schede: il codice basta (ST1 -, ST1 verifica, ST1 (...)), senza trattino
     out[k] = Object.assign({}, b, {voci: Object.assign({}, b.voci, d.voci || {}), tipi: b.tipi.concat(d.tipi || []), gest: b.gest.concat(d.gest || [])}); });
   cmCache = {l: lib, i: imp, v: cmVer, o: out};
   return out;
@@ -7460,7 +7460,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.81.0 (06/11/2026)';
+const VERSIONE_APP = '1.81.1 (06/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
