@@ -381,6 +381,7 @@ body.uff .solo-uff{display:block}
 body.remoto .solo-server{display:none !important}
 body.sola #b-nuovo,body.sola #da-completare,body.sola [data-modifica],body.sola [data-carica-mod],body.sola [data-ripristina],body.sola .solo-mod{display:none !important}
 .nota-sola{margin:0;padding:10px 12px;border-radius:8px;background:#eef3f6;color:#26404f;font-size:14px}
+.visita.promemoria .corpo{opacity:.8}
 #pin-blocco h2{margin:0 0 6px;font-size:22px}
 #pin-punti{display:flex;gap:14px;margin:18px 0 8px;min-height:20px}
 #pin-punti span{width:16px;height:16px;border-radius:50%;border:2px solid #fff;display:inline-block}
@@ -909,6 +910,11 @@ select.rc-add{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margi
     <h2 class="giorno" style="margin-top:26px">Schede di manutenzione</h2>
     <p class="aiuto" style="margin:0 0 8px">Le schede con le voci da controllare (una per tipo di apparecchio, con «eseguito», «non presente» e i campi da compilare). Si caricano da un file e si abbinano da sole alle operazioni di Levante: basta che la descrizione dell'operazione inizi col codice della scheda (per esempio «CT1 - Manutenzione…»). Vanno ai tecnici col prossimo file; quali schede vede ognuno si sceglie qui sopra, in «Sezioni dell'app dei tecnici».</p>
     <div id="schede-lib"></div>
+    </div>
+    <div class="solo-uff">
+    <h2 class="giorno" style="margin-top:26px">Squadre</h2>
+    <p class="aiuto" style="margin:0 0 8px">Se i tecnici lavorano a squadre, in Levante crea dei «tecnici» chiamati per esempio Squadra 1 e Squadra 2 e dai a loro gli appuntamenti. Qui segna quali sono squadre. Poi, ogni giorno, in «Invio ai tecnici» scegli chi fa parte di ogni squadra e chi è il capo: il capo riceve gli appuntamenti e li gestisce, gli altri li ricevono solo come promemoria. Le squadre non contano nel numero di tecnici della licenza.</p>
+    <div id="sq-imp"></div>
     </div>
     <div class="solo-uff">
     <h2 class="giorno" style="margin-top:26px">Numero delle ricevute</h2>
@@ -1774,7 +1780,9 @@ function disegnaAgenda(){
     if (a.chiamata) chips.push('<span class="chip info">Chiamata</span>');
     if (a.r && a.r.li) chips.push(`<span class="chip num">N. ${esc(a.r.li)}</span>`);
     if (a.urgente) chips.push('<span class="chip urg">Urgente</span>');
-    if (a.tecnico_nome && piuTecnici) chips.push(`<span class="chip tec">${esc(a.tecnico_nome)}</span>`);
+    if (a.promemoria && a.sq) chips.unshift(`<span class="chip tec">Promemoria · capo ${esc(a.sq.capoNome)}</span>`);
+    else if (a.sq) chips.push(`<span class="chip tec">${esc(a.sq.nome)} · sei il capo</span>`);
+    else if (a.tecnico_nome && piuTecnici) chips.push(`<span class="chip tec">${esc(a.tecnico_nome)}</span>`);
     if (a.r && a.r.tp) chips.push(`<span class="chip info">${esc(a.r.tp)}</span>`);
     if (nOp) chips.push(`<span class="chip">${nOp} ${nOp === 1 ? 'operazione' : 'operazioni'} da fare</span>`);
     const nDoc = (a.docs || []).filter(d => !d.altro).length;
@@ -1787,7 +1795,7 @@ function disegnaAgenda(){
     else if (registrato(a)) chips.push('<span class="chip pdf">Registrato in Levante</span>');
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
-    html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${(a.fatto || registrato(a)) ? 'chiuso ' : ''}${st}" type="button" data-id="${esc(a.id)}">
+    html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${a.promemoria ? 'promemoria ' : ''}${(a.fatto || registrato(a)) ? 'chiuso ' : ''}${st}" type="button" data-id="${esc(a.id)}">
       <span class="ora">${hhmm(a.inizio)}<small>${hhmm(a.fine)}</small></span>
       <span class="corpo"><span class="nome">${esc(a.titolo)}</span>
         <span class="dove" style="display:block">${esc(a.luogo)}</span>
@@ -1881,6 +1889,8 @@ function apriDettaglio(id, push = true){
       <a class="btn sec" href="${esc(mappa)}" target="_blank" rel="noopener">${ICONE.mappa}Naviga</a>
     </div>`;
   if (a.urgente) h += `<div class="avviso rosso"><b>Intervento urgente</b>Il cliente aspetta: chiamalo prima di partire.</div>`;
+  if (a.promemoria && a.sq) h += `<div class="avviso info"><b>Promemoria</b>Questo appuntamento lo gestisce ${esc(a.sq.capoNome)}, capo di ${esc(a.sq.nome)}. Tu lo vedi solo per sapere dove si lavora. Con voi: ${esc((a.sq.membri || []).join(', '))}.</div>`;
+  else if (a.sq) h += `<div class="avviso info"><b>Sei il capo squadra</b>${esc(a.sq.nome)}. Con te: ${esc((a.sq.membri || []).filter(n => n !== a.sq.capoNome).join(', ') || 'nessun altro')}. La scheda la compili tu; in «Orari e viaggio» segni chi c'era.</div>`;
   if (a.rda) h += `<div class="avviso info"><b>Ordine di lavoro</b>${esc(a.rda)}</div>`;
   if (a.messaggio) h += `<div class="avviso info"><b>Richiesta del cliente</b>${esc(a.messaggio)}</div>`;
   if (a.chiamata && a.programmata && !bozze[a.id]) h += '<p style="margin:8px 0"><button class="btn chiaro piccolo" id="b-disfissa" type="button">Rimetti tra le chiamate</button></p>';
@@ -1925,6 +1935,7 @@ function apriDettaglio(id, push = true){
   $('#v-dettaglio').innerHTML = h;
   $('#b-indietro-det').onclick = indietro;
   if (sola()) { const ba = $('#v-dettaglio .barra-azione'); if (ba) ba.innerHTML = '<div class="dentro"><p class="nota-sola">In ufficio l\'agenda è solo in visualizzazione: gli interventi li compilano i tecnici e arrivano da «Interventi in arrivo».</p></div>'; }
+  if (a.promemoria && a.sq) { const ba = $('#v-dettaglio .barra-azione'); if (ba) ba.innerHTML = '<div class="dentro"><p class="nota-sola">Promemoria: la scheda di questo intervento la compila ' + esc(a.sq.capoNome) + ', capo squadra.</p></div>'; }
   $('#v-dettaglio').querySelectorAll('[data-doc]').forEach(b => b.onclick = () => apriDocumento(b.dataset.doc, b.dataset.nome));
   $('#v-dettaglio').querySelectorAll('[data-orig]').forEach(b => b.onclick = () => apriDocumento(b.dataset.orig, b.dataset.nome, true));
   $('#v-dettaglio').querySelectorAll('[data-stampa-doc]').forEach(b => b.onclick = () => stampaDocumento(b.dataset.stampaDoc, b.dataset.nome));
@@ -2069,11 +2080,14 @@ function nuovaScheda(a){
   (r.o || []).forEach(o => { w.ops[o.id] = {fatta:false, nota:''}; });
   // analisi di combustione preparata per gli apparecchi con "analisi fumi" da fare
   (r.o || []).filter(o => o.f && o.a && /(\.AF$|ANALISI FUMI)/i.test(o.c + ' ' + o.d)).forEach(o => { w.analisi[o.a] = {}; });
+  if (a && a.sq && !a.promemoria) { const mm = a.sq.membri || [], ops = a.sq.ops || [], ic = mm.indexOf(a.sq.capoNome);
+    w.squadra = {nome: a.sq.nome, capoOp: ic >= 0 && ops[ic] != null ? ops[ic] : null, membri: mm.map((n, i) => ({n, p: true, dal: '', al: '', op: ops[i] != null ? ops[i] : null})).filter((m, i) => i !== ic)}; }
   try { ctrlDaOperazioni(w, r); fgDaOperazioni(w, r); } catch(e) {}
   return w;
 }
 function apriScheda(a){
   if (sola()) return;
+  if (a && a.promemoria) { mostraAvviso('È solo un promemoria: la scheda la compila il capo squadra.'); return; }
   corrente = a;
   lavoro = bozze[a ? a.id : ''] || nuovaScheda(a);
   if (a && !bozze[a.id]) lavoro = nuovaScheda(a);
@@ -2135,6 +2149,7 @@ function registraPos(u, c){
 /* ---- arrivo: si registra con "Inizia l'intervento" nel dettaglio; fine: quando si sceglie l'esito ---- */
 function iniziaIntervento(a, nuovaVisita){
   if (sola()) return;
+  if (a && a.promemoria) { mostraAvviso('È solo un promemoria: la scheda la compila il capo squadra.'); return; }
   const gia = bozze[a.id];
   if (gia && gia.inCorso) { apriScheda(a); return; }
   const w = gia || nuovaScheda(a), oggi = isoGiorno(new Date()), ora = hhmm(new Date());
@@ -2157,6 +2172,11 @@ function fineAutomatica(){
   mostraAvviso('Ora di fine registrata alle ' + ora + '. Puoi correggerla in "Orari e viaggio".', 'Annulla', () => {
     u.al = ''; delete u.p_al; lavoro.inCorso = eraInCorso; disegnaOrari();
   }, 9000);
+}
+function squadraHtml(){          // il capo squadra segna chi c'era e, se serve, gli orari di chi ha fatto ore diverse
+  const q = lavoro && lavoro.squadra; if (!q || !(q.membri || []).length) return '';
+  return `<div id="sq-pres" style="margin-top:14px"><p class="aiuto" style="margin:0 0 4px"><b>${esc(q.nome)}</b> · togli la spunta a chi non c'era. Gli orari (dalle, alle) scrivili solo per chi ha fatto ore diverse dalle tue.</p>`
+    + q.membri.map((m, n) => `<div class="riga-orario" style="grid-template-columns:1fr 92px 92px;align-items:center"><label class="spunta" style="margin:0"><input type="checkbox" data-sqp="${n}"${m.p !== false ? ' checked' : ''}> <span>${esc(m.n)}</span></label><input type="time" data-sqt="${n}|dal" value="${esc(m.dal || '')}" aria-label="Dalle, ${esc(m.n)}"><input type="time" data-sqt="${n}|al" value="${esc(m.al || '')}" aria-label="Alle, ${esc(m.n)}"></div>`).join('') + '</div>';
 }
 function righeOrari(){
   return lavoro.orari.map((o, n) => `<div class="riga-orario">
@@ -2601,6 +2621,7 @@ function disegnaScheda(){
     <details class="passo rcee-blocco" id="or-d"${orApr[ptKey()] === true ? ' open' : ''}><summary><h2>Orari e viaggio</h2><span class="aiuto" id="or-sum">${esc(orariSommario())}</span></summary><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
       <div class="totale" id="ore-tot"></div>
+      ${squadraHtml()}
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
       <div style="margin-top:14px;max-width:200px">${campoTesto('km', 'Km percorsi', {inputmode:'decimal'})}</div>
     </details>
@@ -2827,6 +2848,7 @@ function collegaForm(){
     if (d.k) { lavoro[d.k] = t.value; if (d.k === 'km') { const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario(); } const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
       if (d.k === 'email') { const x = $('#inv-email-cli'); if (x && x !== t) x.value = t.value; const o = $('#email-opz'); if (o) o.innerHTML = righeEmailOpz(); } }
     else if (d.orario !== undefined) { lavoro.orari[+d.orario][d.c] = t.value; aggiornaOre(); }
+    else if (d.sqt !== undefined) { const q = d.sqt.split('|'); if (lavoro.squadra && lavoro.squadra.membri[+q[0]]) { lavoro.squadra.membri[+q[0]][q[1]] = t.value; bozzaModificata(); } }
     else if (d.mat !== undefined) { lavoro.materiali[+d.mat][d.c] = t.value; if (t.tagName === 'TEXTAREA') adattaDescr(t); aggiornaImporti(d.c === 'qta'); }
     else if (d.an !== undefined) { (lavoro.analisi[d.an] = lavoro.analisi[d.an] || {})[d.c] = t.value; }
     else if (d.extra !== undefined) { lavoro.ops_extra[+d.extra] = t.value; }
@@ -2843,6 +2865,7 @@ function collegaForm(){
     if (d.tipoSel !== undefined) { const x = $('#f-tipo'); if (t.value === '__altro') { lavoro.tipoLibero = true; if (x) { x.hidden = false; x.value = ''; try { x.focus(); } catch(er) {} } lavoro.tipo = ''; } else { lavoro.tipoLibero = false; lavoro.tipo = t.value; if (x) { x.hidden = true; x.value = ''; } } bozzaModificata(); return; }
     if (d.allega !== undefined) { ultimiAllegati[+d.allega][destInvio === 'cli' ? 'onCli' : 'on'] = t.checked; aggiornaPulsantiInvio(); }
     else if (d.dc !== undefined) { lavoro.dc = t.checked; impSincronizzaChiamata(); bozzaModificata(); }
+    else if (d.sqp !== undefined) { if (lavoro.squadra && lavoro.squadra.membri[+d.sqp]) { lavoro.squadra.membri[+d.sqp].p = t.checked; bozzaModificata(); } }
     else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); aggiornaImporti(); }
     else if (t.name === 'esito') { const primo = !lavoro.esito; lavoro.esito = t.value; aggiornaTile(); if (primo) fineAutomatica(); bozzaModificata(); }
     else if (d.manmod !== undefined) { const r = lavoro.rc[+d.manmod]; const mm = modelliDelTipo(r._tipo)[t.value]; if (mm) { r._tpl = t.value; const y = window.scrollY; ridisegnaRcee(); window.scrollTo(0, y); bozzaModificata(); } }
@@ -3017,6 +3040,7 @@ function costruisciPdf(w, ctx){
   titolo('Appuntamento');
   coppia('Cliente', w.cliente, 'Data', dataIT(w.data));
   coppia('Indirizzo', w.indirizzo, 'Tecnico', w.tecnico);
+  if (w.squadra && (w.squadra.membri || []).some(m => m.p !== false)) coppia('Squadra', w.squadra.nome, 'Con', w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', '));
   if (w.levante) coppia('Impianto', w.impianto, 'Rif. Levante', 'Appuntamento N. ' + (w.levante.li || w.levante.mi));
   if (w.tipo) coppia('Tipo di intervento', w.tipo, '', '');
 
@@ -6549,6 +6573,8 @@ function confrontaAgende(vecchie, nuove, oggiISO, scarta){       // scarta(p): v
     if ((p.titolo || '') !== (a.titolo || '')) cosa.push('cliente');
     if ((p.messaggio || '') !== (a.messaggio || '')) cosa.push('richiesta');
     if ((p.rda || '') !== (a.rda || '')) cosa.push('ordine di lavoro');
+    if (!!p.pm !== !!a.promemoria) cosa.push(a.promemoria ? 'ora solo promemoria' : 'ora lo gestisci tu');
+    else if ((p.sqc || '') !== ((a.sq && a.sq.capoNome) || '')) cosa.push('capo squadra');
     if (!!p.urgente !== !!a.urgente) cosa.push(a.urgente ? 'ora urgente' : 'non più urgente');
     if (cosa.length) c.modificati.push({a, prima: p, cosa});
   });
@@ -6871,9 +6897,84 @@ function chiamateAperte(){ return chiamateAttive() && datiLevante && Array.isArr
 const chiamateDi = id => chiamateAperte().filter(a => tecnicoChiamata(a) === String(id || ''))
   .map(a => Object.assign({}, a, {tecnico_id: String(id), tecnico_nome: id ? (datiLevante.tecnici[id] || '') : ''}));
 const chiamateSenzaTecnico = () => chiamateAperte().filter(a => !tecnicoChiamata(a));
+/* ---- squadre: in Levante sono "tecnici" (Squadra 1, Squadra 2…); l'ufficio sceglie ogni giorno chi ne fa parte e chi e' il capo.
+   Il capo riceve gli appuntamenti e li gestisce; gli altri della squadra li ricevono come promemoria (a.promemoria = 1), senza poterli compilare.
+   impostazioni.squadre = {ids: [id Levante delle squadre], base: {id: {capo, membri}}, giorni: {'AAAA-MM-GG': {id: {capo, membri}}}} (membri comprende il capo) ---- */
+const sqCfg = () => (impostazioni.squadre && typeof impostazioni.squadre === 'object') ? impostazioni.squadre : null;
+const sqIds = () => { const c = sqCfg(); return c && Array.isArray(c.ids) ? c.ids.map(String) : []; };
+const eSquadra = id => sqIds().indexOf(String(id)) >= 0;
+const sqOre = m => m.dal && m.al ? m.dal + '–' + m.al : m.dal ? 'dalle ' + m.dal : m.al ? 'fino alle ' + m.al : '';
+const sqGiorno = x => typeof x === 'string' ? x.slice(0, 10) : isoGiorno(x);
+function sqComp(sq, g){ const c = sqCfg(); if (!c) return null; const x = ((c.giorni || {})[g] || {})[String(sq)] || (c.base || {})[String(sq)]; return (x && x.capo && Array.isArray(x.membri) && x.membri.length) ? x : null; }
+const sqNomeTec = id => ((datiLevanteTutti && datiLevanteTutti.tecnici) || {})[id] || ('Tecnico ' + id);
+function distribuisciApp(){          // id tecnico -> appuntamenti, con le squadre scomposte nei loro membri
+  const per = {}, add = (k, a) => { (per[k] = per[k] || []).push(a); };
+  datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => {
+    const t = String(a.tecnico_id || '');
+    if (!t || !eSquadra(t)) { add(t, a); return; }
+    const c = sqComp(t, sqGiorno(a.inizio));
+    if (!c) { add('', Object.assign({}, a, {sqSenza: 1})); return; }
+    const info = {id: t, nome: a.tecnico_nome || sqNomeTec(t), capo: String(c.capo), capoNome: sqNomeTec(c.capo), membri: c.membri.map(m => sqNomeTec(m)),
+      ops: c.membri.map(m => { let d = null; try { d = dipDiTecnico(String(m)); } catch(e) {} return d ? (d.op || 0) : null; })};   // ops: indice del dipendente in Levante (= codice di manodopera), null se non si sa
+    c.membri.forEach(m => { m = String(m); add(m, m === String(c.capo) ? Object.assign({}, a, {sq: info}) : Object.assign({}, a, {sq: info, promemoria: 1})); });
+  });
+  return per;
+}
+const sqSomma = (g, n) => { const d = new Date(+g.slice(0, 4), +g.slice(5, 7) - 1, +g.slice(8, 10) + n); return isoGiorno(d); };
+const sqEff = (sq, g) => sqComp(sq, g) || {capo: '', membri: []};
+const sqReali = () => Object.keys((datiLevante && datiLevante.tecnici) || {}).filter(id => !/^d-/.test(id) && !eSquadra(id)).sort((a, b) => String(sqNomeTec(a)).localeCompare(String(sqNomeTec(b)), 'it'));
+let sqGiornoSel = null;
+function sqScrivi(sq, g, comp){          // composizione di una squadra per un giorno
+  const c = impostazioni.squadre = impostazioni.squadre || {ids: [], base: {}, giorni: {}}; c.giorni = c.giorni || {}; c.base = c.base || {};
+  (c.giorni[g] = c.giorni[g] || {})[sq] = comp;
+  const limite = sqSomma(isoGiorno(new Date()), -3); Object.keys(c.giorni).forEach(k => { if (k < limite) delete c.giorni[k]; });
+  salvaImpostazioni();
+}
+function riquadroSquadre(){
+  const c = sqCfg(), T = (datiLevanteTutti && datiLevanteTutti.tecnici) || {}, ids = sqIds().filter(id => T[id] !== undefined);
+  if (!ids.length) return '';
+  const oggi = isoGiorno(new Date()); if (!sqGiornoSel || sqGiornoSel < oggi) sqGiornoSel = oggi;
+  const g = sqGiornoSel, reali = sqReali(), app = datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)), fine = sqSomma(oggi, 14);
+  const avv = [];
+  ids.forEach(id => { const dd = new Set(app.filter(a => String(a.tecnico_id) === id && sqGiorno(a.inizio) >= oggi && sqGiorno(a.inizio) <= fine).map(a => sqGiorno(a.inizio)));
+    const senza = [...dd].filter(d => !sqComp(id, d)).sort(); if (senza.length) avv.push(`<b>${esc(T[id])}</b>: ${senza.map(d => esc(dataIT(d).slice(0, 5))).join(', ')}`); });
+  let h = `<div class="sez" id="sq-box" style="margin-top:16px"><h2>Squadre<small>${esc(dataIT(g))}</small></h2>`
+    + (avv.length ? `<p class="avviso rosso" style="margin:6px 0"><b>Appuntamenti senza composizione</b>${avv.join(' · ')}. Finché non scegli chi c'è, non partono a nessuno.</p>` : '')
+    + `<div class="azioni" style="display:flex;gap:8px;align-items:end;margin:6px 0 10px;flex-wrap:wrap"><button class="btn chiaro piccolo" type="button" data-sq-g="-1" aria-label="Giorno prima">‹</button><input type="date" id="sq-data" value="${esc(g)}" min="${esc(oggi)}" style="max-width:170px"><button class="btn chiaro piccolo" type="button" data-sq-g="1" aria-label="Giorno dopo">›</button><button class="btn chiaro piccolo" type="button" data-sq-g="0">Oggi</button></div>`;
+  ids.forEach(id => {
+    const e = sqEff(id, g), ov = c.giorni && c.giorni[g] && c.giorni[g][id], ab = c.base && c.base[id], mem = new Set(e.membri.map(String));
+    const nApp = app.filter(a => String(a.tecnico_id) === id && sqGiorno(a.inizio) === g).length, altrove = {};
+    ids.forEach(o => { if (o !== id) sqEff(o, g).membri.forEach(m => { altrove[String(m)] = T[o]; }); });
+    const stato = ov ? 'solo per questo giorno' : ab ? 'composizione abituale' : 'non impostata';
+    h += `<div class="cm" style="border:1px solid #d5dcdf;border-radius:10px;padding:10px;margin:8px 0"><p style="margin:0 0 6px"><b>${esc(T[id])}</b> · ${nApp} ${nApp === 1 ? 'appuntamento' : 'appuntamenti'} · <span class="chip${e.membri.length ? '' : ' urg'}">${esc(stato)}</span></p>`
+      + reali.map(t => `<label class="spunta" style="margin:3px 0"><input type="checkbox" data-sq-m="${esc(id + '|' + t)}"${mem.has(t) ? ' checked' : ''}> <span>${esc(sqNomeTec(t))}${altrove[t] ? ` <small style="color:#b91c1c">(è già in ${esc(altrove[t])})</small>` : ''}</span></label>`).join('')
+      + `<div class="campo" style="margin:8px 0 0"><label for="sq-capo-${esc(id)}">Capo squadra</label><select id="sq-capo-${esc(id)}" data-sq-capo="${esc(id)}"${e.membri.length ? '' : ' disabled'}>${e.membri.map(m => `<option value="${esc(m)}"${String(m) === String(e.capo) ? ' selected' : ''}>${esc(sqNomeTec(m))}</option>`).join('')}</select></div>`
+      + `<div class="azioni" style="display:flex;gap:8px;margin:8px 0 0;flex-wrap:wrap">${e.membri.length ? `<button class="btn chiaro piccolo" type="button" data-sq-ab="${esc(id)}">Imposta come abituale</button>` : ''}${ov && ab ? `<button class="btn chiaro piccolo" type="button" data-sq-back="${esc(id)}">Torna all'abituale</button>` : ''}</div></div>`;
+  });
+  return h + '</div>';
+}
+function squadreCollega(box){
+  const g = () => sqGiornoSel;
+  box.querySelectorAll('[data-sq-g]').forEach(b => b.onclick = () => { const v = +b.dataset.sqG, oggi = isoGiorno(new Date()); sqGiornoSel = v === 0 ? oggi : sqSomma(sqGiornoSel || oggi, v); if (sqGiornoSel < oggi) sqGiornoSel = oggi; disegnaUfficio(); });
+  { const d = box.querySelector('#sq-data'); if (d) d.onchange = () => { if (/^\d{4}-\d{2}-\d{2}$/.test(d.value)) { sqGiornoSel = d.value; disegnaUfficio(); } }; }
+  const rileggi = id => { const mem = [...box.querySelectorAll('[data-sq-m^="' + id + '|"]')].filter(x => x.checked).map(x => x.dataset.sqM.split('|')[1]);
+    const cs = box.querySelector('[data-sq-capo="' + id + '"]'); let capo = cs && mem.indexOf(cs.value) >= 0 ? cs.value : (mem[0] || ''); return {capo, membri: mem}; };
+  box.querySelectorAll('[data-sq-m]').forEach(ch => ch.onchange = () => { const id = ch.dataset.sqM.split('|')[0]; sqScrivi(id, g(), rileggi(id)); disegnaUfficio(); });
+  box.querySelectorAll('[data-sq-capo]').forEach(sl => sl.onchange = () => { const id = sl.dataset.sqCapo; const x = rileggi(id); x.capo = sl.value; sqScrivi(id, g(), x); disegnaUfficio(); });
+  box.querySelectorAll('[data-sq-ab]').forEach(b => b.onclick = () => { const id = b.dataset.sqAb, c = impostazioni.squadre; c.base = c.base || {}; c.base[id] = JSON.parse(JSON.stringify(sqEff(id, g()))); if (c.giorni && c.giorni[g()]) delete c.giorni[g()][id]; salvaImpostazioni(); disegnaUfficio(); });
+  box.querySelectorAll('[data-sq-back]').forEach(b => b.onclick = () => { const id = b.dataset.sqBack, c = impostazioni.squadre; if (c.giorni && c.giorni[g()]) delete c.giorni[g()][id]; salvaImpostazioni(); disegnaUfficio(); });
+}
+function squadreImpDisegna(){
+  const bx = $('#sq-imp'); if (!bx) return;
+  const T = (datiLevanteTutti && datiLevanteTutti.tecnici) || {}, ids = Object.keys(T).filter(id => !/^d-/.test(id)).sort((a, b) => String(T[a]).localeCompare(String(T[b]), 'it'));
+  if (!ids.length) { bx.innerHTML = '<p class="aiuto">L\'elenco compare dopo aver letto un\'esportazione di Levante.</p>'; return; }
+  bx.innerHTML = ids.map(id => `<label class="spunta" style="margin:4px 0"><input type="checkbox" data-sq-e="${esc(id)}"${eSquadra(id) ? ' checked' : ''}> <span>${esc(T[id])} <small style="color:#5b6d75">è una squadra</small></span></label>`).join('');
+  bx.onchange = async e => { const t = e.target; if (!t.dataset || t.dataset.sqE === undefined) return;
+    const c = impostazioni.squadre = impostazioni.squadre || {ids: [], base: {}, giorni: {}}; c.ids = (c.ids || []).map(String).filter(x => x !== t.dataset.sqE); if (t.checked) c.ids.push(t.dataset.sqE);
+    salvaImpostazioni(); try { await limiteTecniciCambiato(); } catch(x) {} try { applicaLimiteTecnici(); await rifaiAgendaUfficio(); } catch(x) {} try { disegnaUfficio(); } catch(x) {} };
+}
 function costruisciPer(){
-  const per = {};
-  datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)).forEach(a => { (per[a.tecnico_id || ''] = per[a.tecnico_id || ''] || []).push(a); });
+  const per = distribuisciApp();
   chiamateAperte().forEach(a => { const t = tecnicoChiamata(a); if (t) per[t] = per[t] || []; });
   const inv = leggiInviati(); Object.keys(inv).forEach(id => { if (id && inv[id] && ((inv[id].ch || []).length || (inv[id].cant || []).length)) per[id] = per[id] || []; });
   if (cantieriAttivi() && (datiLevante.cantieri || []).length) Object.keys(datiLevante.tecnici || {}).forEach(id => { per[id] = per[id] || []; });      // con i cantieri attivi li ricevono tutti, anche chi non ha appuntamenti   // chiamate gia' mandate e poi tolte: serve un aggiornamento
@@ -6917,7 +7018,7 @@ function salvaInviato(id, apps, chs, cants){
   setTimeout(() => { try { aggiornaNav(); } catch(e) {} }, 0);
   const inv = leggiInviati();
   inv[id] = {quando: new Date().toISOString(),
-    apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', rda: a.rda || undefined, urgente: !!a.urgente, fatto: !!a.fatto})),
+    apps: apps.map(a => ({id: a.id, inizio: a.inizio, fine: a.fine, titolo: a.titolo, luogo: a.luogo, messaggio: a.messaggio || '', rda: a.rda || undefined, pm: a.promemoria ? 1 : undefined, sqc: a.sq ? a.sq.capoNome : undefined, urgente: !!a.urgente, fatto: !!a.fatto})),
     ch: (chs || []).map(a => ({id: a.id, titolo: a.titolo, luogo: a.luogo})),
     cant: (cants || []).map(c => c.id),
     docIds: apps.flatMap(a => (a.docs || []).map(d => d.id)), cfg: JSON.stringify(cfgPer(id)), cmf: cmFirma(id), reg: ctrlRegFirma(apps)};
@@ -7089,6 +7190,7 @@ function disegnaUfficio(){
       : '<p class="aiuto" style="margin-top:14px">Nessun tecnico con novità e con l\'indirizzo email scritto qui sotto: non c\'è niente da inviare per mail.</p>';
     else h += '<p class="aiuto" style="margin-top:14px">Per mandare i file ai tecnici con un clic, imposta la posta in uscita nella scheda <button class="btn chiaro piccolo" type="button" data-uff-tab="imp">Impostazioni</button> («Invio dei file per mail ai tecnici») e scrivi l\'email di ogni tecnico.</p>';
   }
+  if (inUfficio) h += riquadroSquadre();
   const compatto = moltiTecnici(), nomeTec = id => id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
   let ordineTec = Object.keys(per);
   if (compatto) { const nv = {}; ordineTec.forEach(id => { nv[id] = haNovita(id, per, inviati, oggi) ? 0 : 1; }); ordineTec.sort((a, b) => nv[a] - nv[b] || nomeTec(a).localeCompare(nomeTec(b))); h += `<p class="aiuto" style="margin:16px 0 0">${ordineTec.filter(id => !nv[id]).length} ${ordineTec.filter(id => !nv[id]).length === 1 ? 'tecnico con novità' : 'tecnici con novità'} da inviare (in cima). Per mandarli tutti usa il pulsante qui sopra; tocca un nome per vedere i dettagli o inviare a uno solo.</p>`; }
@@ -7117,6 +7219,7 @@ function disegnaUfficio(){
   h += `<p class="aiuto" id="msg-consegna" role="status" style="margin-top:12px">${esc(infoUff.messaggio || '')}</p>`;
   h += `<div class="sez" style="margin-top:22px"><h2>Su questo dispositivo</h2><button class="btn sec pieno" id="b-usa-qui" type="button">Usa questi dati qui (tutti i tecnici)</button></div>`;
   esito.innerHTML = h;
+  try { squadreCollega(esito); } catch(e) {}
   esito.querySelectorAll('details.tec-comp').forEach(d => { d.firstChild.onclick = () => { apertiInv[d.dataset.tid] = !d.open; }; });
   esito.querySelectorAll('[data-invia]').forEach(b => b.onclick = () => consegna(b.dataset.invia, true));
   esito.querySelectorAll('[data-email]').forEach(i => i.onchange = () => { (impostazioni.emailTecnici = impostazioni.emailTecnici || {})[i.dataset.email] = i.value.trim(); salvaImpostazioni(); disegnaUfficio(); });
@@ -7172,7 +7275,7 @@ function listinoInviato(nome, pk){
 }
 function pacchettoPer(id, completo){
   const nome = id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : '';
-  const apps = datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a) && (a.tecnico_id || '') === id);
+  const apps = distribuisciApp()[id || ''] || [];
   const inv = leggiInviati()[id];
   const leggero = !!inv && !completo;                         // aggiornamento: i documenti gia' mandati non si rimandano
   const giaMandati = new Set(leggero ? (inv.docIds || []) : []);
@@ -7357,7 +7460,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.79.0 (05/11/2026)';
+const VERSIONE_APP = '1.80.1 (06/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8228,6 +8331,7 @@ function impPerUfficio(w){
 function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
     li: (w.levante && w.levante.li) || '', tipoInt: w.tipo || '',
+    squadra: w.squadra ? {nome: w.squadra.nome, capoOp: w.squadra.capoOp != null ? w.squadra.capoOp : null, membri: (w.squadra.membri || []).filter(m => m.p !== false).map(m => ({n: m.n, dal: m.dal || '', al: m.al || '', op: m.op != null ? m.op : null}))} : undefined,
     orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})),
     km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: ossUnite(w, 'osservazioni'), raccomandazioni: ossUnite(w, 'raccomandazioni'), prescrizioni: ossUnite(w, 'prescrizioni'), note: w.note || '',
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
@@ -8270,9 +8374,20 @@ const csvImp = () => {
 };
 const codiciMan = c => c.man.filter(m => m.cod);
 /* ripartizione delle ore sui codici di manodopera: se l'ufficio non ha toccato nulla, tutte le ore sul primo codice */
+/* squadra: una riga di manodopera per ogni persona presente, con le sue ore e il codice di manodopera del suo dipendente in Levante */
+function sqPersone(r){
+  const q = r.squadra; if (!q) return null;
+  const tot = minutiTotali(r), ff = (r.orari || []).filter(o => o.dal && o.al), primo = ff.map(o => o.dal).sort()[0] || '', ultimo = ff.map(o => o.al).sort().pop() || '';
+  const minM = m => m.dal && m.al ? minuti(m.dal, m.al) : m.dal ? (ultimo ? minuti(m.dal, ultimo) : tot) : m.al ? (primo ? minuti(primo, m.al) : tot) : tot;
+  return [{n: r.tecnico || 'Capo squadra', op: q.capoOp, min: tot, capo: true}].concat((q.membri || []).map(m => ({n: m.n, op: m.op, min: minM(m)})));
+}
+const minutiAttesi = r => { const p = sqPersone(r); return p ? p.reduce((s, x) => s + x.min, 0) : minutiTotali(r); };
+function codiceDi(c, op){ return (op != null && c.man[op] && c.man[op].cod) ? c.man[op].cod : ''; }
 function ripartizione(r){
   const c = csvImp(), man = codiciMan(c), tot = Math.round(minutiTotali(r) / 60 * 100) / 100;
   if (Array.isArray(r.rip) && r.rip.length) return r.rip;
+  const sp = sqPersone(r);
+  if (sp) return sp.map(x => ({c: codiceDi(c, x.op) || (man[0] || {cod: 'M0'}).cod, o: x.min ? csvNum(Math.round(x.min / 60 * 100) / 100, true) : '', p: x.n}));
   return [{c: (man[0] || {cod: 'M0'}).cod, o: tot ? csvNum(tot, true) : ''}];
 }
 function minutiTotali(r){ return (r.orari || []).reduce((s, o) => s + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0); }
@@ -8343,7 +8458,12 @@ function controlliIntervento(r){
   if (r.importi && r.importi.modo && r.importi.modo !== 'fattura' && r.importi.residuo > 0.004) c.push({t: 'Il cliente non ha pagato tutto: restano ' + euro(r.importi.residuo) + ' € da incassare.', grave: false});
   if (!(r.file || []).length) c.push({t: 'Nessun PDF del rapporto indicato.', grave: false});
   else (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF non ancora arrivato: ' + n + '.', grave: true}));
-  if (min > 0) { const somma = ripartizione(r).reduce((q, x) => q + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0); if (Math.abs(somma - min / 60) > 0.011) c.push({t: 'Le ore ripartite per la manodopera non tornano con il totale.', grave: true}); }
+  if (min > 0) { const somma = ripartizione(r).reduce((q, x) => q + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0); if (Math.abs(somma - minutiAttesi(r) / 60) > 0.011) c.push({t: 'Le ore ripartite per la manodopera non tornano con il totale.', grave: true}); }
+  const sp = sqPersone(r);
+  if (sp) {
+    if (r.importi && (r.importi.righe || []).length) c.push({t: 'Squadra: con la ricevuta il CSV segue la ricevuta, le ore per persona non sono separate.', grave: false});
+    else if (!(Array.isArray(r.rip) && r.rip.length)) sp.filter(x => x.min > 0 && !codiceDi(csvImp(), x.op)).forEach(x => c.push({t: 'Squadra: per ' + x.n + ' non trovo il codice di manodopera (dipendente non abbinato o codice non impostato nel CSV): ho usato il primo codice.', grave: false}));
+  }
   return c;
 }
 let codaOn = false, codaPos = 0;
@@ -8374,8 +8494,8 @@ function disegnaPosta(){
     const min = minutiTotali(r), h = min ? fmtOre(min) : '';
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
-    const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), diff = Math.abs(somma - min / 60) > 0.011;
-    const ripHtml = (min > 0 && !(r.importi && (r.importi.righe || []).length)) ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(min / 60, true))} h).</p>` : ''}</div>` : '';
+    const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), att = minutiAttesi(r), diff = Math.abs(somma - att / 60) > 0.011;
+    const ripHtml = (min > 0 && !(r.importi && (r.importi.righe || []).length)) ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${r.squadra ? ' <span class="aiuto">una riga per persona</span>' : ''}${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0">${x.p ? '<b style="min-width:84px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(x.p) + '">' + esc(x.p) + '</b>' : ''}<select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(att / 60, true))} h).</p>` : ''}</div>` : '';
     const conTab = !!(r.importi && (r.importi.righe || []).length);
     const extra = conTab ? '' : (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
     const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
@@ -8387,6 +8507,7 @@ function disegnaPosta(){
       ${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
+      ${r.squadra ? '<p style="margin:8px 0"><b>' + esc(r.squadra.nome) + ':</b> ' + ((r.squadra.membri || []).map(m => esc(m.n) + (sqOre(m) ? ' (' + esc(sqOre(m)) + ')' : '')).join(', ') || 'solo il capo') + '</p>' : ''}
       ${impUffHtml(r)}
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${vocLettore(r)}${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
@@ -9023,7 +9144,7 @@ function disegnaLicenza(st){
 function limiteTecnici(){ return (inUfficio && licenzaStato && licenzaStato.tecnici > 0) ? licenzaStato.tecnici : 0; }
 function tecniciConsentiti(){          // Set di id tecnico ammessi, oppure null = tutti
   const n = limiteTecnici(); if (!n || !datiLevanteTutti) return null;
-  const nomi = datiLevanteTutti.tecnici || {}, ids = Object.keys(nomi);
+  const nomi = datiLevanteTutti.tecnici || {}, ids = Object.keys(nomi).filter(id => !eSquadra(id));
   if (ids.length <= n) return null;
   let sel = Array.isArray(impostazioni.tecniciAttivi) ? impostazioni.tecniciAttivi.map(String).filter(id => ids.includes(id)) : null;
   if (!sel) sel = ids.slice().sort((a, b) => (soloOperaio(a) - soloOperaio(b)) || String(nomi[a]).localeCompare(String(nomi[b]), 'it')).slice(0, n);
@@ -9034,16 +9155,17 @@ function tecniciConsentiti(){          // Set di id tecnico ammessi, oppure null
 let sigTecnici = '';
 function applicaLimiteTecnici(){
   if (!datiLevanteTutti) return false;
-  const att = tecniciConsentiti();
-  if (!att) datiLevante = datiLevanteTutti;
+  const att = tecniciConsentiti(), sq = new Set(sqIds());
+  if (!att && !sq.size) datiLevante = datiLevanteTutti;
   else {
     const d = Object.assign({}, datiLevanteTutti, {tecnici: {}});
-    Object.keys(datiLevanteTutti.tecnici || {}).forEach(id => { if (att.has(id)) d.tecnici[id] = datiLevanteTutti.tecnici[id]; });
-    d.appuntamenti = datiLevanteTutti.appuntamenti.filter(a => !a.tecnico_id || att.has(String(a.tecnico_id)));
-    d.chiamate = (datiLevanteTutti.chiamate || []).filter(a => !a.tecnico_id || att.has(String(a.tecnico_id)));
+    Object.keys(datiLevanteTutti.tecnici || {}).forEach(id => { if (!sq.has(String(id)) && (!att || att.has(id))) d.tecnici[id] = datiLevanteTutti.tecnici[id]; });          // le squadre non sono tecnici: non contano per la licenza e non ricevono file
+    const ok = a => !a.tecnico_id || sq.has(String(a.tecnico_id)) || !att || att.has(String(a.tecnico_id));
+    d.appuntamenti = datiLevanteTutti.appuntamenti.filter(ok);
+    d.chiamate = (datiLevanteTutti.chiamate || []).filter(ok);
     datiLevante = d;
   }
-  const sig = att ? [...att].sort().join(',') : '*';
+  const sig = (att ? [...att].sort().join(',') : '*') + '|' + [...sq].sort().join(',');
   const cambiato = sig !== sigTecnici; sigTecnici = sig;
   return cambiato;
 }
@@ -9062,7 +9184,7 @@ function disegnaTecniciLicenza(){
   const n = limiteTecnici();
   if (!n) { box.hidden = true; return; }
   box.hidden = false;
-  const nomi = datiLevanteTutti ? datiLevanteTutti.tecnici : {}, ids = Object.keys(nomi || {}), testo = $('#lt-testo'), el = $('#lt-elenco');
+  const nomi = datiLevanteTutti ? datiLevanteTutti.tecnici : {}, ids = Object.keys(nomi || {}).filter(id => !eSquadra(id)), testo = $('#lt-testo'), el = $('#lt-elenco');
   if (!ids.length) { testo.innerHTML = 'La licenza comprende <b>' + n + (n === 1 ? ' tecnico' : ' tecnici') + '</b>.'; el.innerHTML = ''; return; }
   if (ids.length <= n) { testo.innerHTML = 'La licenza comprende <b>' + n + (n === 1 ? ' tecnico' : ' tecnici') + '</b>; in Levante ne ho trovati ' + ids.length + ': sono tutti attivi.'; el.innerHTML = ''; return; }
   const att = tecniciConsentiti() || new Set();
@@ -9537,6 +9659,7 @@ function cfgSezDisegna(){
 }
 function disegnaVociPred(){
   try { disegnaSigle(); } catch(e) {}
+  try { squadreImpDisegna(); } catch(e) {}
   try { schedeDisegna(); } catch(e) {}
   try { cfgSezDisegna(); } catch(e) {}
   { const ta = $('#tipi-int'); if (ta) { ta.value = impostazioniTipi().join('\n'); ta.oninput = ta.onchange = () => { impostazioni.tipiInt = ta.value; salvaImpostazioni(); }; } }
