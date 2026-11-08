@@ -612,6 +612,17 @@ select.rc-add{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margi
 #ctrl-d label{display:block;font-size:13px;color:#5b6d75}#ctrl-d label input,#ctrl-d label select,#ctrl-d label textarea,#ctrl-d .cnote{width:100%;box-sizing:border-box;font-size:16px;padding:7px;margin-top:2px}
 #ctrl-d .cadds{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margin-top:8px;border:1.5px solid #0e5a6b;border-radius:8px;background:#fff;color:#0e5a6b;font-weight:700}#ctrl-d .cnote{margin:2px 0 6px}#ctrl-d .cadd{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 #esf-d .esf-h{font-size:16px;margin:16px 0 6px;color:#14232b}
+/* gerarchia: le sezioni principali (barra a sinistra, titolo grande) si staccano dalle sottosezioni (scheda bianca con freccetta a destra) */
+details.passo.rcee-blocco{margin-top:34px}
+details.passo.rcee-blocco>summary{border-left:6px solid var(--petrolio);padding:8px 10px 8px 12px;background:var(--petrolio-c);border-radius:0 10px 10px 0}
+details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
+#ctrl-d details.cm,#fg-d details.fa,#fg-d details.fi{background:#fff}
+#ctrl-d details.cm>summary,#fg-d details.fa>summary,#fg-d details.fi>summary{list-style:none;position:relative;padding-right:30px}
+#ctrl-d details.cm>summary::-webkit-details-marker,#fg-d details.fa>summary::-webkit-details-marker,#fg-d details.fi>summary::-webkit-details-marker{display:none}
+#ctrl-d details.cm>summary::after,#fg-d details.fa>summary::after,#fg-d details.fi>summary::after{content:'';position:absolute;right:8px;top:50%;width:9px;height:9px;border-right:2px solid #5b6d75;border-bottom:2px solid #5b6d75;-webkit-transform:translateY(-70%) rotate(45deg);transform:translateY(-70%) rotate(45deg)}
+#ctrl-d details.cm[open]>summary::after,#fg-d details.fa[open]>summary::after,#fg-d details.fi[open]>summary::after{-webkit-transform:translateY(-30%) rotate(225deg);transform:translateY(-30%) rotate(225deg)}
+#ctrl-d details.cm>summary b{font-size:15px}
+#ctrl-d details.cm>summary small,#ctrl-d details.cm>summary .aiuto{margin-left:0}
 </style>
 </head>
 <body>
@@ -7493,7 +7504,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.82.0 (08/11/2026)';
+const VERSIONE_APP = '1.82.1 (08/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
