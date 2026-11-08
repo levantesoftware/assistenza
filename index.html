@@ -592,6 +592,11 @@ html.no-flexgap #avviso-basso>*+*{margin-left:10px}
 #fg-d .cgrid label{display:flex;flex-direction:column;font-size:13px;color:#5b6d75}#fg-d .cgrid label.spunta{flex-direction:row;align-items:center;gap:8px;color:#14232b;font-size:15px}
 #fg-d .cadds{width:100%;margin-top:8px}
 #ctrl-d .cm{border:1px solid var(--bordo,#d5dcdf);border-radius:10px;padding:10px;margin:8px 0}
+#ctrl-d .cm-w{position:relative;overflow:hidden;margin:8px 0;border-radius:10px}
+#ctrl-d .cm-w>details.cm{margin:0;-webkit-transition:-webkit-transform .2s;transition:transform .2s}
+#ctrl-d .cm-w.sw>details.cm{-webkit-transform:translateX(-76px);transform:translateX(-76px)}
+#ctrl-d .cm-cest{position:absolute;top:0;right:0;bottom:0;width:76px;min-height:0;border:0;margin:0;padding:0;border-radius:0 10px 10px 0;background:var(--rosso);color:#fff;display:-webkit-box;display:flex;-webkit-box-align:center;align-items:center;-webkit-box-pack:center;justify-content:center;opacity:0;pointer-events:none;-webkit-transition:opacity .2s;transition:opacity .2s}
+#ctrl-d .cm-w.sw .cm-cest{opacity:1;pointer-events:auto}
 select.rc-add{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margin-top:8px;border:1.5px solid #0e5a6b;border-radius:8px;background:#fff;color:#0e5a6b;font-weight:700}
 #ctrl-d details.cm>summary{cursor:pointer;list-style-position:inside;padding:2px 0}#ctrl-d details.cm>summary b{font-size:17px}#ctrl-d details.cm>summary small{display:block;color:#5b6d75;margin-left:18px}#ctrl-d details.cm>summary .aiuto{display:block;margin:2px 0 0 18px}#ctrl-d details.cm[open]>summary{margin-bottom:6px}#ctrl-d .cmt{display:flex;flex-direction:column;margin-bottom:4px}#ctrl-d .cmt small{color:#5b6d75}
 #ctrl-d .cv{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e6ebed;font-size:15px}
@@ -3423,7 +3428,7 @@ function ctrlBloccoUno(c, idx){
   const m = ctrlM(c.mod); if (!m) return '';
   c.gest = c.gest || {}; c.idr = c.idr || [];
   const ka = 'M|' + c.id, ap = ctrlApr[ka] !== undefined ? ctrlApr[ka] : !idx;          // il primo si apre da solo, gli altri restano chiusi
-  return `<details class="cm" data-cm="${esc(c.id)}" data-ck="${esc(ka)}"${ap ? ' open' : ''}><summary><b>${esc(m.nome)}${c.et ? ' · ' + esc(c.et) : ''}</b><small>${esc(m.rif)}</small><span class="aiuto">${esc(ctrlSommUno(m, c))}</span></summary>
+  return `<div class="cm-w"><details class="cm" data-cm="${esc(c.id)}" data-ck="${esc(ka)}"${ap ? ' open' : ''}><summary><b>${esc(m.nome)}${c.et ? ' · ' + esc(c.et) : ''}</b><small>${esc(m.rif)}</small><span class="aiuto">${esc(ctrlSommUno(m, c))}</span></summary>
     <p class="aiuto" style="margin:6px 0 4px">${esc(m.gestTit || 'Gestione · tocca ✕ solo dove c\'è un problema')}</p>
     ${m.pmp ? `<p style="margin:4px 0 6px"><button type="button" class="btn chiaro piccolo" data-cpmp="${esc(c.id)}">Segna come eseguite tutte le voci ancora vuote</button></p>` : ''}
     ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || (m.pmp ? '' : 'ok'); return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${(m.pmp ? ['ok', 'na', 'ko'] : ['ok', 'ko']).map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
@@ -3433,7 +3438,12 @@ function ctrlBloccoUno(c, idx){
     <select class="cadds" data-cadds="${esc(c.id)}" aria-label="Aggiungi un apparecchio"><option value="">+ Aggiungi un ${m.app}…</option>${m.tipi.map(t => `<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}<option value="altro">Altro (scrivi il nome)</option></select>`}
     <label class="cw" style="display:block;margin-top:10px">Note<textarea data-cn="${esc(c.id)}" data-f="note" rows="2">${esc(c.note || '')}</textarea></label>
     <label class="cw" style="display:block;margin-top:8px;max-width:220px">Prossimo controllo<input type="date" data-cn="${esc(c.id)}" data-f="prossimo" value="${esc(c.prossimo || '')}"></label>
-    <button type="button" class="btn chiaro piccolo" data-cdel="${esc(c.id)}" style="margin-top:10px">Togli questo controllo</button></details>`;
+    <button type="button" class="btn chiaro piccolo" data-cdel="${esc(c.id)}" style="margin-top:10px">Togli questo controllo</button></details><button type="button" class="cm-cest" data-cdel="${esc(c.id)}" aria-label="Togli questo controllo" tabindex="-1"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>`;
+}
+function ctrlTornaQui(){          // dopo aver tolto un controllo si resta nella sezione, non in fondo all'intervento
+  const d = $('#ctrl-d'); if (!d) return;
+  try { const nav = document.querySelector('.sz-nav') || document.querySelector('.barra.fissa'), off = nav ? Math.round(nav.getBoundingClientRect().bottom) + 8 : 110, r = d.getBoundingClientRect();
+    if (r.bottom < off + 40 || r.top > window.innerHeight - 80) window.scrollTo(0, Math.max(0, (window.pageYOffset || 0) + r.top - off)); } catch(e) {}
 }
 function ctrlHtml(w){
   const l = w.ctrl || [];
@@ -3454,6 +3464,28 @@ function ctrlTrova(k){ const q = k.split('|'); const c = (lavoro.ctrl || []).fin
 function collegaCtrl(){
   const d = $('#form'); if (!d) return;       // il modulo si ridisegna a ogni intervento: gli ascoltatori stanno sul contenitore fisso
   d.addEventListener('toggle', e => { if (e.target.id === 'ctrl-d') ctrlApr[lavoro.id] = e.target.open; else if (e.target.dataset && e.target.dataset.ck) ctrlApr[e.target.dataset.ck] = e.target.open; }, true);
+  /* scorri verso sinistra un controllo chiuso: compare il cestino (stesso comando di «Togli questo controllo») */
+  let sw = null, ignora = 0;
+  const chiudiSw = tranne => document.querySelectorAll('#ctrl-d .cm-w.sw').forEach(w => { if (w !== tranne) w.classList.remove('sw'); });
+  d.addEventListener('touchstart', e => {
+    const w = e.target.closest ? e.target.closest('#ctrl-d .cm-w') : null; chiudiSw(w);
+    const sm = e.target.closest ? e.target.closest('#ctrl-d details.cm > summary') : null;
+    if (!sm || !w || sm.parentNode.open || e.touches.length !== 1) { sw = null; return; }
+    sw = {w, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, mosso: false};
+  }, {passive: true});
+  d.addEventListener('touchmove', e => {
+    if (!sw) return; const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (!sw.mosso) { if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; } if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.5) sw.mosso = true; }
+    sw.dx = dx;
+  }, {passive: true});
+  d.addEventListener('touchend', () => { if (!sw) return; if (sw.mosso) { ignora = Date.now(); if (sw.dx < -45) sw.w.classList.add('sw'); else if (sw.dx > 45) sw.w.classList.remove('sw'); } sw = null; }, {passive: true});
+  d.addEventListener('touchcancel', () => { sw = null; }, {passive: true});
+  d.addEventListener('click', e => {
+    const sm = e.target.closest ? e.target.closest('#ctrl-d details.cm > summary') : null; if (!sm) return;
+    const w = sm.closest('.cm-w');
+    if (Date.now() - ignora < 600) { e.preventDefault(); e.stopPropagation(); return; }
+    if (w && w.classList.contains('sw')) { w.classList.remove('sw'); e.preventDefault(); e.stopPropagation(); }
+  }, true);
   d.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || !b.closest('#ctrl-d')) return;
     if (b.dataset.cnew) ctrlNuovo(b.dataset.cnew);
@@ -3472,8 +3504,8 @@ function collegaCtrl(){
     else if (b.dataset.cqr) ctrlMostraEtichetta(b.dataset.cqr);
     else if (b.dataset.cfs) { const x = b.closest('details').querySelector('input[data-cam]'); if (x) x.click(); }
     else if (b.dataset.cfg) { const x = b.closest('details').querySelector('input[data-cfoto]:not([data-cam])'); if (x) x.click(); }
-    else if (b.dataset.cdelI) { const t = ctrlTrova(b.dataset.cdelI); if (t && t.i && confirm('Togliere questo apparecchio dal controllo?')) { t.c.idr = t.c.idr.filter(x => x !== t.i); ctrlRidisegna(); bozzaModificata(); } }
-    else if (b.dataset.cdel) { if (confirm('Togliere tutto questo controllo?')) { lavoro.ctrl = (lavoro.ctrl || []).filter(x => x.id !== b.dataset.cdel); ctrlRidisegna(); bozzaModificata(); } }
+    else if (b.dataset.cdelI) { const t = ctrlTrova(b.dataset.cdelI); if (t && t.i && confirm('Togliere questo apparecchio dal controllo?')) { t.c.idr = t.c.idr.filter(x => x !== t.i); ctrlRidisegna(); bozzaModificata(); ctrlTornaQui(); } }
+    else if (b.dataset.cdel) { if (confirm('Togliere tutto questo controllo?')) { lavoro.ctrl = (lavoro.ctrl || []).filter(x => x.id !== b.dataset.cdel); ctrlRidisegna(); bozzaModificata(); ctrlTornaQui(); } }
   });
   const agg = e => { const t = e.target, ds = t.dataset || {}; if (!t.closest || !t.closest('#ctrl-d')) return;
     if (ds.cnewsel !== undefined) { if (e.type !== 'change' || !t.value) return; const v = t.value; t.value = ''; ctrlNuovo(v); return; }
@@ -7461,7 +7493,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.81.2 (06/11/2026)';
+const VERSIONE_APP = '1.82.0 (08/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
