@@ -612,6 +612,12 @@ select.rc-add{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margi
 #ctrl-d label{display:block;font-size:13px;color:#5b6d75}#ctrl-d label input,#ctrl-d label select,#ctrl-d label textarea,#ctrl-d .cnote{width:100%;box-sizing:border-box;font-size:16px;padding:7px;margin-top:2px}
 #ctrl-d .cadds{width:100%;box-sizing:border-box;font-size:16px;padding:10px;margin-top:8px;border:1.5px solid #0e5a6b;border-radius:8px;background:#fff;color:#0e5a6b;font-weight:700}#ctrl-d .cnote{margin:2px 0 6px}#ctrl-d .cadd{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 #esf-d .esf-h{font-size:16px;margin:16px 0 6px;color:#14232b}
+#ctrl-d .cv.cop{display:block;padding:8px 0}
+#ctrl-d .copts{display:-webkit-box;display:flex;-webkit-box-lines:multiple;flex-wrap:wrap;margin:6px -3px 0}
+#ctrl-d .copt{min-height:44px;margin:3px;padding:6px 14px;border:1px solid var(--acciaio-s);border-radius:999px;background:#fff;color:var(--inchiostro);font:inherit;font-size:15px;cursor:pointer;text-align:left}
+#ctrl-d .copt.chk{border-radius:8px}
+#ctrl-d .copt[aria-pressed="true"]{background:var(--petrolio);border-color:var(--petrolio);color:#fff;font-weight:600}
+#ctrl-d .copt[aria-pressed="true"]::before{content:'\2713\00a0'}
 /* gerarchia: le sezioni principali (striscia chiara, titolo grande) si staccano dalle sottosezioni (scheda bianca con freccetta a destra) */
 details.passo.rcee-blocco{margin-top:34px}
 details.passo.rcee-blocco>summary{padding:8px 12px;background:var(--petrolio-c);border-radius:10px}
@@ -3313,7 +3319,12 @@ function ctrlMods(){
 const ctrlM = k => ctrlMods()[k];
 const ctrlApr = {};
 const ctrlId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-const ctrlGestCampo = (c, g) => { const txt = g[3] === 'txt'; return `<div class="cv cg" style="flex-wrap:nowrap"><span style="flex:1;min-width:0"><b>${esc(g[1])}</b>${g[2] ? `<small>${esc(g[2])}</small>` : ''}</span><span class="cb" style="align-items:center;gap:6px"><input type="text"${txt ? '' : ' inputmode="decimal"'} class="cnote" style="width:${txt ? 156 : 84}px;${txt ? '' : 'text-align:right'}" data-clet="${esc(c.id + '|' + g[0])}" value="${esc((c.lett || {})[g[0]] || '')}" autocomplete="off">${g[4] ? `<b>${esc(g[4])}</b>` : ''}</span></div>`; };
+const ctrlOpz = g => String(g[4] || '').split('|').filter(Boolean);
+const ctrlCampi = m => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt' || g[3] === 'sel' || g[3] === 'chk') && g[0] !== 'ol' && !/\.n$/.test(g[0]));
+const ctrlGestCampo = (c, g) => {
+  if (g[3] === 'sel' || g[3] === 'chk') { const sel = String((c.lett || {})[g[0]] || '').split('|').filter(Boolean);          // scelta singola (sel) o più caselle (chk): ogni scelta è un pulsante
+    return `<div class="cv cg cop"><div><b>${esc(g[1])}</b>${g[2] ? `<small>${esc(g[2])}</small>` : ''}</div><div class="copts" role="group" aria-label="${esc(g[1])}">${ctrlOpz(g).map((o, i) => `<button type="button" class="copt ${g[3]}" data-copt="${esc(c.id + '|' + g[0] + '|' + i)}" aria-pressed="${sel.indexOf(o) >= 0}">${esc(o)}</button>`).join('')}</div></div>`; }
+  const txt = g[3] === 'txt'; return `<div class="cv cg" style="flex-wrap:nowrap"><span style="flex:1;min-width:0"><b>${esc(g[1])}</b>${g[2] ? `<small>${esc(g[2])}</small>` : ''}</span><span class="cb" style="align-items:center;gap:6px"><input type="text"${txt ? '' : ' inputmode="decimal"'} class="cnote" style="width:${txt ? 156 : 84}px;${txt ? '' : 'text-align:right'}" data-clet="${esc(c.id + '|' + g[0])}" value="${esc((c.lett || {})[g[0]] || '')}" autocomplete="off">${g[4] ? `<b>${esc(g[4])}</b>` : ''}</span></div>`; };
 const ctrlTipo = (m, k, i) => m.tipi.find(t => t[0] === k) || (k === 'altro' ? ['altro', (i && i.tn) || 'Altro apparecchio', (i && i.tn) || 'Altro', Object.keys(m.voci)] : m.tipi[0]);
 /* Tutti gli apparecchi mostrano tutte le voci: quelle che per quel tipo di solito non servono partono su «n.a.» (grigio) e si attivano con un tocco su ✓ o ✕ */
 const ctrlStato = (m, t, i, v) => (i.es || {})[v] || (t[3].indexOf(v) >= 0 ? 'ok' : 'na');
@@ -3325,10 +3336,12 @@ function ctrlNegativi(m, c){            // elenco dei negativi: gestione e appar
   const a = (c.idr || []).map(i => ({i, ko: ctrlKo(m, null, i).map(v => m.voci[v][0])})).filter(x => x.ko.length);
   return {g, a};
 }
-const ctrlPmpConta = (m, c) => { const v = m.gest.filter(g => !g[3]); return {t: v.length, f: v.filter(g => c.gest && c.gest[g[0]] && c.gest[g[0]].e).length}; };
+const ctrlPmpConta = (m, c) => { const v = m.gest.filter(g => !g[3]); if (v.length) return {t: v.length, f: v.filter(g => c.gest && c.gest[g[0]] && c.gest[g[0]].e).length};
+  const q = ctrlCampi(m); return {t: q.length, f: q.filter(g => String((c.lett || {})[g[0]] || '').trim()).length, c: 1}; };          // scheda solo a campi: si contano i campi compilati
+function ctrlAggSomm(c){ const m = ctrlM(c.mod), e = document.querySelector('details.cm[data-cm="' + c.id + '"]'); if (e && m) { const a = e.querySelector('summary .aiuto'); if (a) a.textContent = ctrlSommUno(m, c); } const sm = $('#ctrl-sum'); if (sm) sm.textContent = ctrlSomm(lavoro); }
 function ctrlSommUno(m, c){
   const n = ctrlNegativi(m, c), k = n.g.length + n.a.reduce((s, x) => s + x.ko.length, 0);
-  if (m.pmp) { const q = ctrlPmpConta(m, c); return q.f + ' su ' + q.t + ' voci' + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ''); }
+  if (m.pmp) { const q = ctrlPmpConta(m, c); return q.f + ' su ' + q.t + (q.c ? ' campi' : ' voci') + (k ? ', ' + k + ' negativ' + (k === 1 ? 'o' : 'i') : ''); }
   return (m.solo ? '' : (c.idr || []).length + ' ' + ((c.idr || []).length === 1 ? m.app : m.apps) + ', ') + (k ? k + ' negativ' + (k === 1 ? 'o' : 'i') : 'tutto positivo');
 }
 function ctrlSomm(w){
@@ -3441,8 +3454,8 @@ function ctrlBloccoUno(c, idx){
   const ka = 'M|' + c.id, ap = ctrlApr[ka] !== undefined ? ctrlApr[ka] : !idx;          // il primo si apre da solo, gli altri restano chiusi
   return `<div class="cm-w"><details class="cm" data-cm="${esc(c.id)}" data-ck="${esc(ka)}"${ap ? ' open' : ''}><summary><b>${esc(m.nome)}${c.et ? ' · ' + esc(c.et) : ''}</b><small>${esc(m.rif)}</small><span class="aiuto">${esc(ctrlSommUno(m, c))}</span></summary>
     <p class="aiuto" style="margin:6px 0 4px">${esc(m.gestTit || 'Gestione · tocca ✕ solo dove c\'è un problema')}</p>
-    ${m.pmp ? `<p style="margin:4px 0 6px"><button type="button" class="btn chiaro piccolo" data-cpmp="${esc(c.id)}">Segna come eseguite tutte le voci ancora vuote</button></p>` : ''}
-    ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || (m.pmp ? '' : 'ok'); return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${(m.pmp ? ['ok', 'na', 'ko'] : ['ok', 'ko']).map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
+    ${m.pmp && m.gest.some(g => !g[3]) ? `<p style="margin:4px 0 6px"><button type="button" class="btn chiaro piccolo" data-cpmp="${esc(c.id)}">Segna come eseguite tutte le voci ancora vuote</button></p>` : ''}
+    ${m.gest.map(g => { if (g[3] === 'tit') return `<p class="aiuto" style="margin:12px 0 2px"><b>${esc(g[1])}</b></p>`; if (g[3] === 'num' || g[3] === 'txt' || g[3] === 'sel' || g[3] === 'chk') return ctrlGestCampo(c, g); const e = (c.gest[g[0]] || {}).e || (m.pmp ? '' : 'ok'); return `<div class="cv cg"><span><b>${esc(g[1])}</b>${e === 'ko' ? '' : `<small>${esc(g[2])}</small>`}</span><span class="cb">${(m.pmp ? ['ok', 'na', 'ko'] : ['ok', 'ko']).map(s => ctrlSt(e, s, c.id + '|G|' + g[0])).join('')}</span></div>${e === 'ko' ? `<input type="text" class="cnote" data-cg="${esc(c.id + '|' + g[0])}" value="${esc((c.gest[g[0]] || {}).n || '')}" placeholder="Cosa non va (sostituisce la descrizione)" autocomplete="off">` : ''}`; }).join('')}
     ${m.solo ? '' : `    <p class="aiuto" style="margin:12px 0 4px">${m.apps[0].toUpperCase() + m.apps.slice(1)} · ${c.idr.length}</p>${ctrlRiga(m, c)}${ctrlGiro(m, c)}
     ${c.idr.map(i => ctrlCard(m, c, i)).join('') || `<p class="aiuto">Ancora nessun ${m.app}. Scegli il tipo qui sotto per aggiungerne uno.</p>`}
     ${m.senzaQr ? '' : `<div class="cadd"><button type="button" class="btn piccolo" data-cscan="${esc(c.id)}">Inquadra il QR</button><button type="button" class="btn sec piccolo" data-cfoglio="${esc(c.id)}">Etichette QR (PDF)</button></div>`}
@@ -3500,6 +3513,11 @@ function collegaCtrl(){
   d.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || !b.closest('#ctrl-d')) return;
     if (b.dataset.cnew) ctrlNuovo(b.dataset.cnew);
+    else if (b.dataset.copt) { const q = b.dataset.copt.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]), m = c && ctrlM(c.mod), g = m && m.gest.find(x => x[0] === q[1]); if (!c || !g) return;
+      const op = ctrlOpz(g), o = op[+q[2]]; if (o === undefined) return; c.lett = c.lett || {}; let sel = String(c.lett[g[0]] || '').split('|').filter(Boolean);
+      if (g[3] === 'chk') { const i = sel.indexOf(o); if (i >= 0) sel.splice(i, 1); else sel.push(o); } else sel = sel.indexOf(o) >= 0 ? [] : [o];
+      c.lett[g[0]] = sel.join('|'); b.parentNode.querySelectorAll('.copt').forEach(x => x.setAttribute('aria-pressed', String(sel.indexOf(op[+x.dataset.copt.split('|')[2]]) >= 0)));
+      ctrlAggSomm(c); bozzaModificata(); }
     else if (b.dataset.cadd) { const q = b.dataset.cadd.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (!c) return; const n = {id: ctrlId(), tipo: q[1], matr: '', pos: '', es: {}, nota: ''}; c.idr.push(n); ctrlApr[c.id + '|' + n.id] = true; ctrlRidisegna(); bozzaModificata(); }
     else if (b.dataset.cs) { const t = ctrlTrova(b.dataset.cs), v = b.dataset.v; if (!t) return;
       if (t.q[1] === 'G') { t.c.gest = t.c.gest || {}; const mm = ctrlM(t.c.mod), cur = (t.c.gest[t.q[2]] || {}).e || '';
@@ -3525,7 +3543,7 @@ function collegaCtrl(){
     if (ds.ci && ds.f === 'nc') { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.nc = t.checked; ctrlApr[ds.ci] = true; ctrlRidisegna(); bozzaModificata(); } return; }
     if (ds.ci && ds.fd) { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.d = q.i.d || {}; q.i.d[ds.fd] = t.value; bozzaModificata(); } return; }
     if (ds.ci && ds.nv) { const q = ctrlTrova(ds.ci); if (q && q.i) { q.i.nv = q.i.nv || {}; q.i.nv[ds.nv] = t.value; bozzaModificata(); } return; }
-    if (ds.clet) { const q = ds.clet.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c) { c.lett = c.lett || {}; c.lett[q[1]] = t.value; bozzaModificata(); } return; }
+    if (ds.clet) { const q = ds.clet.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c) { c.lett = c.lett || {}; c.lett[q[1]] = t.value; try { ctrlAggSomm(c); } catch(x) {} bozzaModificata(); } return; }
     if (ds.ci) { const q = ctrlTrova(ds.ci); if (!q || !q.i) return; q.i[ds.f] = t.value; if (ds.f === 'tipo' || ds.f === 'matr' || ds.f === 'pos' || ds.f === 'tn' || ds.f === 'ogni') { if (e.type === 'change') ctrlRidisegna(); else { const s = t.closest('details').querySelector('summary b'); } } bozzaModificata(); }
     else if (ds.cg) { const q = ds.cg.split('|'), c = (lavoro.ctrl || []).find(x => x.id === q[0]); if (c && c.gest && c.gest[q[1]]) { c.gest[q[1]].n = t.value; bozzaModificata(); } }
     else if (ds.cn) { const c = (lavoro.ctrl || []).find(x => x.id === ds.cn); if (c) { c[ds.f] = t.value; bozzaModificata(); } } };
@@ -3533,7 +3551,7 @@ function collegaCtrl(){
 }
 function ctrlUfficioHtml(r){
   return (r.ctrl || []).map(c => { const n = c.neg || {g: [], a: []}, k = n.g.length + n.a.length;
-    return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.solo ? '' : c.n + ' ' + (c.n === 1 ? 'apparecchio' : 'apparecchi') + ' · '}${k ? (c.pm ? c.pm.f + ' su ' + c.pm.t + ' voci · ' : '') + '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : (c.pm ? c.pm.f + ' su ' + c.pm.t + ' voci compilate' : 'tutto positivo')}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
+    return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.solo ? '' : c.n + ' ' + (c.n === 1 ? 'apparecchio' : 'apparecchi') + ' · '}${k ? (c.pm ? c.pm.f + ' su ' + c.pm.t + (c.pm.c ? ' campi · ' : ' voci · ') : '') + '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : (c.pm ? c.pm.f + ' su ' + c.pm.t + (c.pm.c ? ' campi compilati' : ' voci compilate') : 'tutto positivo')}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
       ((c.lett || []).length ? '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + (l.u ? ' ' + esc(l.u) : '') + '</b>').join(' · ') + '</p>' : '') +
       ((c.sc || []).length ? '<p style="margin:4px 0 2px"><b>Prossime scadenze</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.sc.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.s.map(z => esc(z.v) + ' <b>' + esc(z.me ? ctrlMeseIT(z.d) : dataIT(z.d)) + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
       ((c.app || []).length ? '<p style="margin:4px 0 2px"><b>Dati tecnici dei componenti</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.app.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.d.map(f => esc(f.v) + ' <b>' + esc(f.val) + (f.u ? ' ' + esc(f.u) : '') + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
@@ -4031,7 +4049,7 @@ function fgScadenzeHtml(){
     ${ap.length ? '<p style="margin:8px 0 2px"><b>Prossimi controlli perdite</b> <span class="aiuto">(indicativi)</span></p><ul style="margin:0;padding-left:20px">' + ap.map(a => `<li>entro il <b>${esc(dataIT(a.pr))}</b>${a.pr < oggi ? ' <span class="chip urg">scaduto</span>' : ''} · ${esc(a.cl)} · ${esc(a.nome)} · ${esc(fgIt(a.co2))} t CO₂eq</li>`).join('') + '</ul>' : ''}</details>`;
 }
 
-const ctrlLettDati = (m, c) => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt') && String((c.lett || {})[g[0]] || '').trim()).map(g => ({v: g[1], val: String(c.lett[g[0]]).trim(), u: g[4] || ''}));
+const ctrlLettDati = (m, c) => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt' || g[3] === 'sel' || g[3] === 'chk') && String((c.lett || {})[g[0]] || '').trim()).map(g => { const sc = g[3] === 'sel' || g[3] === 'chk'; return {v: g[1], val: sc ? String(c.lett[g[0]]).split('|').filter(Boolean).join(', ') : String(c.lett[g[0]]).trim(), u: sc ? '' : (g[4] || '')}; });
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
   return {mod: c.mod, nome: m.nome + (c.et ? ' · ' + c.et : ''), pm: m.pmp ? ctrlPmpConta(m, c) : undefined, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, sc: ctrlConScad(m) ? ctrlScadDati(m, c, w) : undefined, rk: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) || undefined, rd: w.data || undefined, ri: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) ? ctrlRegVoci(w, c, m) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
@@ -4055,6 +4073,9 @@ function costruisciPdfCtrl(w, c){
   /* gestione */
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9); col(PET); doc.text(m.solo ? 'CONTROLLI' : (m.gestPdf || 'GESTIONE'), M, y + 3); y += 5;
   m.gest.forEach(g => { if (g[3] === 'tit') { if (y + 12 > H - 20) nuova(); y += 1.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(8); col(PET); doc.text(String(g[1]).toUpperCase(), M + 1, y + 3.4); y += 5.2; return; }
+    if (g[3] === 'sel' || g[3] === 'chk') { const val = String((c.lett || {})[g[0]] || '').split('|').filter(Boolean).join(', ') || '—'; doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+      const lb = doc.splitTextToSize(g[1], 100), vl = doc.splitTextToSize(val, 80), alt = Math.max(lb.length, vl.length) * 3.7 + 2.2; if (y + alt > H - 20) nuova();
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(lb, M + 1, y + 3.4); doc.text(vl, W - M - 2, y + 3.4, {align: 'right'}); doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + alt, W - M, y + alt); y += alt + 0.6; return; }
     if (g[3] === 'num' || g[3] === 'txt') { const val = String((c.lett || {})[g[0]] || '').trim(); if (y + 6 > H - 20) nuova(); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(g[1], M + 1, y + 3.4); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); col(GR); doc.text(g[2], M + 62, y + 3.4); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); col(INK); doc.text(val ? val + (g[4] ? ' ' + g[4] : '') : (g[3] === 'txt' ? '—' : 'non rilevata'), W - M - 2, y + 3.4, {align: 'right'}); doc.setDrawColor(220, 226, 228); doc.setLineWidth(0.2); doc.line(M, y + 5, W - M, y + 5); y += 5.6; return; }
     const ko = (c.gest || {})[g[0]] && c.gest[g[0]].e === 'ko';
     /* positivo: la descrizione in grigio; negativo: al suo posto la spiegazione del problema (in rosso) */
@@ -7504,7 +7525,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.82.2 (08/11/2026)';
+const VERSIONE_APP = '1.83.0 (09/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9674,7 +9695,7 @@ function cfgBlocco(chi){ const c = impostazioni.cfgSez || {}; return chi === 'az
 function schedeValida(m){
   if (!m || typeof m !== 'object' || typeof m.nome !== 'string' || !Array.isArray(m.gest) || m.gest.length > 600) return null;
   const t = (x, n) => String(x == null ? '' : x).slice(0, n);
-  const gest = m.gest.filter(g => Array.isArray(g) && g.length >= 2).map(g => { const r = [t(g[0], 40), t(g[1], 400), t(g[2], 300)]; if (g[3]) r.push(t(g[3], 4)); if (g[4]) r.push(t(g[4], 12)); return r; });
+  const gest = m.gest.filter(g => Array.isArray(g) && g.length >= 2).map(g => { const r = [t(g[0], 40), t(g[1], 400), t(g[2], 300)]; if (g[3]) r.push(t(g[3], 4)); if (g[4]) r.push((g[3] === 'sel' || g[3] === 'chk') ? String(g[4]).split('|').map(x => t(x, 40).trim()).filter(Boolean).slice(0, 12).join('|') : t(g[4], 12)); return r; });
   let parole = ''; try { parole = t(m.parole, 200); if (parole) new RegExp(parole, 'i'); } catch(e) { parole = ''; }
   const o = {nome: t(m.nome, 120), rif: t(m.rif, 200), pmp: true, solo: true, gestPre: '', gestTit: t(m.gestTit, 200) || undefined, gest, voci: {}, tipi: [], parole};
   if (m.prossMesi > 0 && m.prossMesi <= 60) o.prossMesi = Math.round(m.prossMesi);
