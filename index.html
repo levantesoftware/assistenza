@@ -3552,7 +3552,7 @@ function collegaCtrl(){
 function ctrlUfficioHtml(r){
   return (r.ctrl || []).map(c => { const n = c.neg || {g: [], a: []}, k = n.g.length + n.a.length;
     return `<p style="margin:8px 0 2px"><b>${esc(c.nome)}</b> · ${c.solo ? '' : c.n + ' ' + (c.n === 1 ? 'apparecchio' : 'apparecchi') + ' · '}${k ? (c.pm ? c.pm.f + ' su ' + c.pm.t + (c.pm.c ? ' campi · ' : ' voci · ') : '') + '<span style="color:#b91c1c;font-weight:700">' + k + ' con esito negativo</span>' : (c.pm ? c.pm.f + ' su ' + c.pm.t + (c.pm.c ? ' campi compilati' : ' voci compilate') : 'tutto positivo')}${c.prossimo ? ' · prossimo controllo ' + esc(dataIT(c.prossimo)) : ''}</p>` +
-      ((c.lett || []).length ? '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + (l.u ? ' ' + esc(l.u) : '') + '</b>').join(' · ') + '</p>' : '') +
+      ((c.lett || []).length ? (c.pm && c.pm.c ? '<details style="margin:2px 0"><summary class="aiuto" style="cursor:pointer">Mostra i campi compilati (' + c.lett.length + ')</summary>' : '') + '<p style="margin:2px 0">' + c.lett.map(l => esc(l.v) + ': <b>' + esc(l.val) + (l.u ? ' ' + esc(l.u) : '') + '</b>').join(' · ') + '</p>' + (c.pm && c.pm.c ? '</details>' : '') : '') +
       ((c.sc || []).length ? '<p style="margin:4px 0 2px"><b>Prossime scadenze</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.sc.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.s.map(z => esc(z.v) + ' <b>' + esc(z.me ? ctrlMeseIT(z.d) : dataIT(z.d)) + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
       ((c.app || []).length ? '<p style="margin:4px 0 2px"><b>Dati tecnici dei componenti</b></p><ul style="margin:0 0 4px;padding-left:20px">' + c.app.map(x => `<li>${esc(x.t)}${x.matr ? ' n. ' + esc(x.matr) : ''}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${x.d.map(f => esc(f.v) + ' <b>' + esc(f.val) + (f.u ? ' ' + esc(f.u) : '') + '</b>').join(' · ')}</li>`).join('') + '</ul>' : '') +
       (k ? '<ul style="margin:0;padding-left:20px">' + n.g.map(x => `<li>${c.pre != null ? esc(c.pre) : (c.solo ? '' : 'Gestione · ')}${esc(x.v)}${x.n ? ' — ' + esc(x.n) : ''}</li>`).join('') + n.a.map(x => `<li>${esc(x.t)} n. ${esc(x.matr || '—')}${x.pos ? ' (' + esc(x.pos) + ')' : ''}: ${esc(x.v.join(', '))}${x.nota ? ' — ' + esc(x.nota) : ''}</li>`).join('') + '</ul>' : ''); }).join('');
@@ -7525,7 +7525,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.83.0 (09/11/2026)';
+const VERSIONE_APP = '1.83.1 (09/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
