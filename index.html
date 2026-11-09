@@ -1610,16 +1610,24 @@ function chipInvio(b){
   if (!b || b.stato !== 'pdf') return '';
   return b.inviatoUff ? '<span class="chip pdf">Inviato in ufficio · ' + esc(hhmm(new Date(b.inviatoUff))) + '</span>' : '<span class="chip urg">Non ancora inviato in ufficio</span>';
 }
+/* interventi senza appuntamento gia' inviati in ufficio (ultimi 14 giorni): restano in elenco come gli altri, con la spunta «Nascondi» */
+const manualiInviati = () => inUfficio ? [] : Object.values(bozze).filter(b => b && b.manuale && b.stato === 'pdf' && b.inviatoUff && Date.now() - (b.inviatoUff || 0) < 14 * 86400000).sort((x, y) => y.inviatoUff - x.inviatoUff);
 function disegnaDaCompletare(){
   const ids = new Set(appuntamenti.map(a => a.id));
   const aperte = Object.values(bozze).filter(b => b.stato === 'bozza' && (b.manuale || !ids.has(b.id))).sort((x, y) => y.aggiornata - x.aggiornata);
   const box = $('#da-completare');
-  if (!aperte.length) { box.innerHTML = ''; return; }
-  box.innerHTML = '<h2 class="giorno">Schede da completare</h2>' + aperte.map(b => `<button class="visita bozza" type="button" data-bozza="${esc(b.id)}">
+  const inv = nascondiGestiti ? [] : manualiInviati();
+  const htmlInv = inv.length ? '<h2 class="giorno">Interventi senza appuntamento già inviati</h2>' + inv.map(b => `<button class="visita" type="button" data-bozza="${esc(b.id)}">
+    <span class="ora" style="font-size:16px">${esc(dataIT(b.data).slice(0, 5))}</span>
+    <span class="corpo"><span class="nome">${esc(b.titolo || b.cliente || 'Intervento')}</span>
+      <span class="dove" style="display:block">Senza appuntamento</span>
+      <span class="riga">${chipEsito(b)}${chipInvio(b)}</span></span></button>`).join('') : '';
+  if (!aperte.length && !htmlInv) { box.innerHTML = ''; return; }
+  box.innerHTML = (aperte.length ? '<h2 class="giorno">Schede da completare</h2>' : '') + aperte.map(b => `<button class="visita bozza" type="button" data-bozza="${esc(b.id)}">
     <span class="ora" style="font-size:16px">${esc(dataIT(b.data).slice(0, 5))}</span>
     <span class="corpo"><span class="nome">${esc(b.titolo || b.cliente || 'Intervento')}</span>
       <span class="dove" style="display:block">${b.manuale ? 'Senza appuntamento' : 'Non è più nell\'elenco degli appuntamenti'}</span>
-      <span class="riga"><span class="chip bozza">Bozza</span>${chipEsito(b)}</span></span></button>`).join('');
+      <span class="riga"><span class="chip bozza">Bozza</span>${chipEsito(b)}</span></span></button>`).join('') + htmlInv;
   box.querySelectorAll('[data-bozza]').forEach(x => x.onclick = () => apriBozza(x.dataset.bozza));
 }
 function apriBozza(id){
@@ -1781,7 +1789,7 @@ function disegnaAgenda(){
   if (inUfficio && filtroTec) elenco = elenco.filter(a => (a.tecnico_nome || '') === filtroTec);
   { const nSr = inUfficio ? appuntamenti.filter(a => senzaRapporto(a) && (!filtroTec || (a.tecnico_nome || '') === filtroTec) && a.inizio >= new Date(oggi0.getTime() - 7 * 86400000)).length : 0;
     $('#s-scorsa').textContent = nSr ? 'Scorsa · ' + nSr + ' senza rapporto' : 'Scorsa'; $('#s-scorsa').title = nSr ? 'Appuntamenti degli ultimi 7 giorni per cui non è arrivato nessun intervento' : ''; }
-  const nasc = elenco.filter(gestito).length;
+  const nasc = elenco.filter(gestito).length + manualiInviati().length;
   const chk = $('#nascondi-gestiti'), tt = $('#nascondi-testo');
   if (chk) { chk.checked = nascondiGestiti; const uff = inUfficio || posta.length > 0; tt.textContent = (uff ? 'Nascondi gli appuntamenti già registrati in Levante' : 'Nascondi gli interventi già inviati in ufficio') + (nasc ? ' (' + nasc + (nasc === 1 ? ' nascosto' : ' nascosti') + ')' : ''); }
   if (nascondiGestiti) elenco = elenco.filter(a => !gestito(a));
@@ -7525,7 +7533,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.83.1 (09/11/2026)';
+const VERSIONE_APP = '1.83.2 (09/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
