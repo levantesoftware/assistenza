@@ -5349,14 +5349,25 @@ function sappiMostrarePdf(){
 }
 const scaricaPossibile = 'download' in document.createElement('a');
 /* iOS vecchi: gli indirizzi blob: danno pagina bianca. Si apre subito una scheda (nel tocco) e quando il file e' pronto vi si carica come data: */
-function apriVecchio(blob){
+function apriVecchio(blob, nome){
   const w = window.open('', '_blank');
+  /* meglio: il file viene messo da parte dal service worker e aperto come un vero indirizzo (…/uscita/nome.pdf): Safari lo tratta come un PDF normale e offre Condividi, Mail, Salva su File */
+  try {
+    if (nome && w && window.caches && navigator.serviceWorker && navigator.serviceWorker.controller) {
+      const u = new URL('uscita/' + encodeURIComponent(nome), location.href).href, tipo = blob.type || (/\.pdf$/i.test(nome) ? 'application/pdf' : 'application/octet-stream');
+      caches.open('assistenza-uscita').then(c => c.keys().then(k => Promise.all(k.map(x => c.delete(x)))).then(() => c.put(u, new Response(blob, {headers: {'Content-Type': tipo, 'Content-Disposition': 'inline; filename="' + nome.replace(/[^\w.\- ]/g, '_') + '"'}})))).then(() => { w.location.href = u; }, () => apriVecchioDati(blob, w));
+      return;
+    }
+  } catch(e) {}
+  apriVecchioDati(blob, w);
+}
+function apriVecchioDati(blob, w){
   const fr = new FileReader();
   fr.onload = () => { const u = fr.result; if (w) { try { w.location.href = u; return; } catch(e) {} } location.href = u; };
   fr.readAsDataURL(blob);
 }
 function scaricaBlob(blob, nome){
-  if (!scaricaPossibile) { apriVecchio(blob); return; }   // iOS vecchi: si apre in una scheda e da li' si condivide
+  if (!scaricaPossibile) { apriVecchio(blob, nome); return; }   // iOS vecchi: si apre in una scheda e da li' si condivide
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = nome;
   document.body.appendChild(a); a.click(); a.remove();
@@ -5365,7 +5376,7 @@ function scaricaBlob(blob, nome){
 function mostraFile(blob, nome, mime){
   const inline = /^(image\/|text\/plain)/.test(mime || '') || (/^application\/pdf/.test(mime || '') && sappiMostrarePdf());
   if (!inline) { scaricaBlob(blob, nome); return {html: false, testo: 'Ho scaricato ' + nome + ': aprilo dalla notifica o dall\'elenco dei download (da lì puoi anche stamparlo).'}; }
-  if (!scaricaPossibile) { apriVecchio(blob); return {html: false, testo: ''}; }
+  if (!scaricaPossibile) { apriVecchio(blob, nome); return {html: false, testo: ''}; }
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 120000);
@@ -7533,7 +7544,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.84.0 (10/11/2026)';
+const VERSIONE_APP = '1.84.1 (11/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;

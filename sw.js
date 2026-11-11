@@ -5,8 +5,9 @@
      arrivano da soli); se la rete manca o e' troppo lenta si usa la copia memorizzata;
    - il resto (icone, librerie) si usa dalla copia memorizzata.
    Se aggiungi file nuovi all'app, cambia VERSIONE qui sotto e aggiungili all'elenco. */
-const VERSIONE = 'v223';
+const VERSIONE = 'v224';
 const CACHE_APP = 'assistenza-app-' + VERSIONE;
+const CACHE_USCITA = 'assistenza-uscita';           // iOS vecchi: i PDF da aprire/condividere si servono come veri indirizzi (…/uscita/nome.pdf)
 const CACHE_RICEVUTI = 'assistenza-ricevuti';       // file arrivati dal menu Condividi di Android (per esempio da WhatsApp)
 const FILE_APP = [
   './', './index.html', './manifest.webmanifest',
@@ -25,7 +26,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const nome of await caches.keys()) if (nome.startsWith('assistenza-') && nome !== CACHE_APP && nome !== CACHE_RICEVUTI) await caches.delete(nome);
+    for (const nome of await caches.keys()) if (nome.startsWith('assistenza-') && nome !== CACHE_APP && nome !== CACHE_RICEVUTI && nome !== CACHE_USCITA) await caches.delete(nome);
     await self.clients.claim();
   })());
 });
@@ -74,6 +75,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;                     // niente servizi esterni: tutto e' dentro l'app
+  if (/\/uscita\/[^/]+$/.test(url.pathname)) { e.respondWith(caches.open(CACHE_USCITA).then(c => c.match(req, {ignoreSearch: true})).then(r => r || new Response('File non più disponibile: torna all\'app e riprova.', {status: 404, headers: {'Content-Type': 'text/plain; charset=utf-8'}}))); return; }
   if (/\/ultima\.(json|zip)$/.test(url.pathname)) return;           // servizio per l'ufficio: sempre dalla rete, mai dalla copia
   // èPagina solo per la pagina dell'app: aprire in una nuova scheda un file del servizio (per esempio un PDF in posta-allegato)
   // e' pure una "navigazione", ma deve andare in rete e non ricevere l'app
