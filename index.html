@@ -521,6 +521,8 @@ button.pos{margin-top:4px;font-size:13px}
 .docbox .doc{margin:0 0 6px}
 .docazioni{display:flex;flex-wrap:wrap;gap:6px}
 .allega{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #A9D5B9}
+.allega>label{display:flex;align-items:center;-webkit-box-flex:1;flex:1;min-width:0;margin:0}
+.allega>label>*+*{margin-left:10px}
 .allega input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--petrolio)}
 .allega span{flex:1;min-width:0;overflow-wrap:anywhere}
 
@@ -4465,7 +4467,7 @@ function aggiornaPulsantiInvio(){
   const g = $('#invio-guida');
   if (g) g.innerHTML = (!cli && protezioneAttiva() ? (scaricaPossibile ? '<b>🔒 File protetti</b> con il codice di sicurezza: li apre solo l\'ufficio. ' : '<b>⚠ Su questo dispositivo i file partono NON protetti</b> (è troppo vecchio per la protezione). ') : '') + (puo
     ? 'Si apre il menu del dispositivo: scegli <b>WhatsApp</b> (e il contatto dell\'ufficio) oppure la tua app di posta. Per la posta l\'<b>indirizzo viene copiato</b>: nel campo <b>A</b> tieni premuto e scegli <b>Incolla</b>.'
-    : (scaricaPossibile ? 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.' : 'Su questo dispositivo l\'invio automatico non è disponibile: apri ogni file con <b>Apri</b>, poi <b>Condividi</b> e scegli <b>Mail</b> (o l\'app della stampante).'));
+    : (scaricaPossibile ? 'Su questo dispositivo non posso allegare i file in automatico: <b>scarico i file e apro la mail</b> già compilata. Allega i file scaricati.' : 'Su questo dispositivo l\'invio automatico non è disponibile: apri ogni file con <b>Apri</b>, poi <b>Condividi</b> e scegli <b>Mail</b> (o l\'app della stampante).' + (window.navigator.standalone ? ' <b>Se non compare Condividi:</b> l\'app è aperta dall\'icona sulla schermata Home e il visualizzatore non ha i pulsanti. Apri invece l\'app da <b>Safari</b> (scrivendo l\'indirizzo web) e ripeti.' : '')));
 }
 
 /* ---- messaggio di posta: oggetto e testo pronti ---- */
@@ -4501,7 +4503,7 @@ function disegnaInvio(){
   box.innerHTML = ultimiAllegati.length ? '<p style="margin:12px 0 4px"><strong>File da inviare ' + (cli ? 'al cliente' : 'in ufficio') + '</strong></p>' + ultimiAllegati.map((a, n) => {
     const on = cli ? a.onCli : a.on, et = (cli && a.etichettaCli) ? a.etichettaCli : (a.etichetta || a.nome);
     const chip = (a.foto || a.base) ? '' : (a.modificato ? ' <span class="chip pdf">Modificato</span>' : ' <span class="chip">Originale</span>');
-    return `<label class="allega"><input type="checkbox" data-allega="${n}"${on ? ' checked' : ''}><span>${esc(et)}${chip}</span>${a.gruppo ? '' : `<button class="btn sec piccolo" type="button" data-apri-all="${n}">Apri</button><button class="btn piccolo" type="button" data-stampa-all="${n}">Stampa</button>`}</label>`;
+    return `<div class="allega"><label><input type="checkbox" data-allega="${n}"${on ? ' checked' : ''}><span>${esc(et)}${chip}</span></label>${a.gruppo ? '' : `<button class="btn sec piccolo" type="button" data-apri-all="${n}">Apri</button><button class="btn piccolo" type="button" data-stampa-all="${n}">Stampa</button>`}</div>`;
   }).join('') + (nf ? '<p class="aiuto" style="margin:8px 0 0">Dopo l\'invio puoi liberare spazio: <button class="btn chiaro piccolo" type="button" data-foto-cancella>Cancella le foto da questo dispositivo</button></p>' : '') : '';
   if (!cli && ultimiAllegati.length > 1) {
     box.insertAdjacentHTML('beforeend', `<label class="spunta" style="margin:12px 0 0"><input type="checkbox" id="chk-zip"${impostazioni.zipUff !== false ? ' checked' : ''}> <span>Metti tutto in un unico file zip<small style="display:block;font-weight:400;color:var(--tenue)">Un solo file da inviare: l'ufficio lo carica con un tocco.</small></span></label>`);
@@ -7544,7 +7546,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.84.1 (11/11/2026)';
+const VERSIONE_APP = '1.84.2 (11/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
