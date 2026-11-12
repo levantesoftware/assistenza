@@ -7372,9 +7372,18 @@ function pacchettoPer(id, completo){
   return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
+let salvataggioDati = {ok: true, kb: 0, senzaModelli: false};
 async function salvaDati(d, leggero){
   const files = d.files || {}; const dd = Object.assign({}, d); delete dd.files;
-  store.set('ass_dati', dd); appuntamenti = caricaAppuntamenti();
+  store.set('ass_dati', dd);
+  /* il telefono puo' rifiutare la scrittura (memoria piena): prima l'errore passava in silenzio e l'app mostrava i dati vecchi pur dicendo «caricati» */
+  const scritto = o => { try { const v = localStorage.getItem('ass_dati'); return !!v && v.length === JSON.stringify(o).length; } catch(e) { return false; } };
+  salvataggioDati = {ok: true, kb: Math.round(JSON.stringify(dd).length / 1024), senzaModelli: false};
+  if (!scritto(dd)) {
+    const ridotto = Object.assign({}, dd, {modelli: {}}); store.set('ass_dati', ridotto);          // secondo tentativo senza i modelli di stampa RCEE (i piu' pesanti)
+    if (scritto(ridotto)) salvataggioDati.senzaModelli = true; else salvataggioDati.ok = false;
+  }
+  appuntamenti = caricaAppuntamenti();
   const ok = await salvaFiles(files, leggero);
   if (!ok && Object.keys(files).length) esitoImport = (esitoImport ? esitoImport + ' ' : '') + 'Attenzione: i documenti non si sono salvati su questo dispositivo.';
 }
@@ -7523,6 +7532,8 @@ async function caricaPacchetto(file){
     const nCan = Array.isArray(d.cantieri) ? d.cantieri.length : 0;
     const nd = d.appuntamenti.reduce((s, a) => s + (a.docs ? a.docs.length : 0), 0);
     esitoImport = (d.appuntamenti.length === 1 ? 'Caricato 1 appuntamento' : `Caricati ${d.appuntamenti.length} appuntamenti`) + (nd ? ` e ${nd} ${nd === 1 ? 'documento' : 'documenti'}.` : '.') + (chNuove.length ? ` Chiamate da gestire: ${(d.chiamate || []).length} (${chNuove.length} ${chNuove.length === 1 ? 'nuova' : 'nuove'}).` : '') + (esitoImport ? ' ' + esitoImport : '');
+    if (!salvataggioDati.ok) esitoImport = '⚠ ATTENZIONE: i dati NON si sono salvati su questo dispositivo (memoria piena: servono circa ' + salvataggioDati.kb + ' KB). L\'agenda che vedi non è quella nuova. Libera spazio (Impostazioni di Safari → Dati dei siti web) oppure chiedi all\'ufficio di mandare meno cose.';
+    else if (salvataggioDati.senzaModelli) esitoImport += ' ⚠ Per mancanza di spazio non ho salvato i modelli di stampa degli RCEE: gli RCEE non saranno disponibili.';
     if (nListino) esitoImport += ' Listino articoli aggiornato: ' + nListino.toLocaleString('it-IT') + ' articoli.';
     if (nCan) esitoImport += ' Cantieri: ' + nCan + (d.operaio ? ' (registri come ' + d.operaio.n + ')' : '') + '.';
     // cosa e' cambiato rispetto all'agenda che c'era prima (solo se erano dati di Levante dello stesso tecnico)
@@ -7546,7 +7557,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.84.2 (11/11/2026)';
+const VERSIONE_APP = '1.85.1 (12/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9730,7 +9741,7 @@ function schedeImporta(d, rispettaTolte){
   const c = impostazioni.ctrlModuli = (impostazioni.ctrlModuli && typeof impostazioni.ctrlModuli === 'object') ? impostazioni.ctrlModuli : {};
   const tolte = rispettaTolte ? ((impostazioni.schedeBase || {}).tolte || []) : [];
   let nuove = 0, agg = 0, scartate = 0;
-  Object.keys(d.moduli).slice(0, 200).forEach(k => { const m = schedeValida(d.moduli[k]), kk = String(k).replace(/[^A-Za-z0-9_]/g, '').slice(0, 30); if (!m || !kk) { scartate++; return; } if (tolte.indexOf(kk) >= 0) return; if (c[kk]) agg++; else nuove++; c[kk] = m; });
+  Object.keys(d.moduli).slice(0, 200).forEach(k => { const m = schedeValida(d.moduli[k]), kk = String(k).replace(/[^A-Za-z0-9_]/g, '').slice(0, 30); if (!m || !kk) { scartate++; return; } if (tolte.indexOf(kk) >= 0) return; if (c[kk]) { agg++; if (c[kk].gruppo) m.gruppo = c[kk].gruppo; } else nuove++; c[kk] = m; });
   cmVer++; salvaImpostazioni(); try { cfgSezDisegna(); } catch(e) {}
   return {nuove, agg, scartate};
 }
@@ -9752,7 +9763,7 @@ function schedeDisegna(){
     <p class="aiuto" style="margin:0 0 8px">Le schede di base sono incluse nel programma e si caricano da sole la prima volta. Se un'azienda non vuole usarle, «Togli tutte»: non tornano da sole.</p>
     <input type="file" id="schede-file" accept=".json,application/json" hidden>
     <p class="aiuto" id="schede-msg" role="status" style="margin:0 0 8px"></p>
-    ${ks.length ? `<details class="fs"><summary>Elenco delle schede</summary>${ks.map(k => `<div class="cv" style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #e6ebed"><span><b>${esc(lib[k].nome)}</b><small style="display:block;color:#5b6d75">${lib[k].gruppo ? esc(lib[k].gruppo) + ' · ' : ''}${(lib[k].gest || []).filter(g => !g[3]).length} voci${lib[k].prossMesi ? ' · ogni ' + lib[k].prossMesi + ' mesi' : ''}</small></span><button type="button" class="btn chiaro piccolo" data-sch-del="${esc(k)}">Togli</button></div>`).join('')}</details>` : ''}`;
+    ${ks.length ? `<details class="fs"><summary>Elenco delle schede</summary>${ks.map(k => `<div class="cv" style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #e6ebed"><span><b>${esc(lib[k].nome)}</b><small style="display:block;color:#5b6d75">${(lib[k].gest || []).filter(g => !g[3]).length} voci${lib[k].prossMesi ? ' · ogni ' + lib[k].prossMesi + ' mesi' : ''}</small></span><button type="button" class="btn chiaro piccolo" data-sch-del="${esc(k)}">Togli</button><input type="text" data-sch-gr="${esc(k)}" maxlength="40" value="${esc(lib[k].gruppo || '')}" placeholder="Gruppo (vuoto = schede normali)" aria-label="Gruppo della scheda ${esc(lib[k].nome)}" style="flex:1 0 100%;box-sizing:border-box"></div>`).join('')}</details>` : ''}`;
   const msg = t => { const e = $('#schede-msg'); if (e) e.textContent = t; };
   $('#schede-imp').onclick = () => $('#schede-file').click();
   $('#schede-file').onchange = async e => {
@@ -9767,6 +9778,7 @@ function schedeDisegna(){
   const daBase = (tutte) => { try { const q = schedeImporta(schedeBaseDati, !tutte), v = +schedeBaseDati.versione || 1; impostazioni.schedeBase = tutte ? {v} : Object.assign({}, impostazioni.schedeBase, {v}); if (tutte) delete impostazioni.schedeBase.no; salvaImpostazioni(); schedeDisegna(); const e2 = $('#schede-msg'); if (e2) e2.textContent = 'Fatto: ' + q.nuove + ' nuove, ' + q.agg + ' aggiornate. Arrivano ai tecnici col prossimo file.'; } catch(x) { msg('Non riesco a leggere le schede di base.'); } };
   if (sbx) sbx.onclick = () => daBase(true);
   if (sba) sba.onclick = () => daBase(false);
+  bx.querySelectorAll('[data-sch-gr]').forEach(i => i.onchange = () => { const k = i.dataset.schGr, m = (impostazioni.ctrlModuli || {})[k]; if (!m) return; const v = String(i.value || '').trim().slice(0, 40); if (v) m.gruppo = v; else delete m.gruppo; cmVer++; salvaImpostazioni(); try { cfgSezDisegna(); } catch(e) {} });
   bx.querySelectorAll('[data-sch-del]').forEach(b => b.onclick = () => { const k = b.dataset.schDel; if (!confirm('Tolgo la scheda ' + (lib[k] ? lib[k].nome : k) + '?')) return; delete impostazioni.ctrlModuli[k]; { const sb = impostazioni.schedeBase = impostazioni.schedeBase || {}; sb.tolte = (sb.tolte || []).concat([k]); } cmVer++; salvaImpostazioni(); cfgSezDisegna(); schedeDisegna(); });
 }
 function cfgSezDisegna(){
