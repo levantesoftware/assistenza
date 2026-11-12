@@ -7603,7 +7603,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.87.0 (12/11/2026)';
+const VERSIONE_APP = '1.87.1 (12/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9805,7 +9805,7 @@ function schedeDisegna(){
   const bx = $('#schede-lib'); if (!bx) return;
   const lib = impostazioni.ctrlModuli || {}, ks = Object.keys(lib).filter(k => lib[k] && lib[k].pmp);
   bx.innerHTML = `<p class="aiuto" style="margin:0 0 8px">${ks.length ? '<b>' + ks.length + '</b> ' + (ks.length === 1 ? 'scheda caricata' : 'schede caricate') + '.' : 'Nessuna scheda caricata.'}</p>
-    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 8px"><button type="button" class="btn sec piccolo" id="schede-imp">Carica schede da file…</button>${ks.length ? '<button type="button" class="btn chiaro piccolo" id="schede-tutte">Togli tutte</button>' : ''}${(() => { const sb = impostazioni.schedeBase || {}, n = schedeBaseDati ? Object.keys(schedeBaseDati.moduli).length : 0; if (!n) return ''; return (!ks.length || sb.no || (sb.tolte || []).length) ? '<button type="button" class="btn sec piccolo" id="schede-base">Carica le schede di base (' + n + ')</button>' : ((+schedeBaseDati.versione || 1) > (sb.v || 0) ? '<button type="button" class="btn sec piccolo" id="schede-base-agg">Aggiorna le schede di base</button>' : ''); })()}</div>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0 0 8px"><button type="button" class="btn sec piccolo" id="schede-imp">Carica schede da file…</button>${ks.length ? '<button type="button" class="btn chiaro piccolo" id="schede-tutte">Togli tutte</button>' : ''}${(() => { const sb = impostazioni.schedeBase || {}, n = schedeBaseDati ? Object.keys(schedeBaseDati.moduli).length : 0; if (!n) return ''; return (!ks.length || sb.no || (sb.tolte || []).length) ? '<button type="button" class="btn sec piccolo" id="schede-base">Carica le schede di base (' + n + ')</button>' : (((+schedeBaseDati.versione || 1) > (sb.v || 0) || Object.keys(schedeBaseDati.moduli).some(k => !(impostazioni.ctrlModuli || {})[k])) ? '<button type="button" class="btn sec piccolo" id="schede-base-agg">Aggiorna le schede di base</button>' : ''); })()}</div>
     <p class="aiuto" style="margin:0 0 8px">Le schede di base sono incluse nel programma e si caricano da sole la prima volta. Se un'azienda non vuole usarle, «Togli tutte»: non tornano da sole.</p>
     <input type="file" id="schede-file" accept=".json,application/json" hidden>
     <p class="aiuto" id="schede-msg" role="status" style="margin:0 0 8px"></p>
