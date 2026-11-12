@@ -897,6 +897,12 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     <label class="tile"><input type="radio" name="foto-q" value="leggera"><span>Leggera<small>1024 punti, circa 80-150 KB a foto: va bene per documentare un lavoro</small></span></label>
     <label class="tile"><input type="radio" name="foto-q" value="normale"><span>Normale<small>1280 punti, circa 150-300 KB a foto</small></span></label>
     <label class="tile"><input type="radio" name="foto-q" value="alta"><span>Alta<small>1600 punti, circa 300-600 KB a foto: per leggere targhette piccole</small></span></label>
+    <h2 class="giorno" style="margin-top:20px">Foto per foglio nel PDF</h2>
+    <p class="aiuto" style="margin:0 0 8px">Nel PDF «Documentazione fotografica» le foto si raccolgono con la loro didascalia. Vale anche per le foto già scattate.</p>
+    <label class="tile"><input type="radio" name="foto-pp" value="1"><span>1 foto<small>una foto grande per foglio</small></span></label>
+    <label class="tile"><input type="radio" name="foto-pp" value="2"><span>2 foto<small>una sotto l'altra</small></span></label>
+    <label class="tile"><input type="radio" name="foto-pp" value="4"><span>4 foto<small>due file da due</small></span></label>
+    <label class="tile"><input type="radio" name="foto-pp" value="6"><span>6 foto<small>tre file da due: foto più piccole</small></span></label>
     </div>
     <div class="solo-tec">
     <h2 class="giorno" style="margin-top:26px">Blocco con PIN</h2>
@@ -6608,17 +6614,25 @@ async function costruisciPdfFoto(w){
   const intest = [[w.cliente, w.etCliente || 'Cliente'], [w.indirizzo, 'Indirizzo'], [dataIT(w.data), 'Data'], [w.tecnico, w.etTecnico || 'Tecnico']].filter(r => r[0]);
   intest.forEach(([v, et]) => { doc.setFontSize(8); col(GRIGIO); doc.text(et, M, y + 3); doc.setFontSize(10.5); col(INK); doc.text(doc.splitTextToSize(String(v), CW - 25), M + 22, y + 3.2); y += 6.5; });
   y += 3;
-  const fotos = w.foto || [];
-  for (let n = 0; n < fotos.length; n++) {
-    const f = fotos[n], rec = await leggiFotoRec(chiaveFoto(w.id, f.id)); if (!rec) continue;
-    const maxW = CW, maxH = 100, k = Math.min(maxW / rec.w, maxH / rec.h), iw = rec.w * k, ih = rec.h * k;
-    const righe = f.commento ? doc.splitTextToSize(f.commento, CW) : [];
-    const blocco = ih + 9 + righe.length * 4.6 + 5;
-    if (y + blocco > H - M) { doc.addPage(); y = M; }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); col(PET); doc.text('Foto ' + (n + 1), M, y + 3.5); y += 6;
-    doc.addImage('data:image/jpeg;base64,' + b64DaBytes(bytesDaBuffer(rec.dati)), 'JPEG', M, y, iw, ih); y += ih + 3;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); col(INK); righe.forEach(r => { doc.text(r, M, y + 3.5); y += 4.6; });
-    y += 6;
+  const fotos = w.foto || [], pp = [1, 2, 4, 6].indexOf(+impostazioni.fotoPerFoglio) >= 0 ? +impostazioni.fotoPerFoglio : 4;       // foto per foglio: 1 grande, 2 una sotto l'altra, 4 o 6 in due colonne
+  const nc = pp >= 4 ? 2 : 1, GAP = 6, cw = (CW - GAP * (nc - 1)) / nc, maxH = pp === 1 ? 190 : pp === 2 ? 85 : pp === 4 ? 78 : 52, fs = nc === 2 ? 9 : 10, lh = nc === 2 ? 4.1 : 4.6;
+  for (let n = 0; n < fotos.length; n += nc) {
+    const riga = [];
+    for (let q = n; q < Math.min(n + nc, fotos.length); q++) {
+      const f = fotos[q], rec = await leggiFotoRec(chiaveFoto(w.id, f.id)); if (!rec) continue;
+      const k = Math.min(cw / rec.w, maxH / rec.h), righe = f.commento ? doc.splitTextToSize(f.commento, cw).slice(0, nc === 2 ? 4 : 12) : [];
+      riga.push({num: q + 1, rec, iw: rec.w * k, ih: rec.h * k, righe});
+    }
+    if (!riga.length) continue;
+    const alt = 6 + Math.max.apply(null, riga.map(c => c.ih + 3 + c.righe.length * lh)) + 5;
+    if (y + alt > H - M) { doc.addPage(); y = M; }
+    riga.forEach((c, col2) => {
+      const x = M + col2 * (cw + GAP); let yy = y;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); col(PET); doc.text('Foto ' + c.num, x, yy + 3.5); yy += 6;
+      doc.addImage('data:image/jpeg;base64,' + b64DaBytes(bytesDaBuffer(c.rec.dati)), 'JPEG', x, yy, c.iw, c.ih); yy += c.ih + 3;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(fs); col(INK); c.righe.forEach(r => { doc.text(r, x, yy + 3.5); yy += lh; });
+    });
+    y += alt;
   }
   const np = doc.getNumberOfPages();
   for (let i = 1; i <= np; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); col(GRIGIO); doc.text('Pagina ' + i + ' di ' + np, W - M, 290, {align: 'right'}); }
@@ -7624,7 +7638,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.88.1 (12/11/2026)';
+const VERSIONE_APP = '1.89.0 (12/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9935,11 +9949,13 @@ function avvia(){
     document.querySelectorAll('input[name="stampa-formato"]').forEach(r => r.checked = (r.value === st.formato)); $('#stampa-bn').checked = st.bn !== false;
     document.querySelectorAll('input[name="stampa-dpi"]').forEach(r => r.checked = (+r.value === +st.dpi));
     document.querySelectorAll('input[name="foto-q"]').forEach(r => r.checked = (r.value === (FOTO_LIVELLI[impostazioni.fotoQualita] ? impostazioni.fotoQualita : 'leggera')));
+    document.querySelectorAll('input[name="foto-pp"]').forEach(r => r.checked = (+r.value === ([1, 2, 4, 6].indexOf(+impostazioni.fotoPerFoglio) >= 0 ? +impostazioni.fotoPerFoglio : 4)));
     mostra('impostazioni'); aggiornaTile(); preparaFirmaTec(); disegnaVociPred(); tentativiStato = 0; aggiornaStatoApp();
   };
   const salvaStampa = () => { const r = document.querySelector('input[name="stampa-formato"]:checked'), d = document.querySelector('input[name="stampa-dpi"]:checked'); impostazioni.stampa = {formato: r ? r.value : 'pdf', bn: $('#stampa-bn').checked, dpi: d ? +d.value : 200}; salvaImpostazioni(); aggiornaTile(); };
   document.querySelectorAll('input[name="stampa-formato"],input[name="stampa-dpi"]').forEach(r => r.onchange = salvaStampa); $('#stampa-bn').onchange = salvaStampa;
   document.querySelectorAll('input[name="foto-q"]').forEach(r => r.onchange = () => { impostazioni.fotoQualita = r.value; salvaImpostazioni(); aggiornaTile(); });
+  document.querySelectorAll('input[name="foto-pp"]').forEach(r => r.onchange = () => { impostazioni.fotoPerFoglio = +r.value; salvaImpostazioni(); });
   $('#b-indietro-imp').onclick = indietro;
   { let tT = 0, tN = 0; const h = document.querySelector('#v-impostazioni h1'); if (store.get('ass_tec_visibile', false)) document.body.classList.add('tec-visibile');
     if (h) h.onclick = () => { const t = Date.now(); tN = (t - tT < 1500) ? tN + 1 : 1; tT = t; if (tN >= 5) { tN = 0; const on = !document.body.classList.contains('tec-visibile'); document.body.classList.toggle('tec-visibile', on); store.set('ass_tec_visibile', on); mostraAvviso(on ? 'Impostazioni da tecnico visibili.' : 'Impostazioni da tecnico nascoste.', '', null, 4000); } }; }
