@@ -2205,10 +2205,25 @@ function fineAutomatica(){
     u.al = ''; delete u.p_al; lavoro.inCorso = eraInCorso; disegnaOrari();
   }, 9000);
 }
-function squadraHtml(){          // il capo squadra segna chi c'era e, se serve, gli orari di chi ha fatto ore diverse
-  const q = lavoro && lavoro.squadra; if (!q || !(q.membri || []).length) return '';
-  return `<div id="sq-pres" style="margin-top:14px"><p class="aiuto" style="margin:0 0 4px"><b>${esc(q.nome)}</b> · togli la spunta a chi non c'era. Gli orari (dalle, alle) scrivili solo per chi ha fatto ore diverse dalle tue.</p>`
-    + q.membri.map((m, n) => `<div class="riga-orario" style="grid-template-columns:1fr 92px 92px;align-items:center"><label class="spunta" style="margin:0"><input type="checkbox" data-sqp="${n}"${m.p !== false ? ' checked' : ''}> <span>${esc(m.n)}</span></label><input type="time" data-sqt="${n}|dal" value="${esc(m.dal || '')}" aria-label="Dalle, ${esc(m.n)}"><input type="time" data-sqt="${n}|al" value="${esc(m.al || '')}" aria-label="Alle, ${esc(m.n)}"></div>`).join('') + '</div>';
+function sqColLiberi(){          // colleghi che il tecnico puo' ancora aggiungere (non lui, non quelli gia' presenti)
+  const q = lavoro && lavoro.squadra, usati = new Set([normNome(lavoro && lavoro.tecnico)].concat(((q && q.membri) || []).map(m => normNome(m.n))));
+  return ((typeof datiReali !== 'undefined' && datiReali && datiReali.colleghi) || []).filter(c => c && c.n && !usati.has(normNome(c.n)));
+}
+function squadraHtml(){          // chi c'era con te (squadra o colleghi aggiunti) e, se serve, gli orari di chi ha fatto ore diverse
+  const q = lavoro && lavoro.squadra, mm = (q && q.membri) || [], lib = sqColLiberi();
+  let h = '';
+  if (mm.length) h += `<p class="aiuto" style="margin:0 0 4px">${q.nome ? '<b>' + esc(q.nome) + '</b>' : '<b>Colleghi con te</b>'} · togli la spunta a chi non c'era. Per chi ha fatto ore diverse dalle tue scrivi dalle e alle, oppure solo il totale ore.</p>`
+    + mm.map((m, n) => `<div style="margin:6px 0"><span style="display:flex;align-items:center;gap:6px;min-width:0"><label class="spunta" style="margin:0"><input type="checkbox" data-sqp="${n}"${m.p !== false ? ' checked' : ''}> <span>${esc(m.n)}</span></label>${m.x ? `<button class="togli" type="button" data-sqdel="${n}" aria-label="Togli ${esc(m.n)}">×</button>` : ''}</span><div style="display:grid;grid-template-columns:1fr 1fr 72px;gap:6px;margin-top:4px"><input type="time" data-sqt="${n}|dal" value="${esc(m.dal || '')}" aria-label="Dalle, ${esc(m.n)}"><input type="time" data-sqt="${n}|al" value="${esc(m.al || '')}" aria-label="Alle, ${esc(m.n)}"><input type="text" inputmode="decimal" maxlength="6" data-sqt="${n}|ore" value="${esc(m.ore || '')}" placeholder="ore" aria-label="Ore totali, ${esc(m.n)}"></div></div>`).join('');
+  h += `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${lib.length ? `<select id="sq-add" aria-label="Aggiungi un collega" style="flex:1;min-width:160px"><option value="">+ Aggiungi un collega…</option>${lib.map((c, n) => `<option value="${n}">${esc(c.n)}</option>`).join('')}<option value="__altro">Un altro nome…</option></select>` : ''}<input type="text" id="sq-nome" maxlength="40" placeholder="Nome del collega" aria-label="Nome del collega" style="flex:1;min-width:160px${lib.length ? ';display:none' : ''}"><button class="btn sec piccolo" type="button" id="sq-ok"${lib.length ? ' style="display:none"' : ''}>Aggiungi</button></div>`;
+  return `<div id="sq-pres" style="margin-top:14px">${h}</div>`;
+}
+function sqAggiungi(nome, op){
+  nome = String(nome || '').trim().slice(0, 40); if (!nome || !lavoro) return;
+  if (normNome(nome) === normNome(lavoro.tecnico)) return;
+  const q = lavoro.squadra || (lavoro.squadra = {nome: '', capoOp: (typeof datiReali !== 'undefined' && datiReali && datiReali.meOp != null) ? datiReali.meOp : null, membri: []});
+  if (q.membri.some(m => normNome(m.n) === normNome(nome))) return;
+  q.membri.push({n: nome, p: true, dal: '', al: '', op: op != null ? op : null, x: 1});
+  const e = $('#sq-pres'); if (e) e.outerHTML = squadraHtml(); bozzaModificata();
 }
 function righeOrari(){
   return lavoro.orari.map((o, n) => `<div class="riga-orario">
@@ -2652,6 +2667,7 @@ function disegnaScheda(){
     </div>
     <details class="passo rcee-blocco" id="or-d"${orApr[ptKey()] === true ? ' open' : ''}><summary><h2>Orari e viaggio</h2><span class="aiuto" id="or-sum">${esc(orariSommario())}</span></summary><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
+      <div class="campo" style="margin:10px 0 0;max-width:220px"><label for="ore-man">Totale ore</label><input type="text" id="ore-man" inputmode="decimal" data-k="oreMan" maxlength="6" autocomplete="off" value="${esc(w.oreMan || '')}" placeholder="es. 3,5"><span class="aiuto" id="ore-man-h"></span></div>
       <div class="totale" id="ore-tot"></div>
       ${squadraHtml()}
       <button class="btn sec piccolo" type="button" id="b-add-orario"${w.orari.length >= 5 ? ' disabled' : ''}>Aggiungi una fascia</button>
@@ -2712,18 +2728,20 @@ function minuti(dal, al){
   return t > 0 ? t : 0;
 }
 const fmtOre = m => Math.floor(m/60) + ' h' + (m % 60 ? ' ' + pad(m % 60) + ' min' : '');
-function oreTotali(){ return lavoro.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0); }
+function oreDaFasce(){ return lavoro.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0); }
+function oreTotali(){ const t = oreDaFasce(); return t > 0 ? t : Math.round(numOre(lavoro.oreMan) * 60); }
 let orApr = {};
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'or-d') orApr[ptKey()] = d.open; }, true);
 function orariSommario(){
   const w = lavoro; if (!w || !w.orari) return '';
   const u = w.orari.filter(o => o.dal), t = oreTotali();
-  if (!u.length) return 'Arrivo, fine e km percorsi';
+  if (!u.length) return t ? fmtOre(t) + (w.km ? ' · ' + w.km + ' km' : '') : 'Arrivo, fine e km percorsi';
   return 'dalle ' + u[0].dal + (u[u.length - 1].al ? ' alle ' + u[u.length - 1].al : ' (in corso)') + (t ? ' · ' + fmtOre(t) : '') + (w.km ? ' · ' + w.km + ' km' : '');
 }
 function aggiornaOre(){
-  const t = oreTotali();
-  const el = $('#ore-tot'); if (el) el.innerHTML = t ? `Ore totali: <b>${fmtOre(t)}</b>` : '';
+  const da = oreDaFasce(), m = $('#ore-man'), h = $('#ore-man-h');
+  if (m) { if (da > 0) { const v = String(Math.round(da / 60 * 100) / 100).replace('.', ','); if (m.value !== v) m.value = v; m.readOnly = true; if (h) h.textContent = 'Calcolato dagli orari.'; }
+    else { const v = lavoro.oreMan || ''; if (m.readOnly) m.value = v; m.readOnly = false; if (h) h.textContent = 'Senza gli orari, scrivilo tu (per esempio 3,5).'; } }
   const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario();
 }
 
@@ -2792,7 +2810,7 @@ function szFatta(n){
     case 'Controlli e verifiche': return (w.ctrl || []).some(c => (c.idr || []).length || (((ctrlM(c.mod) || {}).solo || (ctrlM(c.mod) || {}).autoImp) && (Object.keys(c.gest || {}).length || Object.keys(c.lett || {}).some(k => String(c.lett[k] || '').trim()))));
     case 'F-gas': return (w.fg || []).some(x => x.ints.length);
     case 'Relazione': return !!t(w.relazione);
-    case 'Orari e viaggio': return !!(w.orari && w.orari.length && t(w.orari[w.orari.length - 1].al));
+    case 'Orari e viaggio': return !!(w.orari && w.orari.length && t(w.orari[w.orari.length - 1].al)) || numOre(w.oreMan) > 0;
     case 'Materiale portato': return (w.portato || []).length > 0;
     case 'Materiali': return (w.materiali || []).length > 0;
     case 'Importi e pagamento': return !!(w.imp && (w.imp.righe || []).length);
@@ -2877,7 +2895,7 @@ function collegaForm(){
   const f = $('#form'); try { collegaCtrl(); collegaEsf(); collegaFg(); } catch(e) {}
   f.addEventListener('input', e => {
     const t = e.target, d = t.dataset;
-    if (d.k) { lavoro[d.k] = t.value; if (d.k === 'km') { const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario(); } const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
+    if (d.k) { lavoro[d.k] = t.value; if (d.k === 'km' || d.k === 'oreMan') { const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario(); } const n = $('#n-' + d.k); if (n) n.textContent = t.value.length + '/' + t.getAttribute('maxlength');
       if (d.k === 'email') { const x = $('#inv-email-cli'); if (x && x !== t) x.value = t.value; const o = $('#email-opz'); if (o) o.innerHTML = righeEmailOpz(); } }
     else if (d.orario !== undefined) { lavoro.orari[+d.orario][d.c] = t.value; aggiornaOre(); }
     else if (d.sqt !== undefined) { const q = d.sqt.split('|'); if (lavoro.squadra && lavoro.squadra.membri[+q[0]]) { lavoro.squadra.membri[+q[0]][q[1]] = t.value; bozzaModificata(); } }
@@ -2897,6 +2915,7 @@ function collegaForm(){
     if (d.tipoSel !== undefined) { const x = $('#f-tipo'); if (t.value === '__altro') { lavoro.tipoLibero = true; if (x) { x.hidden = false; x.value = ''; try { x.focus(); } catch(er) {} } lavoro.tipo = ''; } else { lavoro.tipoLibero = false; lavoro.tipo = t.value; if (x) { x.hidden = true; x.value = ''; } } bozzaModificata(); return; }
     if (d.allega !== undefined) { ultimiAllegati[+d.allega][destInvio === 'cli' ? 'onCli' : 'on'] = t.checked; aggiornaPulsantiInvio(); }
     else if (d.dc !== undefined) { lavoro.dc = t.checked; impSincronizzaChiamata(); bozzaModificata(); }
+    else if (t.id === 'sq-add') { if (t.value === '__altro') { const a = $('#sq-nome'), b2 = $('#sq-ok'); if (a) { a.style.display = ''; try { a.focus(); } catch(er) {} } if (b2) b2.style.display = ''; } else if (t.value !== '') { const c = sqColLiberi()[+t.value]; if (c) sqAggiungi(c.n, c.op); } }
     else if (d.sqp !== undefined) { if (lavoro.squadra && lavoro.squadra.membri[+d.sqp]) { lavoro.squadra.membri[+d.sqp].p = t.checked; bozzaModificata(); } }
     else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); aggiornaImporti(); }
     else if (t.name === 'esito') { const primo = !lavoro.esito; lavoro.esito = t.value; aggiornaTile(); if (primo) fineAutomatica(); bozzaModificata(); }
@@ -2944,6 +2963,8 @@ function collegaForm(){
     }
     if (b.id === 'b-add-orario' && lavoro.orari.length < 5) { lavoro.orari.push({data: lavoro.data, dal:'', al:''}); disegnaOrari(); }
     else if (d.togliOrario !== undefined) { lavoro.orari.splice(+d.togliOrario, 1); disegnaOrari(); }
+    else if (b.id === 'sq-ok') { const a = $('#sq-nome'); if (a) sqAggiungi(a.value, null); }
+    else if (d.sqdel !== undefined) { if (lavoro.squadra) { lavoro.squadra.membri.splice(+d.sqdel, 1); if (!lavoro.squadra.membri.length && !lavoro.squadra.nome) lavoro.squadra = null; const e = $('#sq-pres'); if (e) e.outerHTML = squadraHtml(); bozzaModificata(); } }
     else if (b.id === 'b-add-mat') { lavoro.materiali.unshift({descr:'', codice:'', qta:'', um:'pz'}); $('#materiali').innerHTML = righeMateriali(); const l = document.querySelectorAll('#materiali .descr'); l[0].focus(); bozzaModificata(); }
     else if (d.togliMat !== undefined) { lavoro.materiali.splice(+d.togliMat, 1); $('#materiali').innerHTML = righeMateriali(); bozzaModificata(); }
     else if (b.id === 'b-add-extra') { lavoro.ops_extra.push(''); $('#extra').innerHTML = sezioneExtra(); const l = document.querySelectorAll('#extra input'); l[l.length-1].focus(); bozzaModificata(); }
@@ -3072,7 +3093,7 @@ function costruisciPdf(w, ctx){
   titolo('Appuntamento');
   coppia('Cliente', w.cliente, 'Data', dataIT(w.data));
   coppia('Indirizzo', w.indirizzo, 'Tecnico', w.tecnico);
-  if (w.squadra && (w.squadra.membri || []).some(m => m.p !== false)) coppia('Squadra', w.squadra.nome, 'Con', w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', '));
+  if (w.squadra && (w.squadra.membri || []).some(m => m.p !== false)) coppia(w.squadra.nome ? 'Squadra' : 'Con', w.squadra.nome || w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', '), w.squadra.nome ? 'Con' : '', w.squadra.nome ? w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', ') : '');
   if (w.levante) coppia('Impianto', w.impianto, 'Rif. Levante', 'Appuntamento N. ' + (w.levante.li || w.levante.mi));
   if (w.tipo) coppia('Tipo di intervento', w.tipo, '', '');
 
@@ -3114,7 +3135,7 @@ function costruisciPdf(w, ctx){
     if (ol.length <= 1) { blocco('Osservazioni', ol.length ? ol[0].o : w.osservazioni); blocco('Raccomandazioni', ol.length ? ol[0].a : w.raccomandazioni); blocco('Prescrizioni', ol.length ? ol[0].p : w.prescrizioni); }
     else ol.forEach(x => { blocco('Osservazioni – ' + x.nome, x.o); blocco('Raccomandazioni – ' + x.nome, x.a); blocco('Prescrizioni – ' + x.nome, x.p); }); }
 
-  const tot = w.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0);
+  let tot = w.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0); if (!(tot > 0)) tot = Math.round(numOre(w.oreMan) * 60);
   titolo('Orari');
   w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—'), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
   if (!ctx.perCliente) w.orari.forEach(o => {
@@ -7034,7 +7055,7 @@ const chiamateSenzaTecnico = () => chiamateAperte().filter(a => !tecnicoChiamata
 const sqCfg = () => (impostazioni.squadre && typeof impostazioni.squadre === 'object') ? impostazioni.squadre : null;
 const sqIds = () => { const c = sqCfg(); return c && Array.isArray(c.ids) ? c.ids.map(String) : []; };
 const eSquadra = id => sqIds().indexOf(String(id)) >= 0;
-const sqOre = m => m.dal && m.al ? m.dal + '–' + m.al : m.dal ? 'dalle ' + m.dal : m.al ? 'fino alle ' + m.al : '';
+const sqOre = m => m.dal && m.al ? m.dal + '–' + m.al : m.dal ? 'dalle ' + m.dal : m.al ? 'fino alle ' + m.al : m.ore ? m.ore + ' h' : '';
 const sqGiorno = x => typeof x === 'string' ? x.slice(0, 10) : isoGiorno(x);
 function sqComp(sq, g){ const c = sqCfg(); if (!c) return null; const x = ((c.giorni || {})[g] || {})[String(sq)] || (c.base || {})[String(sq)]; return (x && x.capo && Array.isArray(x.membri) && x.membri.length) ? x : null; }
 const sqNomeTec = id => ((datiLevanteTutti && datiLevanteTutti.tecnici) || {})[id] || ('Tecnico ' + id);
@@ -7415,7 +7436,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), colleghi: id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : [], meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 let salvataggioDati = {ok: true, kb: 0, senzaModelli: false};
@@ -7570,7 +7591,7 @@ async function caricaPacchetto(file){
     try { ricImporta(d.ric); } catch(e) {}
     let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
     if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), cm: (d.cm && typeof d.cm === 'object') ? d.cm : undefined, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, colleghi: Array.isArray(d.colleghi) ? d.colleghi.filter(c => c && c.n).slice(0, 60).map(c => ({n: String(c.n).slice(0, 60), op: c.op != null ? +c.op : null})) : [], meOp: d.meOp != null ? +d.meOp : null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), cm: (d.cm && typeof d.cm === 'object') ? d.cm : undefined, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     try { ctrlRegUnisci(d.reg); } catch(e) {}
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
@@ -7603,7 +7624,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.87.1 (12/11/2026)';
+const VERSIONE_APP = '1.88.1 (12/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8474,8 +8495,8 @@ function impPerUfficio(w){
 function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
     li: (w.levante && w.levante.li) || '', tipoInt: w.tipo || '',
-    squadra: w.squadra ? {nome: w.squadra.nome, capoOp: w.squadra.capoOp != null ? w.squadra.capoOp : null, membri: (w.squadra.membri || []).filter(m => m.p !== false).map(m => ({n: m.n, dal: m.dal || '', al: m.al || '', op: m.op != null ? m.op : null}))} : undefined,
-    orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})),
+    squadra: (w.squadra && (w.squadra.nome || (w.squadra.membri || []).some(m => m.p !== false))) ? {nome: w.squadra.nome || '', capoOp: w.squadra.capoOp != null ? w.squadra.capoOp : null, membri: (w.squadra.membri || []).filter(m => m.p !== false).map(m => ({n: m.n, dal: m.dal || '', al: m.al || '', ore: m.ore || '', op: m.op != null ? m.op : null}))} : undefined,
+    orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})), ore: w.oreMan || '',
     km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: ossUnite(w, 'osservazioni'), raccomandazioni: ossUnite(w, 'raccomandazioni'), prescrizioni: ossUnite(w, 'prescrizioni'), note: w.note || '',
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
@@ -8521,7 +8542,7 @@ const codiciMan = c => c.man.filter(m => m.cod);
 function sqPersone(r){
   const q = r.squadra; if (!q) return null;
   const tot = minutiTotali(r), ff = (r.orari || []).filter(o => o.dal && o.al), primo = ff.map(o => o.dal).sort()[0] || '', ultimo = ff.map(o => o.al).sort().pop() || '';
-  const minM = m => m.dal && m.al ? minuti(m.dal, m.al) : m.dal ? (ultimo ? minuti(m.dal, ultimo) : tot) : m.al ? (primo ? minuti(primo, m.al) : tot) : tot;
+  const minM = m => m.dal && m.al ? minuti(m.dal, m.al) : numOre(m.ore) > 0 ? Math.round(numOre(m.ore) * 60) : m.dal ? (ultimo ? minuti(m.dal, ultimo) : tot) : m.al ? (primo ? minuti(primo, m.al) : tot) : tot;
   return [{n: r.tecnico || 'Capo squadra', op: q.capoOp, min: tot, capo: true}].concat((q.membri || []).map(m => ({n: m.n, op: m.op, min: minM(m)})));
 }
 /* ore sovrapposte: la stessa persona in due interventi (o in un cantiere) nella stessa fascia, per esempio in squadra e in un appuntamento suo */
@@ -8559,7 +8580,7 @@ function ripartizione(r){
   if (sp) return sp.map(x => ({c: codiceDi(c, x.op) || (man[0] || {cod: 'M0'}).cod, o: x.min ? csvNum(Math.round(x.min / 60 * 100) / 100, true) : '', p: x.n}));
   return [{c: (man[0] || {cod: 'M0'}).cod, o: tot ? csvNum(tot, true) : ''}];
 }
-function minutiTotali(r){ return (r.orari || []).reduce((s, o) => s + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0); }
+function minutiTotali(r){ const t = (r.orari || []).reduce((s, o) => s + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0); return t > 0 ? t : Math.round(numOre(r.ore) * 60); }
 function csvNum(v, virg){
   let s = String(v == null ? '' : v).trim(); if (!s) return '';
   const n = parseFloat(s.replace(',', '.')); if (isNaN(n) || !/^[\d.,\s]+$/.test(s)) return s.replace(/[;\r\n]+/g, ' ');
@@ -8573,7 +8594,16 @@ function righeCsvRicevuta(r, c, cp){     // con la ricevuta del tecnico: stesse 
     let cod = '', um = '';
     if (x.k === 'mat') { cod = x.c || ''; um = x.um || ''; }
     else if (x.k === 'man' && x.pk === 'chiamata') { cod = c.dcCod || ''; um = 'nr'; }
-    else if (x.k === 'man' && x.pk === 'manodopera') { cod = cm; um = c.um || ''; }
+    else if (x.k === 'man' && x.pk === 'manodopera') {
+      cod = cm; um = c.um || '';
+      const sp = sqPersone(r);
+      if (sp && sp.length > 1) {          // piu' persone: le ore fatturate si dividono in proporzione alle ore lavorate (il totale resta quello della ricevuta)
+        const tot = Math.round((parseFloat(String(x.q).replace(',', '.')) || 0) * 100) / 100, sm = sp.reduce((a, y) => a + y.min, 0); let resto = tot;
+        sp.forEach((y, j) => { let q = j === sp.length - 1 ? resto : Math.round(tot * (sm > 0 ? y.min / sm : 1 / sp.length) * 100) / 100; q = Math.max(0, Math.round(q * 100) / 100); resto = Math.round((resto - q) * 100) / 100;
+          if (q > 0) rows.push([cp(codiceDi(c, y.op) || cm), cp((x.d || 'Manodopera') + ' - ' + y.n), cp(um), csvNum(q, c.virgola), prz(x.p)]); });
+        return;
+      }
+    }
     rows.push([cp(cod), cp(x.d), cp(um), csvNum(x.q, c.virgola), prz(x.p)]);
   });
   return rows;
@@ -8631,7 +8661,11 @@ function controlliIntervento(r){
   ctrlSovrapposte(r).forEach(x => c.push(x));
   const sp = sqPersone(r);
   if (sp) {
-    if (r.importi && (r.importi.righe || []).length) c.push({t: 'Squadra: con la ricevuta il CSV segue la ricevuta, le ore per persona non sono separate.', grave: false});
+    if (r.importi && (r.importi.righe || []).length) {
+      const mano = impRigheRicevuta(r.importi).filter(x => x.k === 'man' && x.pk === 'manodopera'), fatt = mano.reduce((a, x) => a + (parseFloat(String(x.q).replace(',', '.')) || 0), 0), lav = sp.reduce((a, x) => a + x.min, 0) / 60;
+      if (sp.length > 1 && !mano.length) c.push({t: 'Con la ricevuta ci sono ' + sp.length + ' persone, ma la ricevuta non ha la voce Manodopera: nel CSV non ci sono le ore di nessuno.', grave: false});
+      else if (sp.length > 1) c.push({t: 'Con la ricevuta le ' + csvNum(fatt, true) + ' ore fatturate sono divise tra ' + sp.map(x => x.n).join(', ') + ' in proporzione alle ore lavorate (' + csvNum(Math.round(lav * 100) / 100, true) + ' in tutto).', grave: false});
+    }
     else if (!(Array.isArray(r.rip) && r.rip.length)) sp.filter(x => x.min > 0 && !codiceDi(csvImp(), x.op)).forEach(x => c.push({t: 'Squadra: per ' + x.n + ' non trovo il codice di manodopera (dipendente non abbinato o codice non impostato nel CSV): ho usato il primo codice.', grave: false}));
   }
   return c;
@@ -8677,7 +8711,7 @@ function disegnaPosta(){
       ${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
-      ${r.squadra ? '<p style="margin:8px 0"><b>' + esc(r.squadra.nome) + ':</b> ' + ((r.squadra.membri || []).map(m => esc(m.n) + (sqOre(m) ? ' (' + esc(sqOre(m)) + ')' : '')).join(', ') || 'solo il capo') + '</p>' : ''}
+      ${r.squadra ? '<p style="margin:8px 0"><b>' + esc(r.squadra.nome || 'Con') + ':</b> ' + ((r.squadra.membri || []).map(m => esc(m.n) + (sqOre(m) ? ' (' + esc(sqOre(m)) + ')' : '')).join(', ') || 'solo il capo') + '</p>' : ''}
       ${impUffHtml(r)}
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
       ${vocLettore(r)}${blocco('Relazione', r.relazione, i, 'relazione')}${blocco('Osservazioni', r.osservazioni, i, 'osservazioni')}${blocco('Raccomandazioni', r.raccomandazioni, i, 'raccomandazioni')}${blocco('Prescrizioni', r.prescrizioni, i, 'prescrizioni')}${blocco('Note per l\'ufficio', r.note, i, 'note')}
