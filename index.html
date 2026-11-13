@@ -7668,7 +7668,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.92.0 (13/11/2026)';
+const VERSIONE_APP = '1.92.1 (13/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9737,6 +9737,7 @@ function foglioPdf(iso, tecnico){
   const { jsPDF } = window.jspdf, doc = new jsPDF({unit: 'mm', format: 'a4', compress: true});
   const W = 210, H = 297, M = 14, LARG = W - 2 * M, azienda = nomeAziendaMail();
   const giorno = giornoLungo(new Date(iso + 'T12:00:00'));
+  appuntamenti.forEach(a => { if (!(a.inizio instanceof Date)) a.inizio = new Date(a.inizio); if (!(a.fine instanceof Date)) a.fine = new Date(a.fine); });
   const tutti = appuntamenti.filter(a => isoGiorno(a.inizio) === iso && !a.fatto && !eseguito(a));
   const gruppi = {}; tutti.forEach(a => { const n = a.tecnico_nome || ''; if (tecnico === '' || tecnico === n || tecnico === '*') (gruppi[n] = gruppi[n] || []).push(a); });
   const nomi = Object.keys(gruppi).sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)));
@@ -9819,8 +9820,10 @@ function avviaFoglio(){
     const iso = $('#fg-data').value, tec = $('#fg-tec').value, es = $('#fg-esito');
     if (!iso) { es.textContent = 'Scegli il giorno.'; return; }
     if (!window.jspdf) { es.textContent = 'La libreria per creare il PDF non si è caricata.'; return; }
-    let blob; try { blob = foglioPdf(iso, tec === '*' ? '*' : tec); } catch(e) { console.error(e); es.textContent = 'Non sono riuscito a creare il PDF.'; return; }
-    if (!blob) { es.textContent = 'Nessun appuntamento da stampare per il ' + dataIT(iso) + (tec !== '*' ? ' per ' + tec : '') + '.'; return; }
+    let blob; try { blob = foglioPdf(iso, tec === '*' ? '*' : tec); } catch(e) { console.error(e); es.textContent = 'Non sono riuscito a creare il PDF (' + ((e && e.message) || e) + ').'; return; }
+    if (!blob) {
+      const delGiorno = appuntamenti.filter(a => isoGiorno(a.inizio) === iso && (tec === '*' || (a.tecnico_nome || '') === tec)), gia = delGiorno.filter(a => a.fatto || eseguito(a)).length;
+      es.textContent = 'Nessun appuntamento da stampare per il ' + dataIT(iso) + (tec !== '*' ? ' per ' + tec : '') + '.' + (gia ? ' Ce ne sono ' + gia + ' già registrati o eseguiti, che nel foglio non vengono stampati.' : (appuntamenti.length ? '' : ' In questo momento non ci sono appuntamenti caricati: carica prima i dati da Levante.')); return; }
     const nome = 'Foglio_' + (tec === '*' ? 'tutti' : slugNome(tec)) + '_' + iso + '.pdf';
     scaricaBlob(blob, nome); es.textContent = '✔ ' + nome + ' scaricato: aprilo e stampa.';
   };
