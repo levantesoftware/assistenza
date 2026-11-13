@@ -7062,7 +7062,7 @@ function riquadroCantieri(){
     const inv = leggiInviati(), nomi = d.tecnici || {}, pst = (typeof posta !== 'undefined' && Array.isArray(posta)) ? posta : [];
     const righeC = d.cantieri.map(c => {
       const dest = Object.keys(inv).filter(t => inv[t] && (inv[t].cant || []).indexOf(c.id) >= 0).map(t => nomi[t] || t);
-      const reg = pst.filter(r => r && r.cant && r.cantiere && String(r.cantiere.id) === String(c.id)), ore = reg.reduce((s, r) => s + (numOre(r.ore) || 0), 0);
+      const reg = pst.filter(r => r && r.cant && r.cantiere && String(r.cantiere.id) === String(c.id)), ore = reg.reduce((s, r) => s + (numOre(r.ore) || 0) + colCantiere(r).reduce((q, x) => q + x.ore, 0), 0);
       return `<li style="padding:7px 0;border-bottom:1px solid var(--riga)"><b>${esc((c.cod ? c.cod + ' · ' : '') + titoloCn(c))}</b>${c.nome && c.descr ? ` <span class="aiuto">(${esc(c.nome)})</span>` : ''}<br><span class="aiuto">${dest.length ? 'Inviato a: ' + esc(dest.join(', ')) : '<b style="color:var(--avv,#b45309)">Non ancora inviato a nessuno</b>'}${reg.length ? ` · tornate ${reg.length} ${reg.length === 1 ? 'registrazione' : 'registrazioni'}${ore ? ', ' + String(Math.round(ore * 100) / 100).replace('.', ',') + ' ore' : ''}` : ''}</span></li>`;
     }).join('');
     const mai = d.cantieri.filter(c => !Object.keys(inv).some(t => inv[t] && (inv[t].cant || []).indexOf(c.id) >= 0)).length;
@@ -7668,7 +7668,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.90.0 (13/11/2026)';
+const VERSIONE_APP = '1.92.0 (13/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8249,6 +8249,25 @@ function cnDet(r, k, titolo, somm, corpo, aperto){
   const st = cnApr[r.id + '|' + k], ap = st !== undefined ? st : aperto;
   return `<details class="passo rcee-blocco" data-cnk="${k}"${ap ? ' open' : ''}><summary><h2>${esc(titolo)}</h2><span class="aiuto" id="cns-${k}">${esc(somm)}</span></summary>${corpo}</details>`;
 }
+/* ---- colleghi nel rapportino di cantiere: il capo cantiere raccoglie le ore di tutti. Ore vuote = stesse ore sue ---- */
+function cnColLiberi(r){
+  const usati = new Set([normNome(nomeOperaioApp())].concat((r.colleghi || []).map(c => normNome(c.n))));
+  return ((typeof datiReali !== 'undefined' && datiReali && datiReali.colleghi) || []).filter(c => c && c.n && !usati.has(normNome(c.n)));
+}
+function cnColHtml(r){
+  const lib = cnColLiberi(r), cc = r.colleghi || [];
+  let h = `<p class="aiuto" style="margin:12px 0 4px"><b>Colleghi con te</b> <span class="aiuto">(se registri tu le ore anche per gli altri)</span></p>`;
+  if (cc.length) h += `<p class="aiuto" style="margin:0 0 4px">Per chi ha fatto ore diverse dalle tue scrivi le sue ore; se lasci vuoto valgono le tue.</p>` + cc.map((c, n) => `<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(c.n)}</span><input type="text" inputmode="decimal" data-cn-co="${n}" value="${esc(c.ore || '')}" placeholder="ore: ${esc(r.ore || '')}" aria-label="Ore di ${esc(c.n)}" style="width:92px"><button class="togli" type="button" data-cn-codel="${n}" aria-label="Togli ${esc(c.n)}">×</button></div>`).join('');
+  h += `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${lib.length ? `<select id="cn-col-add" aria-label="Aggiungi un collega" style="flex:1;min-width:160px"><option value="">+ Aggiungi un collega…</option>${lib.map((c, n) => `<option value="${n}">${esc(c.n)}</option>`).join('')}</select>` : ''}<input type="text" id="cn-col-nome" maxlength="40" placeholder="${lib.length ? 'oppure un altro nome' : 'Nome del collega'}" style="flex:1;min-width:120px"><button class="btn chiaro piccolo" type="button" id="cn-col-ok" style="margin:0">Aggiungi</button></div>`;
+  return h;
+}
+function cnColAgg(nome, op){
+  const r = regCorr; nome = String(nome || '').trim().slice(0, 40); if (!r || !nome) return;
+  if (normNome(nome) === normNome(nomeOperaioApp())) return;
+  r.colleghi = r.colleghi || []; if (r.colleghi.some(c => normNome(c.n) === normNome(nome))) return;
+  r.colleghi.push({n: nome, op: op != null ? op : null, ore: ''});
+  const e = $('#cn-col'); if (e) e.innerHTML = cnColHtml(r); salvaReg(true);
+}
 function cnSomm(r){
   const so = [r.s1, r.s2, r.s3, r.st !== undefined ? r.st : (r.subn || '')].filter(Boolean).join(' › ');
   const ore = [dataIT(r.data), r.dal || r.al ? (r.dal || '—') + '–' + (r.al || '—') : '', r.ore ? r.ore + ' h' : ''].filter(Boolean).join(' · ');
@@ -8278,7 +8297,8 @@ function disegnaCantiere(){
     ${cnDet(r, 'ore', 'Giorno e ore', cnSomm(r).ore, `<div class="campo"><label for="cn-data">Giorno</label><input id="cn-data" type="date" value="${esc(r.data)}"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="campo" style="flex:1;min-width:110px"><label for="cn-dal">Dalle</label><input id="cn-dal" type="time" value="${esc(r.dal)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-al">Alle</label><input id="cn-al" type="time" value="${esc(r.al)}"></div><div class="campo" style="flex:1;min-width:110px"><label for="cn-pausa">Pausa (minuti)</label><input id="cn-pausa" type="text" inputmode="numeric" value="${esc(r.pausa)}" placeholder="0"></div></div>
     <div class="campo"><label for="cn-ore">Ore lavorate <span class="aiuto">(si calcolano da sole se scrivi dalle/alle; puoi scriverle tu)</span></label><input id="cn-ore" type="text" inputmode="decimal" value="${esc(r.ore)}" placeholder="per esempio 7,5" style="font-size:20px;font-weight:700"><div class="aiuto" id="cn-ore-min" style="margin-top:4px">${esc(oreInMinuti(r.ore) ? '= ' + oreInMinuti(r.ore) : '')}</div></div>
-    ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}`, true)}
+    ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
+    <div id="cn-col">${cnColHtml(r)}</div>`, true)}
     ${cnDet(r, 'rel', 'Cosa hai fatto', cnSomm(r).rel, `<div class="campo"><label for="cn-rel" style="display:none">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div>${vocPossibile() ? `<div style="margin-top:8px"><label style="display:block;margin:0 0 4px;font-weight:700">Messaggio vocale per l'ufficio</label>${vocaleHtml('cn:' + r.id)}</div>` : ''}</div>`, true)}
     <details class="passo rcee-blocco" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="cn-port-n" class="aiuto">${esc(contaPortato(r).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
     ${cnDet(r, 'mat', 'Materiali usati', cnSomm(r).mat, `${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div>`, true)}
@@ -8371,6 +8391,7 @@ function costruisciPdfCantiere(r){
   const ore = numOre(r.ore);
   coppia('Orario', (r.dal || r.al) ? ((r.dal || '—') + ' – ' + (r.al || '—')) + (parseInt(r.pausa, 10) ? ' (pausa ' + parseInt(r.pausa, 10) + ' min)' : '') : '', 'Ore totali', ore ? fmtOreDec(ore) : '');
   if (r.tipo) coppia('Tipo di ore', r.tipo, '', '');
+  (r.colleghi || []).forEach(c => { const o = numOre(c.ore) > 0 ? numOre(c.ore) : ore; coppia('Collega', c.n, 'Ore', o ? fmtOreDec(o) : ''); });
 
   titolo('Lavori eseguiti');
   if ((r.relazione || '').trim()) blocco('Relazione', r.relazione.trim()); else { serve(8); doc.setFontSize(10.5); colore(GRIGIO); doc.text('Nessuna relazione indicata.', M, y + 3); y += 8; }
@@ -8412,7 +8433,7 @@ function datiCantiere(r, pdf){
     operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
     voce: vocDati('cn:' + r.id), relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     portato: (r.portato || []).filter(pp => ptResto(r, pp) > 0 || !qNum(pp.qta) && !portatoUsato(r, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(r, pp)) : (pp.qta || ''), um: pp.um || '', prezzo: pp.prezzo || ''})),
-    firmato: !!r.firma, firmaNome: (r.firmaNome || '').trim() || undefined, nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
+    colleghi: (r.colleghi || []).map(c => ({n: c.n, op: c.op != null ? c.op : undefined, ore: numOre(c.ore) > 0 ? numOre(c.ore) : numOre(r.ore)})).filter(c => c.ore > 0), firmato: !!r.firma, firmaNome: (r.firmaNome || '').trim() || undefined, nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
 }
 async function filesCantiere(r){
   const sl = slugNome(r.descr || r.nome || r.cod || 'cantiere'), g = r.data || isoGiorno(new Date()), chi = slugNome(nomeOperaioApp() || 'operaio'), out = [], pdfNomi = [];
@@ -8492,6 +8513,8 @@ function avviaCantieri(){
     const r = regCorr, d = b.dataset;
     if (b.id === 'cn-indietro' || b.id === 'cn-salva') { salvaReg(true); indietro(); }
     else if (b.id === 'cn-firma-canc') { const c = $('#cn-firma'); if (c) { cnInk = false; cnPreparaFirma(); cnCatturaFirma(); cnAggSomm(); } }
+    else if (b.id === 'cn-col-ok') { const i = $('#cn-col-nome'); if (i && i.value.trim()) { cnColAgg(i.value, null); } }
+    else if (d.cnCodel !== undefined) { (r.colleghi || []).splice(+d.cnCodel, 1); const e = $('#cn-col'); if (e) e.innerHTML = cnColHtml(r); salvaReg(true); }
     else if (b.id === 'cn-invia') inviaCantiere();
     else if (b.id === 'cn-mailpronta') mailProntaCantiere();
     else if (d.mic !== undefined) avviaDettatura(d.mic);
@@ -8533,6 +8556,7 @@ function avviaCantieri(){
     const t = e.target, r = regCorr; if (!r) return;
     if (t.id === 'cn-data') r.data = t.value || r.data;
     else if (t.id === 'cn-firmanome') { r.firmaNome = t.value; salvaReg(); }
+    else if (t.dataset && t.dataset.cnCo !== undefined) { const c = (r.colleghi || [])[+t.dataset.cnCo]; if (c) { c.ore = t.value; salvaReg(); } return; }
     else if (t.id === 'cn-dal' || t.id === 'cn-al' || t.id === 'cn-pausa') {
       r[t.id.slice(3)] = t.value;
       const o = oreDaOrari(r); if (o) { r.ore = o; $('#cn-ore').value = o; }
@@ -8561,6 +8585,7 @@ function avviaCantieri(){
   v.addEventListener('change', e => {
     const t = e.target, r = regCorr; if (!r) return;
     if (t.id === 'cn-tipo') { r.tipo = t.value; salvaReg(); }
+    else if (t.id === 'cn-col-add') { const c = cnColLiberi(r)[+t.value]; if (c) cnColAgg(c.n, c.op); }
     else if (/^cn-s[123]$/.test(t.id)) { r['s' + t.dataset.liv] = t.value; aggiornaSubn(r); salvaReg(); }
     else if (t.id === 'cn-foto-in' || t.id === 'cn-foto-cam') { const fl = [...t.files]; t.value = ''; if (fl.length) aggiungiFotoCn(fl); }
   });
@@ -8691,6 +8716,7 @@ function righeCsvRicevuta(r, c, cp){     // con la ricevuta del tecnico: stesse 
   });
   return rows;
 }
+const colCantiere = r => (r.colleghi || []).map(c => ({n: c.n, op: c.op, ore: numOre(c.ore)})).filter(c => c.n && c.ore > 0);          // nel file dati le ore dei colleghi sono gia' risolte (vuoto = ore del capo)
 function righeCsv(r){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), rows = [];
   if (c.intest) rows.push(['codice', 'descrizione', 'unità di misura', 'quantità', 'prezzo unitario']);
@@ -8699,6 +8725,7 @@ function righeCsv(r){
   if (r.cant) {                                           // cantiere: le ore vanno sul codice di manodopera del dipendente (indice di Levante), altrimenti sul primo codice impostato
     const op = r.operaio, mc = (op && c.man[op.op] && c.man[op.op].cod) ? c.man[op.op] : (codiciMan(c)[0] || {cod: 'M0', desc: 'Manodopera'}), o = numOre(r.ore);
     if (o > 0 && mc.cod) rows.push([cp(mc.cod), cp(mc.desc || nomeMan(mc.cod)), cp(c.um), csvNum(o, c.virgola), '']);
+    colCantiere(r).forEach(x => { const m2 = (x.op != null && c.man[x.op] && c.man[x.op].cod) ? c.man[x.op] : (codiciMan(c)[0] || {cod: 'M0', desc: 'Manodopera'}); if (m2.cod) rows.push([cp(m2.cod), cp((m2.desc || nomeMan(m2.cod)) + ' - ' + x.n), cp(c.um), csvNum(x.ore, c.virgola), '']); });
   } else ripartizione(r).forEach(x => { const o = parseFloat(String(x.o || '').replace(',', '.')); if (x.c && o > 0) rows.push([cp(x.c), cp(nomeMan(x.c)), cp(c.um), csvNum(o, c.virgola), '']); });
   if (!r.cant && c.kmCod && parseFloat(String(r.km || '').replace(',', '.')) > 0) rows.push([cp(c.kmCod), cp(c.kmDesc), 'km', csvNum(r.km, c.virgola), '']);
   if (!r.cant && c.dcCod && r.dc) rows.push([cp(c.dcCod), cp(c.dcDesc), 'nr', '1', '']);
@@ -8807,7 +8834,54 @@ function disegnaPosta(){
   }).join('');
   testa += fgScadenzeHtml() + ctrlScadenzeHtml();
   { const nC = posta.filter(r => r.cant && !r.fatto).length; if (nC) testa += `<button class="btn sec piccolo" type="button" data-cantcsv="1" style="margin:0 0 12px 8px">Riepilogo ore dei cantieri da registrare (CSV, ${nC})</button>`; }
+  testa += portatoPannelloHtml();
   box.innerHTML = testa + box.innerHTML;
+}
+/* ---- foglio «portato e non montato» da stampare: per giorno e per tecnico, da spuntare in magazzino o sul furgone ---- */
+let ptPdfGiorno = '', ptPdfTec = '';
+const nomeTecPosta = r => String((r.cant && r.operaio && r.operaio.n) || r.tecnico || '').trim();
+const conPortato = r => !r.rich && (r.portato || []).some(pp => (pp.descr || pp.codice));
+function portatoPannelloHtml(){
+  const tutti = posta.filter(conPortato); if (!tutti.length) return '';
+  const g = ptPdfGiorno || isoGiorno(new Date()), tecs = Array.from(new Set(tutti.map(nomeTecPosta).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  return `<div class="avviso info" style="margin:0 0 12px"><b>Portato e non montato da rientrare</b><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px"><input type="date" id="pt-giorno" value="${esc(g)}" aria-label="Giorno"><select id="pt-tec" aria-label="Tecnico"><option value="">Tutti i tecnici</option>${tecs.map(t => `<option value="${esc(t)}"${t === ptPdfTec ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><button class="btn sec piccolo" type="button" data-ptpdf="1" style="margin:0">Foglio da stampare (PDF)</button></div><p class="aiuto" id="pt-msg" style="margin:6px 0 0"></p></div>`;
+}
+function costruisciPdfPortato(giorno, tec){
+  const { jsPDF } = window.jspdf, doc = new jsPDF({unit:'mm', format:'a4', compress:true});
+  const M = 15, W = 210, CW = W - 2*M, FONDO = 275, INK = [20,35,43], PET = [14,90,107], GRIGIO = [91,109,117], RIGA = [211,220,223];
+  let y = M; const col = c => doc.setTextColor(c[0], c[1], c[2]), serve = h => { if (y + h > FONDO) { doc.addPage(); y = M; } };
+  const rec = posta.filter(r => conPortato(r) && String(r.data || '').slice(0, 10) === giorno && (!tec || nomeTecPosta(r) === tec));
+  const tecs = Array.from(new Set(rec.map(nomeTecPosta))).sort((a, b) => a.localeCompare(b));
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); col(INK); doc.text(impostazioni.azienda || 'Portato e non montato', M, y + 5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); col(GRIGIO); doc.text('Portato e non montato · ' + dataIT(giorno), W - M, y + 5, {align:'right'});
+  y += 9; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.6); doc.line(M, y, W - M, y); y += 6;
+  if (!tecs.length) { doc.setFontSize(11); col(INK); doc.text('Nessun materiale portato e non montato in questo giorno.', M, y + 4); return doc.output('blob'); }
+  const c1 = 8, c2 = 28, c4 = 22, c5 = 36, c3 = CW - c1 - c2 - c4 - c5;
+  const intesta = () => { serve(9); doc.setFillColor(238,243,244); doc.rect(M, y, CW, 7, 'F'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5); col(GRIGIO);
+    doc.text('OK', M + 2, y + 4.8); doc.text('Codice', M + c1 + 1, y + 4.8); doc.text('Descrizione', M + c1 + c2 + 1, y + 4.8); doc.text('Q.tà', M + c1 + c2 + c3 + 1, y + 4.8); doc.text('Trovato / note', M + c1 + c2 + c3 + c4 + 1, y + 4.8); y += 7; };
+  const riga = (pp) => { const dl = doc.splitTextToSize(pp.descr || '', c3 - 2), cl = doc.splitTextToSize(pp.codice || '', c2 - 2), h = Math.max(dl.length, cl.length, 1) * 4.6 + 4; serve(h);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); col(INK); doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.3); doc.rect(M + 1.5, y + 1.8, 4, 4);
+    doc.text(cl, M + c1 + 1, y + 4.8); doc.text(dl, M + c1 + c2 + 1, y + 4.8); doc.text(((pp.qta || '') + ' ' + (pp.um || '')).trim(), M + c1 + c2 + c3 + 1, y + 4.8);
+    y += h; doc.setDrawColor(RIGA[0], RIGA[1], RIGA[2]); doc.setLineWidth(0.2); doc.line(M, y, M + CW, y); doc.line(M + c1 + c2 + c3 + c4, y - h, M + c1 + c2 + c3 + c4, y); };
+  tecs.forEach((t, k) => {
+    if (k > 0) { doc.addPage(); y = M; }
+    const mie = rec.filter(r => nomeTecPosta(r) === t);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); col(PET); doc.text(t || 'Tecnico', M, y + 5); y += 9;
+    const somma = {};          // articoli sommati: per controllare il furgone in un colpo solo
+    mie.forEach(r => (r.portato || []).filter(pp => pp.descr || pp.codice).forEach(pp => { const key = (pp.codice || pp.descr).toLowerCase(), q = qNum(pp.qta); if (!somma[key]) somma[key] = {codice: pp.codice, descr: pp.descr, um: pp.um, q: 0, senza: false}; if (q) somma[key].q += q; else somma[key].senza = true; }));
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); col(INK); doc.text('Totale da ritrovare', M, y + 3); y += 6; intesta();
+    Object.keys(somma).forEach(key => { const x = somma[key]; riga({codice: x.codice, descr: x.descr, um: x.um, qta: x.q ? qtaTesto(x.q) : ''}); });
+    y += 5;
+    serve(14); doc.setFont('helvetica','bold'); doc.setFontSize(10.5); col(INK); doc.text('Dettaglio per intervento', M, y + 3); y += 7;
+    mie.forEach(r => {
+      serve(22); doc.setFont('helvetica','bold'); doc.setFontSize(9.5); col(GRIGIO);
+      doc.text(doc.splitTextToSize((r.cant ? 'Cantiere · ' : '') + (r.cliente || '') + (r.indirizzo ? ' · ' + r.indirizzo : ''), CW)[0], M, y + 3); y += 5; intesta();
+      (r.portato || []).filter(pp => pp.descr || pp.codice).forEach(riga); y += 4; });
+  });
+  serve(24); y += 10; doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.3); doc.line(M, y, M + 70, y); doc.line(M + 100, y, M + 170, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); col(GRIGIO); doc.text('Controllato da / data', M, y + 4); doc.text('Firma del tecnico', M + 100, y + 4);
+  const n = doc.getNumberOfPages(); for (let k = 1; k <= n; k++) { doc.setPage(k); doc.setFont('helvetica','normal'); doc.setFontSize(8); col(GRIGIO); doc.text('Pagina ' + k + ' di ' + n, W - M, 290, {align:'right'}); }
+  return doc.output('blob');
 }
 /* importi e pagamento arrivati dal tecnico (blocco per l'ufficio) */
 /* le righe della ricevuta, nello stesso ordine del PDF: contratto (con le operazioni comprese subito sotto), operazioni, materiali, voci a mano */
@@ -8980,6 +9054,7 @@ function controlliCantiere(r){
   if (!r.operaio) c.push({t: 'Non so a quale dipendente appartengono queste ore (il tecnico non è abbinato a un dipendente in Levante): scrivilo tu.', grave: false});
   if (!(r.relazione || '').trim() && !r.voce) c.push({t: 'Manca la descrizione dei lavori.', grave: false});
   (r.file || []).filter(n => !(pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC')))).forEach(n => c.push({t: 'PDF delle foto non ancora arrivato: ' + n + '.', grave: true}));
+  colCantiere(r).filter(x => x.op == null).forEach(x => c.push({t: x.n + ': non so a quale dipendente appartiene, le sue ore vanno sul primo codice di manodopera.', grave: false}));
   ctrlSovrapposte(r).forEach(x => c.push(x));
   return c;
 }
@@ -9014,6 +9089,7 @@ function schedaCantiere(r, i){
       <p style="margin:8px 0">${esc(r.indirizzo || '')}</p>
       ${r.cantiere && r.cantiere.sub && r.cantiere.sub.n ? `<p style="margin:8px 0"><b>Sottocantiere:</b> ${esc(r.cantiere.sub.n)}</p>` : ''}
       <p style="margin:8px 0"><b>Ore:</b> ${ore ? '<b>' + esc(fmtOreDec(ore)) + ' h</b>' : '—'}${r.dal || r.al ? ' (' + esc(r.dal || '—') + ' – ' + esc(r.al || '—') + (r.pausa ? ', pausa ' + esc(r.pausa) + ' min' : '') + ')' : ''}${r.tipo ? ' · ' + esc(r.tipo) : ''}${mc ? ' · manodopera <b>' + esc(mc.cod) + '</b>' + (mc.desc ? ' (' + esc(mc.desc) + ')' : '') : (op ? ' · indice manodopera ' + esc(op.op) + ' (imposta i codici nel CSV per Levante)' : '')}</p>
+      ${colCantiere(r).length ? '<p style="margin:8px 0"><b>Con lui:</b> ' + colCantiere(r).map(x => esc(x.n) + ' ' + esc(fmtOreDec(x.ore)) + ' h').join(' · ') + '</p>' : ''}
       ${rel}${vocLettore(r)}
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc((pp.qta + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
@@ -9026,6 +9102,7 @@ function blobRiepilogoCantieri(){
   posta.filter(r => r.cant && !r.fatto).sort((a, b) => String(a.data).localeCompare(String(b.data)) || String(a.cliente).localeCompare(String(b.cliente))).forEach(r => {
     const op = r.operaio, mc = op && c.man[op.op] && c.man[op.op].cod ? c.man[op.op].cod : '';
     righe.push([cp(r.cantiere && ((r.cantiere.cod || '') + (r.cantiere.descr ? ' ' + r.cantiere.descr : ''))), cp(r.cantiere && r.cantiere.sub && r.cantiere.sub.n), cp(r.cantiere && r.cantiere.nome), cp(dataIT(r.data)), cp(op ? op.n : r.tecnico), cp(mc), num(numOre(r.ore)), cp(r.tipo), cp(r.relazione)]);
+    colCantiere(r).forEach(x => { const m2 = x.op != null && c.man[x.op] && c.man[x.op].cod ? c.man[x.op].cod : ''; righe.push([cp(r.cantiere && ((r.cantiere.cod || '') + (r.cantiere.descr ? ' ' + r.cantiere.descr : ''))), cp(r.cantiere && r.cantiere.sub && r.cantiere.sub.n), cp(r.cantiere && r.cantiere.nome), cp(dataIT(r.data)), cp(x.n), cp(m2), num(x.ore), cp(r.tipo), cp('(registrato da ' + (op ? op.n : r.tecnico) + ') ' + (r.relazione || ''))]); });
   });
   const t = righe.map(x => x.join(';')).join('\r\n') + '\r\n';
   return c.win ? new Blob([bytesWin(t)], {type: 'text/csv'}) : new Blob([t], {type: 'text/csv;charset=utf-8'});
@@ -9058,6 +9135,11 @@ function avviaPosta(){
       }
       disegnaPosta(); const dx = $('#destra'); if (dx) dx.scrollTop = 0; window.scrollTo(0, 0); return;
     }
+    if (d.ptpdf !== undefined) {
+      const g = ($('#pt-giorno') || {}).value || isoGiorno(new Date()), t = ($('#pt-tec') || {}).value || '', m = $('#pt-msg'); ptPdfGiorno = g; ptPdfTec = t;
+      if (!window.jspdf) { if (m) m.textContent = 'La libreria per creare il PDF non si è caricata: controlla la connessione.'; return; }
+      try { const bl = costruisciPdfPortato(g, t); scaricaBlob(bl, 'Portato_da_rientrare_' + g + (t ? '_' + slugNome(t) : '') + '.pdf'); if (m) m.textContent = ''; } catch(x) { if (m) m.textContent = 'Non sono riuscito a creare il PDF (' + ((x && x.message) || x) + ').'; }
+      return; }
     if (d.cantcsv !== undefined) { scaricaBlob(blobRiepilogoCantieri(), 'Riepilogo_ore_cantieri_' + isoGiorno(new Date()) + '.csv'); return; }
     if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); b.textContent = 'Copiato ✓'; }
     else if (d.csv !== undefined) { const r = posta[+d.csv]; scaricaBlob(blobCsv(r), 'Levante_' + slugNome(r.cliente) + '_' + (r.data || '') + '.csv'); }
