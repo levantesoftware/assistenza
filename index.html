@@ -1710,6 +1710,7 @@ function listaChiamateUfficio(L){          // ufficio, sola visualizzazione: a c
     if (c.urgente) chips.push('<span class="chip urg">Urgente</span>');
     if (c.r && c.r.li) chips.push(`<span class="chip num">N. ${esc(c.r.li)}</span>`);
     if (c.r && c.r.tp) chips.push(`<span class="chip info">${esc(c.r.tp)}</span>`);
+    if (c.r && c.r.pr && c.r.pr.c) chips.push(`<span class="chip info">Cantiere ${esc(c.r.pr.c)}</span>`);
     return `<button class="visita ${c.urgente ? 'urgente ' : ''}" type="button" data-ch="${esc(c.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(isoGiorno(c.inizio)).slice(0, 5))}<small>chiamata</small></span>
       <span class="corpo"><span class="nome">${esc(c.titolo)}</span><span class="dove" style="display:block">${esc(c.luogo)}</span>${c.messaggio ? `<span class="dove" style="display:block;font-style:italic">${esc(c.messaggio.slice(0, 140))}</span>` : ''}<span class="riga">${chips.join('')}</span></span></button>`;
   }).join('');
@@ -1740,6 +1741,7 @@ function listaChiamate(L){          // la scheda "Chiamate": quelle ancora senza
     if (c.urgente) chips.push('<span class="chip urg">Urgente</span>');
     if (c.r && c.r.li) chips.push(`<span class="chip num">N. ${esc(c.r.li)}</span>`);
     if (c.r && c.r.tp) chips.push(`<span class="chip info">${esc(c.r.tp)}</span>`);
+    if (c.r && c.r.pr && c.r.pr.c) chips.push(`<span class="chip info">Cantiere ${esc(c.r.pr.c)}</span>`);
     return `<div style="margin-bottom:14px"><button class="visita ${c.urgente ? 'urgente ' : ''}" type="button" data-ch="${esc(c.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(isoGiorno(c.inizio)).slice(0, 5))}<small>chiamata</small></span>
       <span class="corpo"><span class="nome">${esc(c.titolo)}</span><span class="dove" style="display:block">${esc(c.luogo)}</span>${c.messaggio ? `<span class="dove" style="display:block;font-style:italic">${esc(c.messaggio.slice(0, 140))}</span>` : ''}<span class="riga">${chips.join('')}</span></span></button>
       <div class="azioni" style="margin:6px 0 0"><button class="btn sec piccolo" type="button" data-ch-fissa="${esc(c.id)}">Fissa un appuntamento</button><button class="btn piccolo" type="button" data-ch-int="${esc(c.id)}">Trasforma in intervento</button></div></div>`;
@@ -1822,6 +1824,7 @@ function disegnaAgenda(){
     else if (a.sq) chips.push(`<span class="chip tec">${esc(a.sq.nome)} · sei il capo</span>`);
     else if (a.tecnico_nome && piuTecnici) chips.push(`<span class="chip tec">${esc(a.tecnico_nome)}</span>`);
     if (a.r && a.r.tp) chips.push(`<span class="chip info">${esc(a.r.tp)}</span>`);
+    if (a.r && a.r.pr && a.r.pr.c) chips.push(`<span class="chip info">Cantiere ${esc(a.r.pr.c)}</span>`);
     if (nOp) chips.push(`<span class="chip">${nOp} ${nOp === 1 ? 'operazione' : 'operazioni'} da fare</span>`);
     const nDoc = (a.docs || []).filter(d => !d.altro).length;
     if (nDoc) chips.push(`<span class="chip info">${nDoc} ${nDoc === 1 ? 'documento' : 'documenti'}</span>`);
@@ -1929,6 +1932,7 @@ function apriDettaglio(id, push = true){
   if (a.urgente) h += `<div class="avviso rosso"><b>Intervento urgente</b>Il cliente aspetta: chiamalo prima di partire.</div>`;
   if (a.promemoria && a.sq) h += `<div class="avviso info"><b>Promemoria</b>Questo appuntamento lo gestisce ${esc(a.sq.capoNome)}, capo di ${esc(a.sq.nome)}. Tu lo vedi solo per sapere dove si lavora. Con voi: ${esc((a.sq.membri || []).join(', '))}.</div>`;
   else if (a.sq) h += `<div class="avviso info"><b>Sei il capo squadra</b>${esc(a.sq.nome)}. Con te: ${esc((a.sq.membri || []).filter(n => n !== a.sq.capoNome).join(', ') || 'nessun altro')}. La scheda la compili tu; in «Orari e viaggio» segni chi c'era.</div>`;
+  if (r.pr && (r.pr.c || r.pr.n)) h += `<div class="avviso info"><b>Cantiere ${esc(r.pr.c || '')}</b>${esc(r.pr.n || '')}${r.pr.u ? '<br>' + esc(r.pr.u) : ''}</div>`;
   if (a.rda) h += `<div class="avviso info"><b>Ordine di lavoro</b>${esc(a.rda)}</div>`;
   if (a.messaggio) h += `<div class="avviso info"><b>Richiesta del cliente</b>${esc(a.messaggio)}</div>`;
   if (a.chiamata && a.programmata && !bozze[a.id]) h += '<p style="margin:8px 0"><button class="btn chiaro piccolo" id="b-disfissa" type="button">Rimetti tra le chiamate</button></p>';
@@ -2108,7 +2112,7 @@ function nuovaScheda(a){
     titolo: a ? a.titolo : 'Intervento senza appuntamento',
     cliente: a ? a.titolo : '', indirizzo: i.u || (a ? a.luogo : ''), data: isoGiorno(a ? a.inizio : new Date()),
     tecnico: impostazioni.tecnico || '', richiesta: a ? a.messaggio || '' : '', ol: a ? a.rda || '' : '',
-    impianto: i.d || '', levante: a && r.li ? {li:r.li, mi:r.mi} : null, r: a ? a.r || null : null,
+    impianto: i.d || '', pratica: (a && r.pr) ? {id: r.pr.id, c: r.pr.c || '', n: r.pr.n || ''} : null, levante: a && r.li ? {li:r.li, mi:r.mi} : null, r: a ? a.r || null : null,
     rc: a && a.rc ? JSON.parse(JSON.stringify(a.rc)) : [],
     ops: {}, ops_extra: [], analisi: {}, orari: [{data: isoGiorno(a ? a.inizio : new Date()), dal: a ? hhmm(a.inizio) : '', al: ''}],
     relazione:'', osservazioni:'', raccomandazioni:'', prescrizioni:'', km:'', dc:false, materiali: [], esito:'', note:'', firmaNome:'', firma:'',
@@ -2214,6 +2218,23 @@ function fineAutomatica(){
 function sqColLiberi(){          // colleghi che il tecnico puo' ancora aggiungere (non lui, non quelli gia' presenti)
   const q = lavoro && lavoro.squadra, usati = new Set([normNome(lavoro && lavoro.tecnico)].concat(((q && q.membri) || []).map(m => normNome(m.n))));
   return ((typeof datiReali !== 'undefined' && datiReali && datiReali.colleghi) || []).filter(c => c && c.n && !usati.has(normNome(c.n)));
+}
+function cantiereHtml(){          // intervento dentro un cantiere: dall'appuntamento (solo si vede) oppure scelto dal tecnico quando non c'e' appuntamento
+  const w = lavoro, el = (typeof datiReali !== 'undefined' && datiReali && datiReali.pratiche) || [], et = p => (p.c ? p.c + ' · ' : '') + (p.n || '');
+  if (!w.manuale) return w.pratica ? `<p class="aiuto" style="margin:0 0 8px"><b>Cantiere</b> ${esc(et(w.pratica))}</p>` : '';
+  if (!el.length && !w.pratica) return '';
+  const lista = el.slice(); if (w.pratica && !lista.some(p => p.id === w.pratica.id)) lista.unshift(w.pratica);
+  return `<div class="campo"><label for="f-prat">Cantiere <span class="aiuto">(se l'intervento è dentro un cantiere)</span></label><select id="f-prat" data-prat><option value="">— nessuno —</option>${lista.map(p => `<option value="${esc(p.id)}"${w.pratica && w.pratica.id === p.id ? ' selected' : ''}>${esc(et(p) + (p.r ? ' — ' + p.r : ''))}</option>`).join('')}</select></div>`;
+}
+function scegliCantiere(id){
+  const w = lavoro, el = (datiReali && datiReali.pratiche) || [], p = el.filter(x => x.id === id)[0];
+  w.pratica = p ? {id: p.id, c: p.c || '', n: p.n || ''} : null;
+  if (p) {
+    if (p.r && !String(w.cliente || '').trim()) { w.cliente = p.r; const e = $('#f-cliente'); if (e) e.value = p.r; }
+    if (p.u && !String(w.indirizzo || '').trim()) { w.indirizzo = p.u; const e = $('#f-indirizzo'); if (e) e.value = p.u; }
+    const sm = $('#chi-sum'); if (sm) sm.textContent = chiSomm(w);
+  }
+  bozzaModificata();
 }
 function squadraHtml(){          // chi c'era con te (squadra o colleghi aggiunti) e, se serve, gli orari di chi ha fatto ore diverse
   const q = lavoro && lavoro.squadra, mm = (q && q.membri) || [], lib = sqColLiberi();
@@ -2647,6 +2668,7 @@ function disegnaScheda(){
   $('#form').innerHTML = `
     ${w.inCorso ? '<div class="avviso"><b>Intervento in corso</b>Iniziato alle ' + esc(w.inizioOra || '') + '. Quando scegli l\'esito, l\'ora di fine si registra da sola.</div>' : ''}
     <details class="passo rcee-blocco" id="chi-d"${chiApr[ptKey()] !== undefined ? (chiApr[ptKey()] ? ' open' : '') : (w.cliente && w.indirizzo ? '' : ' open')}><summary><h2>Chi e dove</h2><span class="aiuto" id="chi-sum">${esc(chiSomm(w))}</span></summary>
+      ${cantiereHtml()}
       ${campoTesto('cliente', 'Cliente')}
       ${campoTesto('indirizzo', 'Indirizzo dell\'intervento')}
       ${campoTesto('email', 'Email del cliente (per inviargli i documenti)', {tipo:'email', inputmode:'email'})}
@@ -2921,6 +2943,7 @@ function collegaForm(){
     if (d.tipoSel !== undefined) { const x = $('#f-tipo'); if (t.value === '__altro') { lavoro.tipoLibero = true; if (x) { x.hidden = false; x.value = ''; try { x.focus(); } catch(er) {} } lavoro.tipo = ''; } else { lavoro.tipoLibero = false; lavoro.tipo = t.value; if (x) { x.hidden = true; x.value = ''; } } bozzaModificata(); return; }
     if (d.allega !== undefined) { ultimiAllegati[+d.allega][destInvio === 'cli' ? 'onCli' : 'on'] = t.checked; aggiornaPulsantiInvio(); }
     else if (d.dc !== undefined) { lavoro.dc = t.checked; impSincronizzaChiamata(); bozzaModificata(); }
+    else if (d.prat !== undefined) scegliCantiere(t.value);
     else if (t.id === 'sq-add') { if (t.value === '__altro') { const a = $('#sq-nome'), b2 = $('#sq-ok'); if (a) { a.style.display = ''; try { a.focus(); } catch(er) {} } if (b2) b2.style.display = ''; } else if (t.value !== '') { const c = sqColLiberi()[+t.value]; if (c) sqAggiungi(c.n, c.op); } }
     else if (d.sqp !== undefined) { if (lavoro.squadra && lavoro.squadra.membri[+d.sqp]) { lavoro.squadra.membri[+d.sqp].p = t.checked; bozzaModificata(); } }
     else if (d.op !== undefined) { (lavoro.ops[d.op] = lavoro.ops[d.op] || {}).fatta = t.checked; aggiornaTile(); bozzaModificata(); aggiornaImporti(); }
@@ -3100,6 +3123,7 @@ function costruisciPdf(w, ctx){
   coppia('Cliente', w.cliente, 'Data', dataIT(w.data));
   coppia('Indirizzo', w.indirizzo, 'Tecnico', w.tecnico);
   if (w.squadra && (w.squadra.membri || []).some(m => m.p !== false)) coppia(w.squadra.nome ? 'Squadra' : 'Con', w.squadra.nome || w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', '), w.squadra.nome ? 'Con' : '', w.squadra.nome ? w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', ') : '');
+  if (w.pratica) coppia('Cantiere', (w.pratica.c ? w.pratica.c + ' - ' : '') + (w.pratica.n || ''), '', '');
   if (w.levante) coppia('Impianto', w.impianto, 'Rif. Levante', 'Appuntamento N. ' + (w.levante.li || w.levante.mi));
   if (w.tipo) coppia('Tipo di intervento', w.tipo, '', '');
 
@@ -6855,12 +6879,12 @@ function costruisciDaLevante(T){
   const allIdx = indicizza(T.allegati, 'APPUNTAMENTO_ID');
   const imp = indicizza(T.impianti, 'ID'), cli = indicizza(T.clienti, 'CODICE'), app = indicizza(T.apparecchi, 'IDPRATICA'),
         opp = indicizza(T.operazioni_pianificate, 'IDPRATICA'), opa = indicizza(T.operazioni_appuntamento, 'IDIMPEGNO'),
-        sto = indicizza(T.storico_interventi, 'IDPRATICA'), ctr = indicizza(T.contratti, 'IDPRATICA'), opi = indicizza(T.operazioni_importi, 'IDOPPRATICA');
+        sto = indicizza(T.storico_interventi, 'IDPRATICA'), ctr = indicizza(T.contratti, 'IDPRATICA'), opi = indicizza(T.operazioni_importi, 'IDOPPRATICA'), pcI = indicizza(T.pratiche_cantiere || [], 'ID');
   const tecnici = {};
   (T.tecnici || []).forEach(t => { tecnici[t.RESOURCEID] = t.RESOURCENAME || t.NOME || ('Tecnico ' + t.RESOURCEID); });
   const out = [], stat = {totale: 0, fatti: 0, vecchi: 0};
   const crea = (a, inizio, fine) => {
-    const i0 = (imp[a.IDPRATICA] || [null])[0], c0 = (cli[a.CLIENTE] || [null])[0];
+    const i0 = (imp[a.IDPRATICA] || [null])[0], c0 = (cli[a.CLIENTE] || [null])[0], p0 = i0 ? null : (pcI[a.IDPRATICA] || [null])[0];       // p0: la pratica dell'appuntamento e' un cantiere (tipo P) e non un impianto
     const opsApp = opa[a.ID] || [], selOp = {}, selApp = new Set();
     opsApp.forEach(o => { selOp[o.IDOPPRATICA] = o; if (o.IDAPPARECCHIOPRAT && o.IDAPPARECCHIOPRAT !== '0') selApp.add(o.IDAPPARECCHIOPRAT); });
     const r = {v:'1', li:a.ID, mi:a.MASTER_ID, tp:tipoInt(a.TIPOINTERVENTO)};
@@ -6885,7 +6909,8 @@ function costruisciDaLevante(T){
       r.s = (sto[i0.ID] || []).sort((x, y) => (y.DATAORAINTERVENTO || '').localeCompare(x.DATAORAINTERVENTO || '')).slice(0, 3)
         .map(x => senzaVuoti({d:dt10(x.DATAORAINTERVENTO), t:tipoInt(x.TIPOINTERVENTO), r:(x.RELAZIONEINTERVENTO || '').slice(0, 400), o:(x.OSSERVAZIONI || '').slice(0, 150)}));
     }
-    const luogo = (r.i && r.i.u) || (a.LOCATION || '').replace(/\|/g, '').trim();
+    if (p0) r.pr = praticaCantiere(p0);
+    const luogo = (r.i && r.i.u) || (a.LOCATION || '').replace(/\|/g, '').trim() || (r.pr && r.pr.u) || '';
     const docsApp = (T.docfiles || []).filter(d => String(d.appuntamento_id) === String(a.ID) && (d.collegamento || 'appuntamento') === 'appuntamento')
       .map(d => ({id: d.id, nome: d.nome, ext: d.ext, mime: d.mime, size: d.size}));
     const docsAltri = (T.docfiles || []).filter(d => String(d.appuntamento_id) === String(a.ID) && (d.collegamento || '') !== 'appuntamento')
@@ -6930,7 +6955,8 @@ function costruisciDaLevante(T){
   const tecNomi = {}; (T.tecnici || []).forEach(t => { tecNomi[t.RESOURCEID] = [normNome(t.NOME), normNome(t.RESOURCENAME)].filter(Boolean); });
   const tipiOre = (T.tipiore || []).filter(r => String(r.TIPO || '').toUpperCase() === 'OREDIP1' && r.DESCRIZIONE).map(r => r.DESCRIZIONE);
   const iva = {}; (T.aliquote_iva || []).forEach(a => { if (a.CODICEIVA) iva[a.CODICEIVA] = [parseFloat(a.ALIQUOTAIVA) || 0, a.DESCRIZIONEIVA || '', a.PA_NATURA || '']; });
-  return {appuntamenti: out, chiamate, tecnici, cantieri, dipendenti, tecNomi, tipiOre, iva, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
+  const pratiche = (T.pratiche_cantiere || []).filter(c => c.ID && !(dt10(c.DATACHIUSURA) && dt10(c.DATACHIUSURA) <= oggiC)).map(praticaCantiere).slice(0, 300);
+  return {appuntamenti: out, chiamate, tecnici, cantieri, pratiche, dipendenti, tecNomi, tipiOre, iva, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
     articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
     listino: (T.listino || []).filter(r => r.CODICE).map(r => [r.CODICE, r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
     barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || ''])};
@@ -6940,6 +6966,10 @@ function costruisciDaLevante(T){
 /* sottocantieri (tabelle SOTTOCANTIERI1..3 di Levante): sono tre elenchi indipendenti, ciascuno legato al cantiere dal suo CODICE
    (colonna CODICECANTIERE) e con il nome nella colonna ID. Per sicurezza le colonne si riconoscono dai dati: quella che lega al cantiere
    e' la colonna i cui valori coincidono con i codici (o, in mancanza, gli id) dei cantieri. Risultato per cantiere: [livello1[], livello2[], livello3[]] */
+function praticaCantiere(c){          // cantiere (pratica di tipo P) collegato a un appuntamento, a una chiamata o scelto dal tecnico
+  const via = [c.INDIRIZZOIMM, c.NUMCIVICOIMM].filter(Boolean).join(' '); let citta = [c.CAPIMM, c.COMUNEIMM].filter(Boolean).join(' '); if (c.PROVINCIAIMM) citta += ' (' + c.PROVINCIAIMM + ')';
+  return senzaVuoti({id: String(c.ID), c: c.CODICE, n: c.NOME || c.DESCRIZIONE, k: c.CLIENTE, r: c.RAGSOCCLI, u: [via, citta.trim()].filter(Boolean).join(', ')});
+}
 function costruisciSottocantieri(T, cantieri){
   const perId = {}, perCod = {}, out = {};
   cantieri.forEach(c => { perId[String(c.id)] = c; if (c.cod != null && String(c.cod).trim() !== '') perCod[String(c.cod).trim()] = c; });
@@ -7236,7 +7266,7 @@ async function leggiUltimaEsportazione(cambia){
 }
 let datiLevante = null;                 // quello che si usa: dati di Levante limitati ai tecnici compresi nella licenza
 let datiLevanteTutti = null;            // tutto quello che c'e' in Levante
-const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','listino','codici_barre','cantieri','dipendenti','tipiore','contratti','operazioni_importi','aliquote_iva','sottocantieri1','sottocantieri2','sottocantieri3'];
+const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','listino','codici_barre','cantieri','pratiche_cantiere','dipendenti','tipiore','contratti','operazioni_importi','aliquote_iva','sottocantieri1','sottocantieri2','sottocantieri3'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 /* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
 async function espandiZip(file){
@@ -7451,7 +7481,7 @@ function pacchettoPer(id, completo){
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
   return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), colleghi: id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : [], meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
-    cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
+    pratiche: datiLevante.pratiche || [], cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 let salvataggioDati = {ok: true, kb: 0, senzaModelli: false};
 async function salvaDati(d, leggero){
@@ -7605,7 +7635,7 @@ async function caricaPacchetto(file){
     try { ricImporta(d.ric); } catch(e) {}
     let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
     if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], operaio:d.operaio || null, colleghi: Array.isArray(d.colleghi) ? d.colleghi.filter(c => c && c.n).slice(0, 60).map(c => ({n: String(c.n).slice(0, 60), op: c.op != null ? +c.op : null})) : [], meOp: d.meOp != null ? +d.meOp : null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), cm: (d.cm && typeof d.cm === 'object') ? d.cm : undefined, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], pratiche: Array.isArray(d.pratiche) ? d.pratiche.slice(0, 300) : [], operaio:d.operaio || null, colleghi: Array.isArray(d.colleghi) ? d.colleghi.filter(c => c && c.n).slice(0, 60).map(c => ({n: String(c.n).slice(0, 60), op: c.op != null ? +c.op : null})) : [], meOp: d.meOp != null ? +d.meOp : null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), cm: (d.cm && typeof d.cm === 'object') ? d.cm : undefined, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     try { ctrlRegUnisci(d.reg); } catch(e) {}
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
@@ -7638,7 +7668,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.89.0 (12/11/2026)';
+const VERSIONE_APP = '1.90.0 (13/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8225,7 +8255,7 @@ function cnSomm(r){
   const rel = (r.relazione || '').trim().replace(/\s+/g, ' '), voc = typeof vocDati === 'function' && vocDati('cn:' + r.id);
   const nm = (r.materiali || []).length, nf = (r.foto || []).length;
   return {sub: so || 'nessuno', ore, rel: (rel ? rel.slice(0, 40) + (rel.length > 40 ? '…' : '') : 'da scrivere') + (voc ? ' · con messaggio vocale' : ''),
-    mat: nm ? nm + (nm === 1 ? ' materiale' : ' materiali') : 'nessuno', foto: nf ? nf + (nf === 1 ? ' foto' : ' foto') : 'nessuna', email: impostazioni.emailUfficio || 'da scrivere'};
+    mat: nm ? nm + (nm === 1 ? ' materiale' : ' materiali') : 'nessuno', foto: nf ? nf + (nf === 1 ? ' foto' : ' foto') : 'nessuna', firma: r.firma ? 'firmato' + (r.firmaNome ? ' · ' + r.firmaNome : '') : 'non richiesta', email: impostazioni.emailUfficio || 'da scrivere'};
 }
 function cnAggSomm(){
   const r = regCorr; if (!r) return; const o = cnSomm(r);
@@ -8253,13 +8283,43 @@ function disegnaCantiere(){
     <details class="passo rcee-blocco" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="cn-port-n" class="aiuto">${esc(contaPortato(r).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
     ${cnDet(r, 'mat', 'Materiali usati', cnSomm(r).mat, `${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div>`, true)}
     ${cnDet(r, 'foto', 'Foto', cnSomm(r).foto, `<div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><input type="file" id="cn-foto-cam" accept="image/*" capture="environment" hidden><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-foto-scatta" style="margin:0 8px 8px 0">Scatta una foto</button><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin:0 8px 8px 0">Dalla galleria</button></div><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p>`, (r.foto || []).length > 0)}
+    ${cnDet(r, 'firma', 'Firma (facoltativa)', cnSomm(r).firma, `<div class="campo"><label for="cn-firmanome">Nome di chi firma <span class="aiuto">(facoltativo)</span></label><input id="cn-firmanome" type="text" autocomplete="off" value="${esc(r.firmaNome || '')}"></div>
+      <div class="firma" style="height:130px"><canvas id="cn-firma" style="width:100%;height:100%;touch-action:none"></canvas><div class="linea"></div></div>
+      <button class="btn chiaro piccolo" type="button" id="cn-firma-canc" style="margin-top:8px">Cancella la firma</button>`, !!r.firma)}
     ${cnDet(r, 'email', "Email dell'ufficio", cnSomm(r).email, `<div class="campo"><label for="cn-email">Email dell'ufficio <span class="aiuto">(serve se il telefono non apre il menu di condivisione)</span></label><input id="cn-email" type="email" autocomplete="off" autocapitalize="none" value="${esc(impostazioni.emailUfficio || '')}" placeholder="ufficio@esempio.it"></div>`, !impostazioni.emailUfficio)}
     <div class="azioni" style="margin-top:14px"><button class="btn" type="button" id="cn-invia">Invia in ufficio</button><button class="btn sec" type="button" id="cn-salva">Salva e torna indietro</button></div>
     <p class="aiuto" style="margin:8px 0 4px">Dal menu di condivisione l'indirizzo e l'oggetto non si possono compilare da soli (lo vieta il telefono): l'indirizzo viene copiato, da incollare nel campo A. Se vuoi la mail già con destinatario e oggetto:</p>
     <button class="btn chiaro piccolo" type="button" id="cn-mailpronta">Mail con destinatario e oggetto già scritti</button>
     <p class="aiuto" id="cn-msg" role="status" style="margin:10px 0 0"></p>
     ${leggiRegCant().some(x => x.id === r.id) ? '<button class="btn chiaro piccolo" type="button" id="cn-elimina" style="margin-top:10px">Elimina questa registrazione</button>' : ''}`;
+  setTimeout(cnPreparaFirma, 0);
 }
+/* ---- firma facoltativa nel rapportino di cantiere: canvas proprio, non tocca quello degli interventi ---- */
+let cnCtx = null, cnDis = false, cnInk = false;
+function cnPreparaFirma(){
+  const c = $('#cn-firma'), r = regCorr; if (!c || !r) return;
+  const ratio = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight; if (!w) return;      // sezione chiusa: si prepara all'apertura
+  c.width = Math.round(w * ratio); c.height = Math.round(h * ratio);
+  cnCtx = c.getContext('2d'); cnCtx.scale(ratio, ratio); cnCtx.lineWidth = 2.6; cnCtx.lineCap = 'round'; cnCtx.lineJoin = 'round'; cnCtx.strokeStyle = '#14232B';
+  cnInk = false;
+  if (r.firma) { const img = new Image(), id = r.id; img.onload = () => { if (!regCorr || regCorr.id !== id || !cnCtx) return; const k = (r.firmaW && r.firmaH) ? Math.min(w / r.firmaW, h / r.firmaH) : 1; cnCtx.drawImage(img, 0, 0, (r.firmaW || w) * k, (r.firmaH || h) * k); cnInk = true; }; img.src = r.firma; }
+}
+function cnCatturaFirma(){
+  const c = $('#cn-firma'), r = regCorr; if (!c || !r) return;
+  r.firma = cnInk ? c.toDataURL('image/png') : ''; r.firmaW = c.clientWidth; r.firmaH = c.clientHeight;
+  if (!cnInk) { delete r.firmaW; delete r.firmaH; }
+  salvaReg(true);
+}
+document.addEventListener('toggle', e => { if (e.target && e.target.dataset && e.target.dataset.cnk === 'firma' && e.target.open) setTimeout(cnPreparaFirma, 0); }, true);
+document.addEventListener('pointerdown', e => {
+  const c = e.target; if (!c || c.id !== 'cn-firma' || !regCorr) return; if (!cnCtx) cnPreparaFirma(); if (!cnCtx) return;
+  const q = ev => { const b = c.getBoundingClientRect(); return [ev.clientX - b.left, ev.clientY - b.top]; };
+  cnDis = true; try { c.setPointerCapture(e.pointerId); } catch(x) {}
+  const [x, y] = q(e); cnCtx.beginPath(); cnCtx.moveTo(x, y); cnCtx.lineTo(x + .1, y + .1); cnCtx.stroke(); cnInk = true; e.preventDefault();
+  const mv = ev => { if (!cnDis) return; const [a, b] = q(ev); cnCtx.lineTo(a, b); cnCtx.stroke(); ev.preventDefault(); };
+  const fine = () => { c.removeEventListener('pointermove', mv); c.removeEventListener('pointerup', fine); c.removeEventListener('pointercancel', fine); if (cnDis) { cnDis = false; cnCatturaFirma(); cnAggSomm(); } };
+  c.addEventListener('pointermove', mv); c.addEventListener('pointerup', fine); c.addEventListener('pointercancel', fine);
+}, true);
 async function aggiungiFotoCn(files){
   const r = regCorr, msg = $('#cn-foto-msg'); if (!r) return;
   const lista = [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|webp)$/i.test(f.name));
@@ -8332,6 +8392,13 @@ function costruisciPdfCantiere(r){
   }
   if ((r.foto || []).length) { serve(8); doc.setFont('helvetica','normal'); doc.setFontSize(9.5); colore(GRIGIO); doc.text('Foto allegate: ' + r.foto.length + ' (nel PDF «Documentazione fotografica»).', M, y + 3); y += 8; }
 
+  if (r.firma || (r.firmaNome || '').trim()) {          // la firma c'e' nel PDF solo se e' stata messa
+    titolo('Firma'); serve(36);
+    if (r.firma) { try { const pr = doc.getImageProperties(r.firma), k = Math.min(70 / pr.width, 28 / pr.height); doc.addImage(r.firma, 'PNG', M, y, pr.width * k, pr.height * k); } catch(e) {} }
+    y += 29; doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.3); doc.line(M, y, M + 80, y);
+    if ((r.firmaNome || '').trim()) { doc.setFont('helvetica','normal'); doc.setFontSize(9.5); colore(GRIGIO); doc.text(r.firmaNome.trim(), M, y + 5); y += 8; }
+  }
+
   const n = doc.getNumberOfPages(), ora = new Date();
   for (let k = 1; k <= n; k++) {
     doc.setPage(k); doc.setFont('helvetica','normal'); doc.setFontSize(8); colore(GRIGIO);
@@ -8345,7 +8412,7 @@ function datiCantiere(r, pdf){
     operaio: op ? {k: op.k, n: op.n, op: op.op || 0} : null, tecnico: nomeOperaioApp(), dal: r.dal || '', al: r.al || '', pausa: r.pausa || '', ore: numOre(r.ore), tipo: r.tipo || '',
     voce: vocDati('cn:' + r.id), relazione: r.relazione || '', materiali: (r.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     portato: (r.portato || []).filter(pp => ptResto(r, pp) > 0 || !qNum(pp.qta) && !portatoUsato(r, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(r, pp)) : (pp.qta || ''), um: pp.um || '', prezzo: pp.prezzo || ''})),
-    nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
+    firmato: !!r.firma, firmaNome: (r.firmaNome || '').trim() || undefined, nfoto: (r.foto || []).length, file: Array.isArray(pdf) ? pdf.filter(Boolean) : (pdf ? [pdf] : []), inviato: Date.now()};
 }
 async function filesCantiere(r){
   const sl = slugNome(r.descr || r.nome || r.cod || 'cantiere'), g = r.data || isoGiorno(new Date()), chi = slugNome(nomeOperaioApp() || 'operaio'), out = [], pdfNomi = [];
@@ -8424,6 +8491,7 @@ function avviaCantieri(){
     const t = e.target, b = t.closest && t.closest('button'); if (!b || !regCorr) return;
     const r = regCorr, d = b.dataset;
     if (b.id === 'cn-indietro' || b.id === 'cn-salva') { salvaReg(true); indietro(); }
+    else if (b.id === 'cn-firma-canc') { const c = $('#cn-firma'); if (c) { cnInk = false; cnPreparaFirma(); cnCatturaFirma(); cnAggSomm(); } }
     else if (b.id === 'cn-invia') inviaCantiere();
     else if (b.id === 'cn-mailpronta') mailProntaCantiere();
     else if (d.mic !== undefined) avviaDettatura(d.mic);
@@ -8464,6 +8532,7 @@ function avviaCantieri(){
   v.addEventListener('input', e => {
     const t = e.target, r = regCorr; if (!r) return;
     if (t.id === 'cn-data') r.data = t.value || r.data;
+    else if (t.id === 'cn-firmanome') { r.firmaNome = t.value; salvaReg(); }
     else if (t.id === 'cn-dal' || t.id === 'cn-al' || t.id === 'cn-pausa') {
       r[t.id.slice(3)] = t.value;
       const o = oreDaOrari(r); if (o) { r.ore = o; $('#cn-ore').value = o; }
@@ -8508,7 +8577,7 @@ function impPerUfficio(w){
 }
 function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
-    li: (w.levante && w.levante.li) || '', tipoInt: w.tipo || '',
+    li: (w.levante && w.levante.li) || '', tipoInt: w.tipo || '', pratica: w.pratica ? {id: w.pratica.id, c: w.pratica.c || '', n: w.pratica.n || ''} : undefined,
     squadra: (w.squadra && (w.squadra.nome || (w.squadra.membri || []).some(m => m.p !== false))) ? {nome: w.squadra.nome || '', capoOp: w.squadra.capoOp != null ? w.squadra.capoOp : null, membri: (w.squadra.membri || []).filter(m => m.p !== false).map(m => ({n: m.n, dal: m.dal || '', al: m.al || '', ore: m.ore || '', op: m.op != null ? m.op : null}))} : undefined,
     orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})), ore: w.oreMan || '',
     km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: ossUnite(w, 'osservazioni'), raccomandazioni: ossUnite(w, 'raccomandazioni'), prescrizioni: ossUnite(w, 'prescrizioni'), note: w.note || '',
@@ -8721,7 +8790,7 @@ function disegnaPosta(){
     const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
     const ctrlChip = r.fatto || !ctrl.length ? '' : ` <span class="chip ${nGravi ? 'urg' : 'bozza'}">${ctrl.length} ${ctrl.length === 1 ? 'controllo' : 'controlli'}</span>`;
     const avanti = codaOn && !r.fatto ? `<button class="btn pieno" type="button" data-coda="avanti" data-i="${i}" style="margin-top:12px">Registrato in Levante: passa al prossimo</button>` : '';
-    return intest + `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.tipoInt ? ' <span class="chip info">' + esc(r.tipoInt) + '</span>' : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
+    return intest + `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.tipoInt ? ' <span class="chip info">' + esc(r.tipoInt) + '</span>' : ''}${r.pratica && r.pratica.c ? ' <span class="chip info">Cantiere ' + esc(r.pratica.c) + '</span>' : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
       ${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
