@@ -79,6 +79,7 @@ h1,h2,h3,p{margin:0}
 .app{max-width:640px;margin:0 auto;min-height:100vh}
 .view{display:none;padding:0 16px 120px}
 .view.attiva{display:block}
+#v-scheda.view{padding-bottom:150px}
 
 /* barra superiore */
 .barra{display:flex;align-items:center;gap:10px;padding:14px 0 12px}
@@ -133,6 +134,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .chip.pdf{background:var(--ok-c);color:var(--ok)}
 .chip.oggi{background:var(--petrolio);color:#fff}
 details.avviso.oggi{border-left:6px solid var(--petrolio)!important;background:#F2F8FA!important}
+#posta-elenco details.avviso>summary{cursor:pointer}
+#posta-elenco details.avviso>summary b,#posta-elenco details.avviso p b{display:inline;margin:0}
 .chip.num{background:#fff;border:1.5px solid var(--petrolio);color:var(--petrolio);font-weight:700;font-variant-numeric:tabular-nums}
 .chip.tec{background:#E4E0F5;color:#3B2F86;font-weight:700}
 .chip.info{background:var(--petrolio-c);color:var(--petrolio)}
@@ -251,6 +254,12 @@ textarea.alta{min-height:150px}
 .tile.ok.sel{border-color:var(--ok);background:var(--ok-c)}
 .tile.mezzo.sel{border-color:var(--fiamma);background:var(--fiamma-c)}
 .tile.no.sel{border-color:var(--rosso);background:var(--rosso-c)}
+.esiti3{display:flex;gap:8px}.esiti3 .tile{flex:1;min-width:0;margin-bottom:8px;padding:8px 6px;justify-content:center;text-align:center;font-weight:650;line-height:1.2;position:relative}
+.esiti3 .tile input{position:absolute;opacity:0;width:1px;height:1px}.esiti3 .tile small{display:none}
+.esiti3 .tile.ok.sel{color:var(--ok)}.esiti3 .tile.mezzo.sel{color:#9a4a00}.esiti3 .tile.no.sel{color:var(--rosso)}
+.esiti3 .tile:focus-within{box-shadow:0 0 0 2px var(--petrolio)}
+.pdf-manca{max-width:640px;margin:0 auto 6px;font-size:14px;color:var(--tenue)}
+.pdf-manca button{font:inherit;font-weight:650;color:#9a4a00;background:var(--fiamma-c);border:1px solid #EACB8A;border-radius:99px;padding:2px 10px;cursor:pointer}
 .tile .nome{font-weight:600;overflow-wrap:anywhere}
 .tile .meta{font-size:13px;color:var(--tenue)}
 .riga-orario{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 44px;gap:8px;margin-bottom:8px;align-items:end}
@@ -308,6 +317,30 @@ button,a,label,summary,select{touch-action:manipulation}
 .segnaposto{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--tenue);min-height:60vh;padding:24px}
 .segnaposto b{display:block;font-size:20px;color:var(--inchiostro);margin-bottom:6px}
 .visita.selezionata .corpo{box-shadow:0 0 0 2px var(--petrolio)}
+.visita.prossimo .corpo{border-color:var(--petrolio);border-left-color:var(--petrolio);box-shadow:0 0 0 1px var(--petrolio)}
+.visita.prossimo.urgente .corpo{border-left-color:var(--rosso)}
+.visita.sbrigato .corpo{background:#F8FAFA}.visita.sbrigato .nome,.visita.sbrigato .dove,.visita.sbrigato .ora{color:var(--tenue)}
+.vers-app{flex:none;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--petrolio);background:var(--petrolio-c);border-radius:99px;padding:3px 9px}
+.barra .sotto-riga{flex:1;min-width:0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#v-agenda>.barra{row-gap:4px}
+html.no-flexgap #v-agenda>.barra>.sotto-riga,html.no-flexgap #v-agenda>.barra>span[aria-hidden]{margin-left:0}
+@media (max-width:340px){#v-agenda>.barra h1{font-size:22px}}
+.spunta-p{font-size:14px;font-weight:500;color:var(--tenue);align-items:center}.spunta-p input{width:18px;height:18px;margin:0}
+.avviso.cmp{padding:8px 12px}.avviso.cmp>summary,.cmp-d>summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;list-style:none}
+.avviso.cmp>summary::-webkit-details-marker,.cmp-d>summary::-webkit-details-marker{display:none}
+.avviso.cmp>summary b,.cmp-d>summary b{display:inline;margin:0}
+.cmp-t{flex:1;min-width:0}.cmp-t small{display:block;font-size:13.5px;color:var(--tenue)}.avviso.cmp>summary>b{flex:1;min-width:0}
+.cmp-az{display:flex;gap:6px;flex:none}.cmp-az .btn{margin:0}
+#banner.avviso{padding:9px 12px}
+#seg-br{flex-basis:100%;height:0;margin:0}
+.uff-riga .btn.piccolo{min-height:36px;padding:0 10px;font-size:14px}
+.seg-n{display:inline-block;min-width:20px;margin-left:4px;padding:1px 6px;border-radius:10px;background:var(--fiamma);color:#fff;font-size:12px;font-weight:700;text-align:center;vertical-align:1px}
+.strumento{background:var(--foglio);border:1px solid var(--riga);border-radius:10px;padding:10px 14px;margin:0 0 12px}.strumento>b{display:block;margin-bottom:2px}
+.notif-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 12px;font-size:14.5px}.notif-r[hidden]{display:none}.notif-r>span{flex:1;min-width:200px}#seg-br[hidden]{display:none}
+html.no-flexgap #seg-br+button{margin-left:0}html.no-flexgap #seg-br:not([hidden])~button{margin-top:8px}
+@media (max-width:420px){.seg button{min-width:70px;font-size:15px;padding:0 4px}}
+.cmp-t b::after{content:' ▾';font-weight:400;opacity:.55}
+.avviso.cmp>summary>b{white-space:nowrap;flex:1 0 auto}
 .targhe{display:block}
 /* margini: rispettano tacche e bordi arrotondati quando il telefono e' in orizzontale */
 .view{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
@@ -581,7 +614,7 @@ html.no-flexgap .chips>*{margin:0 6px 6px 0}
 .frasi .btn{flex:none;white-space:nowrap}
 html.no-flexgap .frasi>*{margin-right:6px}
 .adesso{margin-top:4px;min-height:36px;width:100%}
-#avviso-basso{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:26;background:var(--inchiostro);color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;max-width:620px;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+#avviso-basso{position:fixed;left:12px;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));z-index:26;background:var(--inchiostro);color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;max-width:620px;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 #avviso-basso[hidden]{display:none}
 #avviso-testo{flex:1;min-width:0;overflow-wrap:anywhere}
 html.no-flexgap #avviso-basso>*+*{margin-left:10px}
@@ -689,20 +722,18 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
 
   <!-- AGENDA -->
   <section id="v-agenda" class="view attiva">
-    <header class="barra">
-      <div style="flex:1;min-width:0">
-        <h1>Appuntamenti</h1>
-        <p class="sotto" id="sotto-agenda"></p>
-      </div>
-      <span id="vers-app" style="flex:none;font-size:12px;color:var(--tenue)"></span>
+    <header class="barra" style="flex-wrap:wrap">
+      <h1 style="flex:1;min-width:0">Appuntamenti</h1>
       <button class="btn chiaro piccolo" id="b-impostazioni" type="button">Impostazioni</button>
+      <span style="flex-basis:100%;height:0" aria-hidden="true"></span>
+      <p class="sotto sotto-riga" id="sotto-agenda"></p>
+      <span id="vers-app" class="vers-app" title="Versione dell'app"></span>
     </header>
     <div id="banner"></div>
-    <div id="avviso-prot" class="avviso" hidden role="status"><b id="av-prot-t"></b><div id="av-prot-d" style="margin:2px 0 0"></div>
-      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn piccolo" type="button" id="av-prot-vai">Attiva ora</button><button class="btn chiaro piccolo" type="button" id="av-prot-dopo">Più tardi</button></div></div>
+    <details id="avviso-prot" class="avviso cmp" hidden role="status"><summary><b id="av-prot-t"></b><span class="cmp-az"><button class="btn piccolo" type="button" id="av-prot-vai">Attiva ora</button><button class="btn chiaro piccolo" type="button" id="av-prot-dopo">Più tardi</button></span></summary><div id="av-prot-d" style="margin:8px 0 0"></div></details>
     <div id="da-inviare"></div>
     <div class="uff-azioni" hidden style="margin:0 0 12px">
-      <div class="azioni" style="display:flex;flex-wrap:wrap;gap:8px;margin:0"><button class="btn piccolo js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec piccolo js-cartella" type="button">Apri la cartella delle esportazioni</button><button class="btn sec piccolo" id="b-foglio" type="button">Foglio del giorno (PDF)</button></div>
+      <div class="azioni uff-riga" style="display:flex;flex-wrap:wrap;gap:6px;margin:0"><button class="btn piccolo js-esporta" type="button" title="Esporta ora da Levante">Esporta ora</button><button class="btn sec piccolo js-cartella" type="button" title="Apri la cartella delle esportazioni">Cartella</button><button class="btn sec piccolo" id="b-foglio" type="button" title="Foglio del giorno da stampare (PDF)">Foglio del giorno</button></div>
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
     </div>
     <input type="file" id="in-pacchetto" accept=".json,.txt,application/json,text/plain" hidden>
@@ -711,10 +742,11 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
       <button type="button" id="s-oggi" aria-pressed="true">Oggi</button>
       <button type="button" id="s-sett" aria-pressed="false">Settimana</button>
       <button type="button" id="s-scorsa" aria-pressed="false">Scorsa</button>
+      <span id="seg-br" hidden aria-hidden="true"></span>
       <button type="button" id="s-chiamate" aria-pressed="false" hidden>Chiamate</button>
       <button type="button" id="s-cantieri" aria-pressed="false" hidden>Cantieri</button>
     </div>
-    <label class="spunta" style="margin:8px 0 0"><input type="checkbox" id="nascondi-gestiti"> <span id="nascondi-testo"></span></label>
+    <label class="spunta spunta-p" style="margin:8px 0 0"><input type="checkbox" id="nascondi-gestiti"> <span id="nascondi-testo"></span></label>
     <div id="lista"></div>
     <div id="da-completare"></div>
     <button class="btn sec pieno solo-tec" id="b-nuovo" type="button" style="margin-top:14px">Nuovo intervento senza appuntamento</button>
@@ -780,7 +812,7 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     <div class="salvato" id="salvato" aria-live="polite"></div>
     <form id="form" autocomplete="off" onsubmit="return false"></form>
     <datalist id="lista-um"><option value="pz"><option value="m"><option value="cm"><option value="mm"><option value="kg"><option value="g"><option value="l"><option value="ml"><option value="mq"><option value="mc"><option value="conf."><option value="set"><option value="kit"><option value="rotolo"><option value="ore"></datalist>
-    <div class="barra-azione"><div class="dentro"><button class="btn" id="b-pdf" type="button">Crea PDF</button></div></div>
+    <div class="barra-azione"><div class="pdf-manca" id="pdf-manca" hidden></div><div class="dentro"><button class="btn" id="b-pdf" type="button">Crea PDF</button></div></div>
   </section>
 
   <!-- EDITOR DEI DOCUMENTI PDF -->
@@ -1038,17 +1070,17 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     </ol>
     </details>
     <div id="blocco-ultima" hidden>
-      <button class="btn pieno" id="b-ultima" type="button">Leggi l'ultima esportazione</button>
+      <button class="btn sec" id="b-ultima" type="button">Leggi l'ultima esportazione</button>
       <p class="aiuto" id="msg-cartella" role="status" style="margin:6px 0 10px"></p>
       <p class="aiuto" style="margin:0 0 12px">La prima volta scegli la cartella <b>export_levante</b> (quella creata accanto a Esporta_Levante.bat): da quel momento l'app ricorda dove cercare e prende da sola l'esportazione più recente. <button class="btn chiaro piccolo" type="button" id="b-cambia-cartella">Cambia cartella</button></p>
     </div>
 
     <div class="uff-azioni" hidden style="margin:0 0 12px">
-      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn sec js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
+      <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:0"><button class="btn js-esporta" type="button">Esporta ora da Levante</button><button class="btn chiaro js-cartella" type="button">Apri la cartella delle esportazioni</button></div>
       <p class="aiuto js-msg" role="status" style="margin:6px 0 0"></p>
     </div>
 
-    <button class="btn pieno" id="b-scegli" type="button">Scegli i file di Levante</button>
+    <button class="btn sec" id="b-scegli" type="button" style="margin:0 0 12px">Scegli i file di Levante</button>
     <input type="file" id="in-levante" accept=".zip,.csv,.json,application/zip,application/x-zip-compressed,text/csv,application/json" multiple hidden>
     <div id="esito-uff"></div>
     <p class="aiuto" style="margin-top:18px">I file contengono dati dei clienti: mandali solo ai tecnici.</p>
@@ -1141,7 +1173,7 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
       <button type="button" role="tab" data-posta-tab="imp" aria-pressed="false">Impostazioni</button>
     </div>
     <div id="posta-t-int" role="tabpanel">
-    <p id="notif-riga" class="avviso info" hidden style="margin:0 0 12px"><span></span> <button class="btn piccolo" type="button" id="notif-attiva">Attiva gli avvisi</button></p>
+    <p id="notif-riga" class="avviso info notif-r" hidden><span></span> <button class="btn sec piccolo" type="button" id="notif-attiva">Attiva gli avvisi</button></p>
     <div id="pa-riga" class="avviso info" hidden style="margin:0 0 12px"><b id="pa-riga-t"></b><div class="aiuto" id="pa-riga-d" style="margin:4px 0 0"></div>
       <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn piccolo" id="pa-riga-ora" type="button">Controlla ora</button><button class="btn sec piccolo" id="pa-riga-imp" type="button">Cambia cartella o metodo</button></div></div>
     <details style="margin:0 0 14px"><summary><b>Come si usa</b> <span class="aiuto">(3 passi)</span></summary>
@@ -1151,7 +1183,7 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
       <li>Per ogni intervento trovi cosa registrare in Levante (ore, testi da copiare, km, materiali) e il file <b>CSV</b> da caricare con «carica file di testo».</li>
     </ol>
     </details>
-    <button class="btn pieno" id="b-posta-carica" type="button">Scegli i file ricevuti (anche uno zip)</button>
+    <button class="btn sec" id="b-posta-carica" type="button">Scegli i file ricevuti (anche uno zip)</button>
     <input type="file" id="in-posta" accept=".txt,.json,.pdf,.zip,text/plain,application/json,application/pdf,application/zip,application/x-zip-compressed" multiple hidden>
     <p class="aiuto" id="posta-msg" role="status" style="margin:8px 0"></p>
     <label class="spunta"><input type="checkbox" id="posta-fatti"> Mostra anche gli interventi già registrati</label>
@@ -1583,19 +1615,23 @@ function opDaFare(r){ return ((r && r.o) || []).filter(o => o.f); }
    AGENDA
    ================================================================== */
 let esitoImport = '';
+let bannerChiuso = '';
 function disegnaBanner(){
   const b = $('#banner');
   b.className = 'avviso info';
   if (datiReali) {
     const g = new Date(datiReali.generato), vecchi = !inUfficio && giorniLavorativi(g, new Date()) >= 2;
     if (vecchi) b.className = 'avviso rosso';
-    b.innerHTML = `<b>${vecchi ? 'Dati non aggiornati' : 'Dati'} del ${dataIT(isoGiorno(g))} alle ${hhmm(g)}</b>${vecchi ? 'Sono passati ' + giorniLavorativi(g, new Date()) + ' giorni di lavoro: chiedi all\'ufficio il file aggiornato, per avere gli appuntamenti e le modifiche più recenti.<br>' : ''}${datiReali.tecnico ? esc(datiReali.tecnico.nome) + ' · ' : ''}${appuntamenti.length} ${appuntamenti.length === 1 ? 'appuntamento' : 'appuntamenti'}${esitoImport ? '<br>' + esc(esitoImport) : ''}
-      <div style="margin-top:8px"><button class="btn sec piccolo" id="b-carica" type="button">Aggiorna i dati</button></div>`;
+    const nA = appuntamenti.length + (appuntamenti.length === 1 ? ' appuntamento' : ' appuntamenti'), quando = (isoGiorno(g) === isoGiorno(new Date()) ? 'oggi' : 'il ' + dataIT(isoGiorno(g)).slice(0, 5)) + ' alle ' + hhmm(g);
+    const aperto = vecchi || (!!esitoImport && esitoImport !== bannerChiuso);          // si apre da solo quando c'e' qualcosa da leggere: dati vecchi o l'esito di un caricamento appena fatto
+    b.innerHTML = `<details class="cmp-d"${aperto ? ' open' : ''}><summary><span class="cmp-t"><b>${vecchi ? 'Dati non aggiornati' : 'Aggiornato'} ${quando}</b><small>${nA}</small></span><span class="cmp-az"><button class="btn sec piccolo" id="b-carica" type="button">Aggiorna</button></span></summary>
+      <div style="margin-top:8px">${vecchi ? 'Sono passati ' + giorniLavorativi(g, new Date()) + ' giorni di lavoro: chiedi all\'ufficio il file aggiornato, per avere gli appuntamenti e le modifiche più recenti.<br>' : ''}Dati del ${dataIT(isoGiorno(g))} alle ${hhmm(g)}${datiReali.tecnico ? ' · ' + esc(datiReali.tecnico.nome) : ''}${esitoImport ? '<br>' + esc(esitoImport) : ''}</div></details>`;
+    const dd = b.querySelector('details'); if (dd) dd.addEventListener('toggle', () => { if (!dd.open) bannerChiuso = esitoImport; });
   } else {
     b.innerHTML = `<b>Modalità prova</b>Questi appuntamenti sono di esempio. Per vedere i tuoi, carica il file che ti manda l'ufficio.${esitoImport ? '<br>' + esc(esitoImport) : ''}
       <div style="margin-top:8px"><button class="btn sec piccolo" id="b-carica" type="button">Carica i dati</button></div>`;
   }
-  $('#b-carica').onclick = () => $('#in-pacchetto').click();
+  $('#b-carica').onclick = ev => { if (ev) ev.preventDefault(); $('#in-pacchetto').click(); };
   disegnaAvvisoProt();
 }
 /* avviso "dati non protetti": compare finche' manca il Codice di sicurezza; «Più tardi» lo nasconde per 7 giorni su questo dispositivo */
@@ -1607,17 +1643,17 @@ function disegnaAvvisoProt(){
   document.querySelectorAll('[data-nav="impostazioni"], #b-impostazioni').forEach(b => b.classList.toggle('prot-manca', manca));
   if (!manca || protRimandata()) { box.hidden = true; return; }
   const tec = !inUfficio;
-  $('#av-prot-t').textContent = '⚠ I tuoi dati non sono protetti';
+  $('#av-prot-t').textContent = '⚠ Dati non protetti';
   $('#av-prot-d').textContent = tec
     ? 'Senza il Codice di sicurezza i file che mandi in ufficio viaggiano in chiaro (nomi, indirizzi e telefoni dei clienti). Chiedi il codice all\'ufficio e scrivilo in Impostazioni.'
     : 'Senza il Codice di sicurezza le agende e gli interventi che viaggiano per mail o WhatsApp, e le copie di sicurezza, si possono leggere (nomi, indirizzi e telefoni dei clienti). Crealo in Impostazioni e scrivilo uguale su ogni tecnico.';
-  $('#av-prot-vai').textContent = tec ? 'Vai alle Impostazioni' : 'Attiva ora';
-  $('#av-prot-vai').onclick = () => {
+  $('#av-prot-vai').textContent = tec ? 'Proteggi' : 'Attiva ora';
+  $('#av-prot-vai').onclick = ev => { if (ev) ev.preventDefault();
     const v = document.querySelector('[data-nav="impostazioni"]'), b = $('#b-impostazioni');
     ((inUfficio && v && v.offsetParent !== null) ? v : b || v).click();
     setTimeout(() => { const c = $('#i-codice'); if (c) { try { c.scrollIntoView({block: 'center'}); c.focus(); } catch(e) {} } }, 400);
   };
-  $('#av-prot-dopo').onclick = () => { try { localStorage.setItem('prot_rimanda', String(Date.now())); } catch(e) {} box.hidden = true; };
+  $('#av-prot-dopo').onclick = ev => { if (ev) ev.preventDefault(); try { localStorage.setItem('prot_rimanda', String(Date.now())); } catch(e) {} box.hidden = true; };
   box.hidden = false;
 }
 function chipEsito(b){ return b && b.esito === 'concluso' ? '<span class="chip pdf">Concluso</span>' : b && b.esito === 'da_completare' ? '<span class="chip bozza">Da completare</span>' : b && b.esito === 'non_eseguito' ? '<span class="chip urg">Non eseguito</span>' : ''; }
@@ -1790,7 +1826,8 @@ function disegnaAgenda(){
     } }
   { const Lc = chiamateTec(), sc = $('#s-chiamate'), nv = new Set(store.get('ass_ch_nuove', []));
     if (periodo === 'chiamate' && !Lc.length) periodo = 'oggi';
-    sc.hidden = !Lc.length; sc.textContent = 'Chiamate · ' + Lc.length; sc.classList.toggle('nuovo', Lc.some(c => inUfficio ? !c.tecnico_id : nv.has(c.id))); sc.setAttribute('aria-pressed', periodo === 'chiamate');
+    sc.hidden = !Lc.length; { const br = $('#seg-br'), sk2 = $('#s-cantieri'); if (br) br.hidden = !(Lc.length && sk2 && !sk2.hidden); }          // Chiamate e Cantieri insieme: vanno su una seconda riga, a meta' ciascuno
+    sc.textContent = 'Chiamate · ' + Lc.length; sc.classList.toggle('nuovo', Lc.some(c => inUfficio ? !c.tecnico_id : nv.has(c.id))); sc.setAttribute('aria-pressed', periodo === 'chiamate');
     const lab = $('#nascondi-gestiti'); if (lab && lab.parentNode) lab.parentNode.style.display = periodo === 'chiamate' ? 'none' : '';
     if (periodo === 'chiamate') { $('#s-oggi').setAttribute('aria-pressed', false); $('#s-sett').setAttribute('aria-pressed', false); $('#s-scorsa').setAttribute('aria-pressed', false); const tt = $('#tab-tec'); if (tt) tt.innerHTML = ''; listaChiamate(Lc); return; } }
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
@@ -1805,7 +1842,7 @@ function disegnaAgenda(){
   tabTecnici(elenco);
   if (inUfficio && filtroTec) elenco = elenco.filter(a => (a.tecnico_nome || '') === filtroTec);
   { const nSr = inUfficio ? appuntamenti.filter(a => senzaRapporto(a) && (!filtroTec || (a.tecnico_nome || '') === filtroTec) && a.inizio >= new Date(oggi0.getTime() - 7 * 86400000)).length : 0;
-    $('#s-scorsa').textContent = nSr ? 'Scorsa · ' + nSr + ' senza rapporto' : 'Scorsa'; $('#s-scorsa').title = nSr ? 'Appuntamenti degli ultimi 7 giorni per cui non è arrivato nessun intervento' : ''; }
+    $('#s-scorsa').innerHTML = nSr ? 'Scorsa <span class="seg-n" aria-label="' + nSr + ' senza rapporto">' + nSr + '</span>' : 'Scorsa'; $('#s-scorsa').title = nSr ? 'Appuntamenti degli ultimi 7 giorni per cui non è arrivato nessun intervento' : ''; }
   const nasc = elenco.filter(gestito).length + manualiInviati().length;
   const chk = $('#nascondi-gestiti'), tt = $('#nascondi-testo');
   if (chk) { chk.checked = nascondiGestiti; const uff = inUfficio || posta.length > 0; tt.textContent = (uff ? 'Nascondi gli appuntamenti già registrati in Levante' : 'Nascondi gli interventi già inviati in ufficio') + (nasc ? ' (' + nasc + (nasc === 1 ? ' nascosto' : ' nascosti') + ')' : ''); }
@@ -1817,7 +1854,7 @@ function disegnaAgenda(){
     return;
   }
   const nomiTec = {}; appuntamenti.forEach(x => { if (x.tecnico_nome) nomiTec[x.tecnico_nome] = 1; }); const piuTecnici = Object.keys(nomiTec).length > 1 && !(inUfficio && filtroTec);
-  let html = '', giorno = '';
+  let html = '', giorno = '', prossimoFatto = false;
   elenco.forEach(a => {
     const g = isoGiorno(a.inizio);
     if (g !== giorno) { html += `<h2 class="giorno">${esc(giornoLungo(a.inizio))}</h2>`; giorno = g; }
@@ -1843,7 +1880,9 @@ function disegnaAgenda(){
     else if (registrato(a)) chips.push('<span class="chip pdf">Registrato in Levante</span>');
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
-    html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${a.promemoria ? 'promemoria ' : ''}${(a.fatto || registrato(a)) ? 'chiuso ' : ''}${st}" type="button" data-id="${esc(a.id)}">
+    const eProssimo = !inUfficio && !prossimoFatto && !a.promemoria && st !== 'pdf' && !a.fatto && isoGiorno(a.inizio) === isoGiorno(new Date()) && a.fine > new Date();
+    if (eProssimo) { prossimoFatto = true; chips.unshift('<span class="chip oggi">' + (a.inizio <= new Date() ? 'Adesso' : 'Prossimo') + '</span>'); }
+    html += `<button class="visita ${a.urgente ? 'urgente ' : ''}${a.promemoria ? 'promemoria ' : ''}${(a.fatto || registrato(a)) ? 'chiuso ' : ''}${eProssimo ? 'prossimo ' : ''}${(!inUfficio && st === 'pdf' && bozze[a.id] && bozze[a.id].inviatoUff) ? 'sbrigato ' : ''}${st}" type="button" data-id="${esc(a.id)}">
       <span class="ora">${hhmm(a.inizio)}<small>${hhmm(a.fine)}</small></span>
       <span class="corpo"><span class="nome">${esc(a.titolo)}</span>
         <span class="dove" style="display:block">${esc(a.luogo)}</span>
@@ -2669,6 +2708,24 @@ async function costruisciPdfRicevuta(w, c){
   return doc.output('blob');
 }
 
+const secApr = {};          // aperto/chiuso delle sezioni semplici della scheda (Altre operazioni, Relazione, Foto), per scheda
+function secAperta(k, def){ const v = secApr[(lavoro ? lavoro.id : '') + '|' + k]; return v !== undefined ? v : def; }
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.sec && lavoro && d.closest && d.closest('#form')) secApr[lavoro.id + '|' + d.dataset.sec] = d.open; }, true);
+/* cosa manca prima di creare il PDF: una riga sopra il pulsante, da toccare per andarci */
+function pdfMancaAgg(){
+  const box = $('#pdf-manca'), w = lavoro; if (!box) return; if (!w) { box.hidden = true; return; }
+  const m = [];
+  if (!String(w.cliente || '').trim()) m.push(['chi-d', 'cliente']);
+  if (!w.esito) m.push(['esf-d', 'esito']);
+  if (!w.firma && !(typeof firmaHaInchiostro !== 'undefined' && firmaHaInchiostro)) m.push(['esf-d', 'firma']);
+  if (!m.length || w.stato === 'pdf') { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false; box.innerHTML = '<span>Mancano:</span> ' + m.map(x => `<button type="button" data-manca="${x[0]}">${x[1]}</button>`).join(' ');
+}
+document.addEventListener('click', e => {
+  const b = e.target && e.target.closest && e.target.closest('[data-manca]'); if (!b) return;
+  const el = document.getElementById(b.dataset.manca); if (!el) return; el.open = true;
+  setTimeout(() => { try { const y = el.getBoundingClientRect().top + window.pageYOffset - szAltezza() - 8; window.scrollTo(0, Math.max(0, y)); } catch(x) { try { el.scrollIntoView(); } catch(z) {} } }, 60);
+});
 function disegnaScheda(){
   const w = lavoro;
   if (w.tipo === undefined) w.tipo = (w.r && w.r.tp) ? String(w.r.tp) : '';
@@ -2687,19 +2744,19 @@ function disegnaScheda(){
       ${campoTesto('richiesta', 'Cosa ha segnalato il cliente', {area:true})}
     </div>
     ${sezioneOperazioni()}
-    <div class="passo"><h2>Altre operazioni</h2><p class="aiuto">Lavori fatti che non erano in programma.</p>
+    <details class="passo rcee-blocco" data-sec="altre"${secAperta('altre', (w.ops_extra || []).length > 0) ? ' open' : ''}><summary><h2>Altre operazioni</h2><span class="aiuto">Lavori fatti che non erano in programma</span></summary>
       <div id="extra">${sezioneExtra()}</div>
-      <button class="btn sec piccolo" type="button" id="b-add-extra">Aggiungi un lavoro</button></div>
+      <button class="btn sec piccolo" type="button" id="b-add-extra">Aggiungi un lavoro</button></details>
     ${sezioneAggiungiLibero()}
     <div id="rcee">${rcBlocco()}</div>
     <div id="rcee-lib">${sezioniLibere()}</div>
     ${ctrlHtml(w)}
     ${fgHtml(w)}
     <div class="passo" id="oss-rcee" hidden></div>
-    <div class="passo"><h2>Relazione</h2>
+    <details class="passo rcee-blocco" data-sec="rel"${secAperta('rel', true) ? ' open' : ''}><summary><h2>Relazione</h2><span class="aiuto">Cosa hai trovato e cosa hai fatto</span></summary>
       ${campoTesto('relazione', 'Relazione dell\'intervento', {area:true, alta:true, max:2500, frasi:true, ph:'Cosa hai trovato e cosa hai fatto.'})}
       ${vocPossibile() ? `<div class="campo"><label>Messaggio vocale per l'ufficio</label>${vocaleHtml('int:' + w.id)}</div>` : ''}
-    </div>
+    </details>
     <details class="passo rcee-blocco" id="or-d"${orApr[ptKey()] === true ? ' open' : ''}><summary><h2>Orari e viaggio</h2><span class="aiuto" id="or-sum">${esc(orariSommario())}</span></summary><p class="aiuto">L'arrivo si registra con «Inizia l'intervento» e la fine quando scegli l'esito: qui le puoi correggere. Se torni più volte nello stesso lavoro, aggiungi una fascia (al massimo 5).</p>
       <div id="orari">${righeOrari()}</div>
       <div class="campo" style="margin:10px 0 0;max-width:220px"><label for="ore-man">Totale ore</label><input type="text" id="ore-man" inputmode="decimal" data-k="oreMan" maxlength="6" autocomplete="off" value="${esc(w.oreMan || '')}" placeholder="es. 3,5"><span class="aiuto" id="ore-man-h"></span></div>
@@ -2710,15 +2767,16 @@ function disegnaScheda(){
     </details>
     ${portatoLHtml()}
     <details class="passo rcee-blocco" id="mat-d"${matApr[ptKey()] !== false ? ' open' : ''}><summary><h2>Materiali</h2><span class="aiuto">Cerca, scansiona o detta quello che hai usato</span></summary>${cercaMatHtml()}<div id="mat-frequenti">${chipsMat()}</div><div id="materiali">${righeMateriali()}</div>
-      <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></details>
+      <div class="azioni" style="display:flex;flex-wrap:wrap;margin:0"><button class="btn piccolo" type="button" id="b-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="b-add-mat" style="margin:0 8px 8px 0">Aggiungi un materiale</button><button class="btn sec piccolo" type="button" data-mat-voce style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div></details>
     ${sezioneImporti()}
-    <div class="passo"><h2>Foto</h2><p class="aiuto">Scatta le foto utili all'ufficio e scrivi un commento per ciascuna: partono insieme agli altri file.</p>
+    <details class="passo rcee-blocco" data-sec="foto"${secAperta('foto', true) ? ' open' : ''}><summary><h2>Foto</h2><span class="aiuto">Per l'ufficio, con un commento per ciascuna</span></summary>
       <div id="foto-lista"></div>
       <div class="azioni" style="margin:8px 0"><button class="btn" type="button" data-foto-scatta>Scatta una foto</button><button class="btn sec" type="button" data-foto-galleria>Dalla galleria</button></div>
-      <p class="aiuto" id="foto-msg" role="status"></p></div>
+      <p class="aiuto" id="foto-msg" role="status"></p></details>
     <details class="passo rcee-blocco" id="esf-d"${esfApr ? ' open' : ''}><summary><h2>Esito e firma</h2><span class="aiuto" id="esf-sum">${esc(esfSomm(w))}</span></summary>
     <h3 class="esf-h" style="margin-top:4px">Esito</h3><div>
-      ${ESITI_TILE.map(([v, t, s, k]) => `<label class="tile ${k}"><input type="radio" name="esito" value="${v}"${w.esito === v ? ' checked' : ''}><span>${t}${s ? `<small>${s}</small>` : ''}</span></label>`).join('')}
+      <div class="esiti3">${ESITI_TILE.map(([v, t, s, k]) => `<label class="tile ${k}"><input type="radio" name="esito" value="${v}"${w.esito === v ? ' checked' : ''}><span>${t}${s ? `<small>${s}</small>` : ''}</span></label>`).join('')}</div>
+      <p class="aiuto" id="esito-nota" style="margin:0 0 10px"></p>
       ${campoTesto('note', 'Note per l\'ufficio', {area:true, ph:'Per esempio: serve un ricambio, il cliente chiede di spostare, non era in casa.'})}
     </div>
     <h3 class="esf-h">Firma del cliente</h3><div>
@@ -2753,6 +2811,7 @@ function disegnaScheda(){
 }
 function aggiornaTile(){
   document.querySelectorAll('.tile').forEach(t => { const i = t.querySelector('input'); t.classList.toggle('sel', !!(i && i.checked)); });
+  { const n = $('#esito-nota'), x = lavoro && ESITI_TILE.filter(q => q[0] === lavoro.esito)[0]; if (n) n.textContent = x && x[2] ? x[1] + ': ' + x[2] + '.' : ''; }
 }
 
 /* ---- calcolo ore ---- */
@@ -2870,6 +2929,7 @@ function disegnaStriscia(){
     nav.innerHTML = szSez.map((x, i) => `<button type="button" data-sz="${i}">${esc(SZ_NOMI[x.nome])}</button>`).join('');
   }
   szAggiorna();
+  try { pdfMancaAgg(); } catch(e) {}
 }
 function szAggiorna(){
   const nav = $('#sz-nav'); if (!nav || nav.hidden) return;
@@ -3065,7 +3125,7 @@ const chiApr = {};
 function chiSomm(w){ return [w.cliente, w.indirizzo, w.data ? dataIT(w.data) : '', w.tecnico].map(x => String(x || '').trim()).filter(Boolean).join(' · ') || 'Cliente, indirizzo, data e tecnico'; }
 let esfApr = true;
 function esfSomm(w){ const e = (typeof ESITI_TILE !== 'undefined' ? ESITI_TILE : []).find(x => x[0] === w.esito); return (e ? e[1] : 'Esito da scegliere') + ' · ' + (w.firma ? 'firmato' : 'da firmare'); }
-function esfAgg(){ const sm = $('#esf-sum'); if (sm && lavoro) { catturaFirma(); sm.textContent = esfSomm(lavoro); } }
+function esfAgg(){ const sm = $('#esf-sum'); if (sm && lavoro) { catturaFirma(); sm.textContent = esfSomm(lavoro); } try { pdfMancaAgg(); } catch(e) {} }
 function collegaEsf(){
   const f = $('#form'); if (!f) return;
   f.addEventListener('toggle', e => { if (e.target.id !== 'esf-d') return; esfApr = e.target.open; if (e.target.open && lavoro && !ultimaLarghezzaFirma) preparaFirma(lavoro.firma, lavoro.firmaW, lavoro.firmaH); }, true);
@@ -7719,7 +7779,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.93.0 (14/11/2026)';
+const VERSIONE_APP = '1.95.0 (14/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8897,7 +8957,7 @@ const conPortato = r => !r.rich && (r.portato || []).some(pp => (pp.descr || pp.
 function portatoPannelloHtml(){
   const tutti = posta.filter(conPortato); if (!tutti.length) return '';
   const g = ptPdfGiorno || isoGiorno(new Date()), tecs = Array.from(new Set(tutti.map(nomeTecPosta).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  return `<div class="avviso info" style="margin:0 0 12px"><b>Portato e non montato da rientrare</b><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px"><input type="date" id="pt-giorno" value="${esc(g)}" aria-label="Giorno"><select id="pt-tec" aria-label="Tecnico"><option value="">Tutti i tecnici</option>${tecs.map(t => `<option value="${esc(t)}"${t === ptPdfTec ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><button class="btn sec piccolo" type="button" data-ptpdf="1" style="margin:0">Foglio da stampare (PDF)</button></div><p class="aiuto" id="pt-msg" style="margin:6px 0 0"></p></div>`;
+  return `<div class="strumento"><b>Portato e non montato da rientrare</b><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px"><input type="date" id="pt-giorno" value="${esc(g)}" aria-label="Giorno" style="width:auto;flex:0 1 170px;min-width:140px"><select id="pt-tec" aria-label="Tecnico" style="width:auto;flex:1 1 180px;min-width:150px"><option value="">Tutti i tecnici</option>${tecs.map(t => `<option value="${esc(t)}"${t === ptPdfTec ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><button class="btn sec piccolo" type="button" data-ptpdf="1" style="margin:0">Foglio da stampare (PDF)</button></div><p class="aiuto" id="pt-msg" style="margin:6px 0 0"></p></div>`;
 }
 function costruisciPdfPortato(giorno, tec){
   const { jsPDF } = window.jspdf, doc = new jsPDF({unit:'mm', format:'a4', compress:true});
@@ -9490,8 +9550,8 @@ function disegnaNotif(){
   const r = $('#notif-riga'); if (!r) return;
   if (!inUfficio || !('Notification' in window) || Notification.permission === 'granted') { r.hidden = true; return; }
   const neg = Notification.permission === 'denied';
-  r.hidden = false; r.querySelector('span').textContent = neg ? 'Gli avvisi sul desktop sono bloccati dal browser: puoi sbloccarli dall\'icona accanto all\'indirizzo della pagina.' : 'Vuoi un avviso sul desktop quando arriva un nuovo intervento?';
-  $('#notif-attiva').hidden = neg;
+  r.hidden = false; r.querySelector('span').textContent = neg ? 'Avvisi sul desktop bloccati dal browser: si sbloccano dall\'icona accanto all\'indirizzo della pagina.' : 'Vuoi un avviso sul desktop quando arriva un nuovo intervento?';
+  $('#notif-attiva').style.display = neg ? 'none' : '';
 }
 const normR = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 function cercaTutto(q){
