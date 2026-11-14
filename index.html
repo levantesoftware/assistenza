@@ -1518,8 +1518,15 @@ function mostraLogin(){
 }
 const store = {
   get(k, def){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e){ return def; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} dopoScrittura(k); }
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){ try { avvisoSpazio(k); } catch(x) {} } dopoScrittura(k); }
 };
+/* la memoria del telefono per l'app e' piena: il lavoro in corso NON si sta salvando. Prima falliva in silenzio. */
+let avvisoSpazioT = 0;
+function avvisoSpazio(k){
+  if (k !== 'ass_bozze' && k !== 'ass_cant_reg') return;
+  if (Date.now() - avvisoSpazioT < 30000) return; avvisoSpazioT = Date.now();
+  mostraAvviso('ATTENZIONE: la memoria dell\'app su questo dispositivo è piena e le modifiche non si stanno salvando. Non chiudere l\'app: invia subito questo rapporto in ufficio, poi elimina le schede vecchie già inviate.', '', null, 20000);
+}
 const ICONE = {
   tel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>',
   mappa:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>'
@@ -1618,8 +1625,8 @@ function chipInvio(b){
   if (!b || b.stato !== 'pdf') return '';
   return b.inviatoUff ? '<span class="chip pdf">Inviato in ufficio · ' + esc(hhmm(new Date(b.inviatoUff))) + '</span>' : '<span class="chip urg">Non ancora inviato in ufficio</span>';
 }
-/* interventi senza appuntamento gia' inviati in ufficio (ultimi 14 giorni): restano in elenco come gli altri, con la spunta «Nascondi» */
-const manualiInviati = () => inUfficio ? [] : Object.values(bozze).filter(b => b && b.manuale && b.stato === 'pdf' && b.inviatoUff && Date.now() - (b.inviatoUff || 0) < 14 * 86400000).sort((x, y) => y.inviatoUff - x.inviatoUff);
+/* interventi senza appuntamento gia' inviati in ufficio (ultimi 10 giorni, poi si tolgono da soli): restano in elenco come gli altri, con la spunta «Nascondi» */
+const manualiInviati = () => inUfficio ? [] : Object.values(bozze).filter(b => b && b.manuale && b.stato === 'pdf' && b.inviatoUff && Date.now() - (b.inviatoUff || 0) < 10 * 86400000).sort((x, y) => y.inviatoUff - x.inviatoUff);
 function disegnaDaCompletare(){
   const ids = new Set(appuntamenti.map(a => a.id));
   const aperte = Object.values(bozze).filter(b => b.stato === 'bozza' && (b.manuale || !ids.has(b.id))).sort((x, y) => y.aggiornata - x.aggiornata);
@@ -2891,10 +2898,46 @@ function bozzaModificata(senzaInvalidare){      // senzaInvalidare: modifiche ch
   timer = setTimeout(() => salvaBozza(senzaInvalidare), 400);
   try { disegnaStriscia(); } catch(e) {}
 }
+function firmaCompatta(c){          // la firma si salva al massimo a 480 punti di larghezza: sui telefoni recenti pesava 4-5 volte di piu' e riempiva la memoria dell'app
+  try {
+    const MAX = 480; if (!c.width || c.width <= MAX) return c.toDataURL('image/png');
+    const t = document.createElement('canvas'); t.width = MAX; t.height = Math.max(1, Math.round(c.height * MAX / c.width));
+    t.getContext('2d').drawImage(c, 0, 0, t.width, t.height); return t.toDataURL('image/png');
+  } catch(e) { return c.toDataURL('image/png'); }
+}
 function catturaFirma(){
   const c = $('#firma');
-  lavoro.firma = (firmaHaInchiostro && c) ? c.toDataURL('image/png') : '';
+  lavoro.firma = (firmaHaInchiostro && c) ? firmaCompatta(c) : '';
   lavoro.firmaW = c ? c.clientWidth : 0; lavoro.firmaH = c ? c.clientHeight : 0;
+}
+/* ---- pulizia automatica: cio' che e' stato inviato in ufficio da piu' di 10 giorni si toglie dal telefono (scheda, firma, foto, vocale).
+   Mai le cose non inviate, mai la scheda aperta, mai un appuntamento ancora in agenda. Serve a non riempire la memoria dell'app. ---- */
+const GIORNI_INVIATI = 10;
+async function pulisciInviati(){
+  if (inUfficio) return 0;
+  const limite = Date.now() - GIORNI_INVIATI * 86400000, inAgenda = new Set((appuntamenti || []).map(a => a.id)); let tolti = 0;
+  try {
+    for (const id of Object.keys(bozze)) {
+      const b = bozze[id];
+      if (!b || b.stato !== 'pdf' || !b.inviatoUff || b.inviatoUff > limite) continue;
+      if (lavoro && lavoro.id === id) continue;
+      if (!b.manuale && inAgenda.has(id)) continue;
+      for (const f of (b.foto || [])) { try { await cancellaFotoChiave(chiaveFoto(id, f.id)); } catch(e) {} }
+      try { await cancellaFotoChiave('voce|int:' + id); } catch(e) {}
+      try { if (typeof vocCache === 'object') delete vocCache['int:' + id]; } catch(e) {}
+      delete bozze[id]; tolti++;
+    }
+    if (tolti) salvaBozze();
+  } catch(e) {}
+  try {
+    const L = leggiRegCant(), via = L.filter(r => r && r.inviato && r.inviato <= limite && !(regCorr && regCorr.id === r.id));
+    if (via.length) {
+      for (const r of via) { for (const x of (r.foto || [])) { try { await cancellaFotoChiave(chiaveFoto('cant-' + r.id, x.id)); } catch(e) {} } try { await cancellaFotoChiave('voce|cn:' + r.id); } catch(e) {} }
+      const ids = new Set(via.map(r => r.id)); regCant = L.filter(r => !ids.has(r.id)); salvaRegCant(); tolti += via.length;
+    }
+  } catch(e) {}
+  if (tolti) { try { if (vistaCorrente === 'agenda') disegnaAgenda(); } catch(e) {} }
+  return tolti;
 }
 async function eliminaIntervento(){
   const w = lavoro; if (!w || !w.manuale) return;
@@ -6027,7 +6070,7 @@ function accodaDettato(prima, dettato){
 
 /* ---- materiali dettati ---- */
 const UNITA = {metro:'m',metri:'m',mt:'m',m:'m',centimetro:'cm',centimetri:'cm',cm:'cm',millimetro:'mm',millimetri:'mm',mm:'mm',
-  chilo:'kg',chili:'kg',chilo:'kg',chilogrammo:'kg',chilogrammi:'kg',kg:'kg',grammo:'g',grammi:'g',g:'g',litro:'l',litri:'l',l:'l',
+  chilo:'kg',chili:'kg',chilogrammo:'kg',chilogrammi:'kg',kg:'kg',grammo:'g',grammi:'g',g:'g',litro:'l',litri:'l',l:'l',
   pezzo:'pz',pezzi:'pz',pz:'pz',confezione:'conf.',confezioni:'conf.',rotolo:'rotolo',rotoli:'rotolo',kit:'kit',set:'set',ora:'ore',ore:'ore'};
 const NUMERO_RE = '(?:\\d+(?:[.,]\\d+)?|[a-zàèéìòù]+)';
 function leggiNumeroIniziale(parole){
@@ -6955,7 +6998,7 @@ function costruisciDaLevante(T){
   const tecNomi = {}; (T.tecnici || []).forEach(t => { tecNomi[t.RESOURCEID] = [normNome(t.NOME), normNome(t.RESOURCENAME)].filter(Boolean); });
   const tipiOre = (T.tipiore || []).filter(r => String(r.TIPO || '').toUpperCase() === 'OREDIP1' && r.DESCRIZIONE).map(r => r.DESCRIZIONE);
   const iva = {}; (T.aliquote_iva || []).forEach(a => { if (a.CODICEIVA) iva[a.CODICEIVA] = [parseFloat(a.ALIQUOTAIVA) || 0, a.DESCRIZIONEIVA || '', a.PA_NATURA || '']; });
-  const pratiche = (T.pratiche_cantiere || []).filter(c => c.ID && !(dt10(c.DATACHIUSURA) && dt10(c.DATACHIUSURA) <= oggiC)).map(praticaCantiere).slice(0, 300);
+  const pratiche = (T.pratiche_cantiere || []).filter(c => c.ID && !(dt10(c.DATACHIUSURA) && dt10(c.DATACHIUSURA) <= oggiC)).sort((a, b) => String(dt10(b.DATAAPERTURA)).localeCompare(String(dt10(a.DATAAPERTURA)))).slice(0, 300).map(praticaCantiere).sort((a, b) => String(a.c || '').localeCompare(String(b.c || '')));          // se sono piu' di 300 restano i piu' recenti
   return {appuntamenti: out, chiamate, tecnici, cantieri, pratiche, dipendenti, tecNomi, tipiOre, iva, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
     articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
     listino: (T.listino || []).filter(r => r.CODICE).map(r => [r.CODICE, r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
@@ -7118,6 +7161,14 @@ function distribuisciApp(){          // id tecnico -> appuntamenti, con le squad
 }
 const sqSomma = (g, n) => { const d = new Date(+g.slice(0, 4), +g.slice(5, 7) - 1, +g.slice(8, 10) + n); return isoGiorno(d); };
 const sqEff = (sq, g) => sqComp(sq, g) || {capo: '', membri: []};
+function conOperai(id, lista){          // con i cantieri attivi i colleghi sono anche i dipendenti senza agenda (operai): servono al capo cantiere che registra le ore di tutti
+  try {
+    if (!id || !cantieriAttivi() || !(datiLevante.cantieri || []).length) return lista;
+    const me = operaioDi(id), visti = new Set(lista.map(c => normNome(c.n)));
+    (datiLevante.dipendenti || []).forEach(d => { if (!d || !d.n || (me && me.k === d.k)) return; if (visti.has(normNome(d.n)) || visti.has(d.a) || visti.has(d.b)) return; visti.add(normNome(d.n)); lista.push({n: d.n, op: d.op || 0}); });
+    return lista.sort((a, b) => String(a.n).localeCompare(String(b.n), 'it')).slice(0, 150);
+  } catch(e) { return lista; }
+}
 const sqReali = () => Object.keys((datiLevante && datiLevante.tecnici) || {}).filter(id => !/^d-/.test(id) && !eSquadra(id)).sort((a, b) => String(sqNomeTec(a)).localeCompare(String(sqNomeTec(b)), 'it'));
 let sqGiornoSel = null;
 function sqScrivi(sq, g, comp){          // composizione di una squadra per un giorno
@@ -7480,7 +7531,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), colleghi: id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : [], meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), colleghi: conOperai(id, id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : []), meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     pratiche: datiLevante.pratiche || [], cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 let salvataggioDati = {ok: true, kb: 0, senzaModelli: false};
@@ -7635,7 +7686,7 @@ async function caricaPacchetto(file){
     try { ricImporta(d.ric); } catch(e) {}
     let nListino = 0, tsvL = ''; try { if (typeof d.listinoZ === 'string' && d.listinoZ.length > 10) { await caricaScript(['pako.min.js']); tsvL = pako.inflate(bytesDaB64(d.listinoZ), {to: 'string'}); } else if (typeof d.listino === 'string') tsvL = d.listino; } catch(e) { esitoImport += ' Attenzione: listino non leggibile.'; }
     if (tsvL.length > 10) { try { nListino = await salvaListino(tsvL); } catch(e) { esitoImport += ' Attenzione: il listino non si è salvato su questo dispositivo.'; } }
-    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], pratiche: Array.isArray(d.pratiche) ? d.pratiche.slice(0, 300) : [], operaio:d.operaio || null, colleghi: Array.isArray(d.colleghi) ? d.colleghi.filter(c => c && c.n).slice(0, 60).map(c => ({n: String(c.n).slice(0, 60), op: c.op != null ? +c.op : null})) : [], meOp: d.meOp != null ? +d.meOp : null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), cm: (d.cm && typeof d.cm === 'object') ? d.cm : undefined, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
+    await salvaDati({generato:d.generato, tecnico:d.tecnico || null, appuntamenti:d.appuntamenti, chiamate:Array.isArray(d.chiamate) ? d.chiamate : [], cantieri:Array.isArray(d.cantieri) ? d.cantieri : [], pratiche: Array.isArray(d.pratiche) ? d.pratiche.slice(0, 300) : [], operaio:d.operaio || null, colleghi: Array.isArray(d.colleghi) ? d.colleghi.filter(c => c && c.n).slice(0, 150).map(c => ({n: String(c.n).slice(0, 60), op: c.op != null ? +c.op : null})) : [], meOp: d.meOp != null ? +d.meOp : null, tipiOre:Array.isArray(d.tipiOre) ? d.tipiOre : [], iva:(d.iva && typeof d.iva === 'object') ? d.iva : {}, cfg: cfgPulita(d.cfg), cm: (d.cm && typeof d.cm === 'object') ? d.cm : undefined, voci:(d.voci && typeof d.voci === 'object') ? d.voci : {}, tipiInt:Array.isArray(d.tipiInt) ? d.tipiInt.map(x => String(x).trim()).filter(Boolean).slice(0, 30) : [], modelli:d.modelli || {}, azienda:d.azienda || null, files:d.files || {}}, leggero);
     try { ctrlRegUnisci(d.reg); } catch(e) {}
     if (d.tecnico && d.tecnico.nome && !impostazioni.tecnico) { impostazioni.tecnico = d.tecnico.nome; salvaImpostazioni(); }
     const chNuove = (Array.isArray(d.chiamate) ? d.chiamate : []).filter(c => !((prima && prima.chiamate) || []).some(x => x.id === c.id));
@@ -7668,7 +7719,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.92.1 (13/11/2026)';
+const VERSIONE_APP = '1.93.0 (14/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8326,11 +8377,13 @@ function cnPreparaFirma(){
 }
 function cnCatturaFirma(){
   const c = $('#cn-firma'), r = regCorr; if (!c || !r) return;
-  r.firma = cnInk ? c.toDataURL('image/png') : ''; r.firmaW = c.clientWidth; r.firmaH = c.clientHeight;
+  r.firma = cnInk ? firmaCompatta(c) : ''; r.firmaW = c.clientWidth; r.firmaH = c.clientHeight;
   if (!cnInk) { delete r.firmaW; delete r.firmaH; }
   salvaReg(true);
 }
 document.addEventListener('toggle', e => { if (e.target && e.target.dataset && e.target.dataset.cnk === 'firma' && e.target.open) setTimeout(cnPreparaFirma, 0); }, true);
+let cnFirmaLarg = 0;
+window.addEventListener('resize', () => { const c = $('#cn-firma'); if (vistaCorrente !== 'cantiere' || !c || !c.clientWidth || c.clientWidth === cnFirmaLarg) return; cnFirmaLarg = c.clientWidth; cnPreparaFirma(); });          // telefono ruotato: la firma si ridisegna senza deformarsi
 document.addEventListener('pointerdown', e => {
   const c = e.target; if (!c || c.id !== 'cn-firma' || !regCorr) return; if (!cnCtx) cnPreparaFirma(); if (!cnCtx) return;
   const q = ev => { const b = c.getBoundingClientRect(); return [ev.clientX - b.left, ev.clientY - b.top]; };
@@ -10067,6 +10120,8 @@ function disegnaVociPred(){
 }
 function avvia(){
   appuntamenti = caricaAppuntamenti();
+  setTimeout(() => { try { pulisciInviati(); } catch(e) {} }, 8000);
+  { let ultimaPul = Date.now(); document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - ultimaPul > 6 * 3600000) { ultimaPul = Date.now(); try { pulisciInviati(); } catch(e) {} } }); }
   avviaServizio();
   avviaPosta(); avviaArticoli(); avviaPortatoL(); avviaFoglio(); avviaPin(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 800);
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
