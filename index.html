@@ -488,6 +488,8 @@ body.uff #tab-tec{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
 body.uff #b-indietro-cal{display:none}
 .cal-barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:12px 0 6px}
 .cal-barra .seg{margin:0}
+.cal-barra .seg button{white-space:nowrap;padding-left:12px;padding-right:12px}
+.cal-tit{white-space:nowrap}
 .cal-nav{display:inline-flex;gap:4px}
 .cal-tit{font-size:18px;margin-right:auto}
 .cal-barra select,.cal-barra input[type=date]{width:auto;min-height:38px;padding:4px 8px;font-size:15px}
@@ -538,6 +540,57 @@ body.uff #b-indietro-cal{display:none}
 .cal-ev.chiuso{background:#E9EDEF;border-color:var(--acciaio);border-left-color:var(--acciaio-s);opacity:.62}
 .cal-ev.chiuso .cal-t{text-decoration:line-through}
 .cal-ev.urg .cal-t{color:var(--rosso)}
+.cal-sel{position:relative}
+.cal-sel summary{list-style:none;cursor:pointer;min-height:38px;display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--acciaio-s);border-radius:10px;background:#fff;font-weight:650;font-size:15px}
+.cal-sel summary::-webkit-details-marker{display:none}
+.cal-sel summary::after{content:"▾";font-size:12px;color:var(--tenue)}
+.cal-sel-p{position:absolute;z-index:20;left:0;top:44px;min-width:230px;max-height:340px;overflow:auto;background:#fff;border:1px solid var(--acciaio-s);border-radius:12px;box-shadow:0 6px 20px rgba(20,35,43,.22);padding:10px}
+.cal-sel-p .spunta{margin:8px 0 0;font-weight:600;font-size:15px;align-items:center}
+.cal-sel-p .spunta input{width:18px;height:18px;margin:0}
+.cal-sel-p small{color:var(--tenue);font-weight:500}
+button.cal-dh{border:0;border-bottom:1px solid var(--riga);text-align:left;cursor:pointer;font:inherit}
+button.cal-dh:hover{background:var(--petrolio-c)}
+.cal-mx{display:grid}
+.cal-rh{position:-webkit-sticky;position:sticky;left:0;z-index:3;background:#F6F9FA;border-top:1px solid var(--riga2);padding:8px;line-height:1.25}
+.cal-rh.senza{background:var(--rosso-c);color:var(--rosso)}
+.cal-mc{border-top:1px solid var(--riga2);border-left:1px solid var(--riga2);padding:3px;display:flex;flex-direction:column;gap:3px;min-height:56px;min-width:0}
+.cal-mc.oggi{background:#FAFEFF}
+.cal-mi{display:block;width:100%;text-align:left;border:1px solid var(--acciaio);border-left:4px solid var(--petrolio);border-radius:6px;background:#fff;padding:1px 5px;font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.cal-mi i{font-style:normal;font-size:10.5px;font-weight:700;background:var(--acciaio-s);color:#fff;border-radius:4px;padding:0 4px}
+.cal-mi.arrivato{background:var(--ok-c);border-color:var(--ok);border-left-color:var(--ok)}
+.cal-mi.parziale{background:var(--fiamma-c);border-color:var(--fiamma);border-left-color:var(--fiamma)}
+.cal-mi.manca,.cal-mi.noneseg{background:var(--rosso-c);border-color:var(--rosso);border-left-color:var(--rosso)}
+.cal-mi.registrato{background:#F1F7F3;border-color:#B7D6C3;border-left-color:var(--ok)}
+.cal-mi.registrato b{color:var(--ok)}
+.cal-mi.chiuso{background:#E9EDEF;border-left-color:var(--acciaio-s);opacity:.62;text-decoration:line-through}
+.cal-mi.urg{color:var(--rosso)}
+.cal-pt{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;flex:none}
+.cal-mt2{display:grid}
+.cal-dm{text-align:center;padding:4px 0;min-width:0}
+.cal-dm b{display:block}
+.cal-dm small{display:block;font-size:10px;color:var(--tenue);font-weight:600}
+.cal-dm.fest{background:#EEF2F3}
+.cal-dm.oggi{background:var(--petrolio-c)}
+.cal-cm{border:0;border-top:1px solid var(--riga2);border-left:1px solid var(--riga2);background:#fff;font:inherit;font-weight:700;font-size:13px;min-height:38px;padding:0;cursor:pointer;color:var(--inchiostro)}
+.cal-cm.fest{background:#F6F9FA}
+.cal-cm.aperto{background:#D5E6EE;color:var(--petrolio-s)}
+.cal-cm.arrivato{background:var(--ok-c);color:var(--ok)}
+.cal-cm.parziale{background:var(--fiamma-c);color:var(--fiamma)}
+.cal-cm.manca,.cal-cm.noneseg{background:var(--rosso-c);color:var(--rosso)}
+.cal-cm.registrato{background:#F1F7F3;color:var(--ok)}
+.cal-cm.chiuso{background:#E9EDEF;color:var(--tenue)}
+.cal-cm.oggi{box-shadow:inset 0 0 0 2px var(--petrolio)}
+.cal-cm:hover{filter:brightness(.94)}
+.cal-mese{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr))}
+.cal-mt{text-align:center;font-weight:650;font-size:13px;padding:4px}
+.cal-md{border-top:1px solid var(--riga2);border-left:1px solid var(--riga2);padding:3px;display:flex;flex-direction:column;gap:3px;min-height:112px;min-width:0}
+.cal-md.fuori{background:#F6F9FA}
+.cal-md.fuori .cal-dn{color:var(--tenue)}
+.cal-md.oggi{background:#FAFEFF;box-shadow:inset 0 0 0 2px var(--petrolio)}
+.cal-dn{align-self:stretch;display:flex;justify-content:space-between;align-items:center;border:0;background:none;font:inherit;font-weight:700;font-size:14px;padding:0 3px;cursor:pointer;text-align:left;border-radius:6px}
+.cal-dn:hover{background:var(--petrolio-c)}
+.cal-dn span{font-size:11px;font-weight:700;background:var(--petrolio);color:#fff;border-radius:99px;padding:0 7px}
+.cal-piu{border:0;background:none;font:inherit;font-size:12px;font-weight:650;color:var(--petrolio);text-align:left;padding:0 4px;cursor:pointer}
 @media (min-width:900px){
   body[data-vista="calendario"] .app,body.cal-det .app{grid-template-columns:minmax(0,1fr)}
   body[data-vista="calendario"] #v-agenda,body.cal-det #v-agenda{display:none}
@@ -1962,17 +2015,24 @@ function disegnaAgenda(){
 
 /* ==================================================================
    CALENDARIO (ufficio): una colonna per tecnico o squadra, le ore in verticale.
-   Giorno = tutti i tecnici insieme; Settimana = un tecnico alla volta.
+   Giorno = i tecnici scelti insieme (tutti, se non ne scegli); Settimana = un tecnico con le ore, oppure piu' tecnici in tabella
+   (una riga per tecnico, sette giorni); Mese = il calendario del mese. Un tocco su un giorno apre quel giorno.
    Lo stato di ogni appuntamento viene da Levante (chiuso) e dai rapporti arrivati: gli appuntamenti chiusi si nascondono
-   da soli (con l'interruttore si rivedono), quelli con il rapporto arrivato diventano verdi finche' non li registri.
-   ================================================================== */
-let calVista = store.get('ass_cal_vista', 'giorno') === 'sett' ? 'sett' : 'giorno';
-let calGiorno = '', calTec = store.get('ass_cal_tec', '') || '', calChiusi = store.get('ass_cal_chiusi', false) === true, tornaCal = false, calChiave = '';
+   da soli (con l'interruttore si rivedono), quelli con il rapporto arrivato diventano verdi finche' non li registri,
+   quelli spuntati come registrati restano visibili con una ✓ fino alla prossima esportazione.
+   ================================================== */
+let calVista = ['giorno', 'sett', 'mese'].indexOf(store.get('ass_cal_vista', 'giorno')) >= 0 ? store.get('ass_cal_vista', 'giorno') : 'giorno';
+let calMeseTipo = store.get('ass_cal_mese', 'cal') === 'tec' ? 'tec' : 'cal', calCol = {};
+let calGiorno = '', calSel = store.get('ass_cal_sel', []), calChiusi = store.get('ass_cal_chiusi', false) === true, tornaCal = false, calChiave = '', calSelAperto = false;
+if (!Array.isArray(calSel)) calSel = [];
+const CAL_COLORI = ['#2F6FDE', '#7B3FB5', '#B5398F', '#00838F', '#8D5B2E', '#34495E', '#6B7A12', '#D6527E', '#4A4FC4', '#0F9BC4', '#6D214F', '#607D8B'];      // un colore fisso per ogni tecnico (lo stato dell'appuntamento resta nello sfondo)
+const calPt = n => `<span class="cal-pt" style="background:${calCol[n] || '#9FAEB4'}"></span>`;
 const CAL_PX = 52;      // altezza di un'ora, in pixel (la stessa e' nel CSS: .cal-col background-size)
 const CAL_ETI = {aperto: '', arrivato: 'Rapporto arrivato · da registrare', parziale: 'Da completare', manca: 'Senza rapporto', noneseg: 'Non eseguito', registrato: '✓ Registrato in Levante', chiuso: 'Chiuso in Levante'};
 const calIni = iso => new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
 const calSomma = (iso, n) => { const d = calIni(iso); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const calLunedi = iso => { const d = calIni(iso); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return isoGiorno(d); };
+const calIniz = n => String(n || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase();
 function calStato(a){
   if (a.fatto) return 'chiuso';          // chiuso in Levante (si vede dopo l'esportazione): sparisce dal calendario
   if (registrato(a)) return 'registrato';          // spuntato in ufficio come registrato in Levante: resta visibile finche' Levante non lo chiude
@@ -2007,26 +2067,28 @@ function calSottotitolo(r, g, n){          // sotto il nome: per le squadre chi 
   const dentro = sqIds().filter(s => { const c = sqComp(s, g); return c && c.membri.map(String).indexOf(String(r.id)) >= 0; });
   return dentro.length ? `<small>oggi in ${esc(dentro.map(sqNomeTec).join(', '))}</small>` : '';
 }
-function disegnaCalendario(){
-  const box = $('#v-calendario'); if (!box) return;
-  const oggi = isoGiorno(new Date()), sett = calVista === 'sett';
-  if (!calGiorno) calGiorno = oggi;
-  const ris = calRisorse();
-  const inGiorno = (a, g) => { const i = calIni(g), f = calIni(calSomma(g, 1)); return a.inizio < f && Math.max(+a.fine, +a.inizio + 1) > +i; };
+function calCerca(g, filtro, ct){          // appuntamenti di un giorno (senza i chiusi, se non richiesti); ct conta quelli nascosti e quelli mostrati
+  const i = calIni(g), f = calIni(calSomma(g, 1));
+  return appuntamenti.filter(a => filtro(a) && a.inizio < f && Math.max(+a.fine, +a.inizio + 1) > +i).map(a => ({a, st: calStato(a)})).filter(x => {
+    if (x.st === 'chiuso' && !calChiusi) { ct.chiusi++; return false; } ct.tot++; return true; }).sort((x, y) => x.a.inizio - y.a.inizio);
+}
+const calVoce = (x, conSigla) => {
+  const a = x.a, tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.tecnico_nome, a.luogo, CAL_ETI[x.st]].filter(Boolean).join(' · ');
+  return `<button type="button" class="cal-mi ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${conSigla ? '<i style="background:' + (calCol[a.tecnico_nome] || '#9FAEB4') + '">' + esc(a.tecnico_nome ? calIniz(a.tecnico_nome) : '—') + '</i> ' : ''}${esc(a.titolo)}</button>`;
+};
+function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) o settimana di un solo tecnico (colonne = giorni), con le ore in verticale
+  const sett = calVista === 'sett';
   let ch = []; if (!sett && calGiorno >= oggi) { try { ch = chiamateTec(); } catch(e) {} }
-  let nChiusi = 0, nTot = 0;
-  const cerca = (g, filtro) => appuntamenti.filter(a => filtro(a) && inGiorno(a, g)).map(a => ({a, st: calStato(a)})).filter(x => {
-    if (x.st === 'chiuso' && !calChiusi) { nChiusi++; return false; } nTot++; return true; });
+  const nomi = {}; vis.forEach(r => { nomi[r.nome] = 1; });
+  const tutti = vis.length === ris.length;
   let cols = [], titolo = '';
   if (sett) {
-    const lun = calLunedi(calGiorno), nomi = ris.map(r => r.nome);
-    if (!calTec || nomi.indexOf(calTec) < 0) { const con = ris.find(r => appuntamenti.some(a => a.tecnico_nome === r.nome)); calTec = con ? con.nome : (nomi[0] || ''); }
-    const r0 = ris.find(r => r.nome === calTec) || {nome: calTec, id: '', sq: false};
-    for (let i = 0; i < 7; i++) { const g = calSomma(lun, i), d = calIni(g); cols.push({g, voci: cerca(g, a => a.tecnico_nome === calTec), th: `<b>${esc(d.toLocaleDateString('it-IT', {weekday: 'short'}))} ${d.getDate()}</b>${r0.sq && !sqComp(r0.id, g) ? calSottotitolo(r0, g, 0) : ''}`, oggi: g === oggi}); }
-    const f = calIni(calSomma(lun, 6)); titolo = 'Settimana dal ' + dataIT(lun).slice(0, 5) + ' al ' + dataIT(isoGiorno(f)).slice(0, 5);
+    const lun = calLunedi(calGiorno), r0 = vis[0] || {nome: '', id: '', sq: false};
+    for (let i = 0; i < 7; i++) { const g = calSomma(lun, i), d = calIni(g); cols.push({g, voci: calCerca(g, a => a.tecnico_nome === r0.nome, ct), th: `<b>${esc(d.toLocaleDateString('it-IT', {weekday: 'short'}))} ${d.getDate()}</b>${r0.sq && !sqComp(r0.id, g) ? calSottotitolo(r0, g, 0) : ''}`, oggi: g === oggi, dh: g}); }
+    titolo = r0.nome + ' · settimana dal ' + dataIT(lun).slice(0, 5) + ' al ' + dataIT(calSomma(lun, 6)).slice(0, 5);
   } else {
-    ris.forEach(r => { const voci = cerca(calGiorno, a => a.tecnico_nome === r.nome); cols.push({g: calGiorno, r, voci, ch: ch.filter(c => c.tecnico_nome === r.nome), th: `<b>${esc(r.nome)}</b>${r.sq ? ' <span class="chip tec">Squadra</span>' : ''}${calSottotitolo(r, calGiorno, voci.length)}`}); });
-    const senza = cerca(calGiorno, a => !a.tecnico_nome), chS = ch.filter(c => !c.tecnico_nome);
+    vis.forEach(r => { const voci = calCerca(calGiorno, a => a.tecnico_nome === r.nome, ct); cols.push({g: calGiorno, r, voci, ch: ch.filter(c => c.tecnico_nome === r.nome), th: `<b>${calPt(r.nome)}${esc(r.nome)}</b>${r.sq ? ' <span class="chip tec">Squadra</span>' : ''}${calSottotitolo(r, calGiorno, voci.length)}`}); });
+    const senza = calCerca(calGiorno, a => !a.tecnico_nome, ct), chS = ch.filter(c => !c.tecnico_nome);
     if (senza.length || chS.length) cols.unshift({g: calGiorno, voci: senza, ch: chS, th: '<b>Da assegnare</b><small class="cal-avv forte">senza tecnico</small>', senza: true});
     titolo = giornoLungo(calIni(calGiorno));
   }
@@ -2044,52 +2106,123 @@ function disegnaCalendario(){
       const eti = CAL_ETI[x.st], tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.luogo, a.r && a.r.tp, eti].filter(Boolean).join(' · ');
       return `<button type="button" class="cal-ev ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}" style="top:${top}px;height:${h}px;left:calc(${x.c} * 100% / ${x.n} + 2px);width:calc(100% / ${x.n} - 4px)"><span class="cal-t"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${esc(a.titolo)}</span>${h >= 40 ? `<span class="cal-l">${esc(a.luogo || '')}</span>` : ''}${h >= 58 && eti ? `<span class="cal-s">${esc(eti)}</span>` : ''}</button>`;
     }).join('');
-    const ora = (c.oggi || (!sett && c.g === oggi)) && adesso > minM && adesso < maxM ? `<i class="cal-adesso" style="top:${(adesso - minM) * CAL_PX / 60}px"></i>` : '';
+    const ora = c.g === oggi && adesso > minM && adesso < maxM ? `<i class="cal-adesso" style="top:${(adesso - minM) * CAL_PX / 60}px"></i>` : '';
     return `<div class="cal-col${c.g === oggi ? ' oggi' : ''}" style="height:${alto}px">${blocchi}${ora}</div>`;
   };
   const nc = cols.length, larg = nc > 8 ? 128 : 156;
   let ore = ''; for (let m = minM; m < maxM; m += 60) ore += `<div class="cal-h" style="height:${CAL_PX}px"><span>${pad2(m / 60)}:00</span></div>`;
   const g = [];
-  g.push('<div class="cal-ang cal-th"></div>'); cols.forEach(c => g.push(`<div class="cal-th${c.oggi ? ' oggi' : ''}${c.senza ? ' senza' : ''}">${c.th}</div>`));
+  g.push('<div class="cal-ang cal-th"></div>'); cols.forEach(c => g.push(c.dh ? `<button type="button" class="cal-th cal-dh${c.oggi ? ' oggi' : ''}" data-cal-g="${c.dh}" title="Apri questo giorno">${c.th}</button>` : `<div class="cal-th${c.oggi ? ' oggi' : ''}${c.senza ? ' senza' : ''}">${c.th}</div>`));
   if (cols.some(c => (c.ch || []).length)) { g.push('<div class="cal-ang cal-chr"><span>Chiamate</span></div>'); cols.forEach(c => g.push(`<div class="cal-chr">${(c.ch || []).map(x => `<button type="button" class="cal-ch${x.urgente ? ' urg' : ''}" data-ch="${esc(x.id)}" title="${esc(x.titolo + ' · ' + (x.luogo || ''))}">☎ ${esc(x.titolo)}</button>`).join('')}</div>`)); }
   g.push(`<div class="cal-ore" style="height:${alto}px">${ore}</div>`); cols.forEach(c => g.push(colonna(c)));
-  const sel = sett ? `<select id="cal-tec" aria-label="Tecnico o squadra">${ris.map(r => `<option value="${esc(r.nome)}"${r.nome === calTec ? ' selected' : ''}>${esc(r.nome)}</option>`).join('')}</select>` : '';
-  const vuoto = !nTot && !ch.length ? `<p class="aiuto" style="margin:10px 0 0">${sett ? 'Nessun appuntamento per ' + esc(calTec) + ' in questa settimana' : 'Nessun appuntamento per questo giorno'}${nChiusi ? ' (' + nChiusi + ' già chiusi, nascosti)' : ''}. Se ne mancano, rifai l'esportazione da Levante.</p>` : '';
-  const chiave = calVista + '|' + calGiorno + '|' + calTec, sc0 = $('#cal-scroll'), top0 = (sc0 && chiave === calChiave) ? sc0.scrollTop : null;
+  return {titolo, html: `<div class="cal-griglia" style="grid-template-columns:46px repeat(${nc}, minmax(${larg}px, 1fr))">${g.join('')}</div>`, ore: {adesso, minM, maxM}, nCh: ch.length};
+}
+function calMatrice(vis, ct, oggi){          // settimana di piu' tecnici: una riga per tecnico, sette giorni
+  const lun = calLunedi(calGiorno), giorni = []; for (let i = 0; i < 7; i++) giorni.push(calSomma(lun, i));
+  const righe = vis.map(r => ({r, celle: giorni.map(g => calCerca(g, a => a.tecnico_nome === r.nome, ct))}));
+  const senza = giorni.map(g => calCerca(g, a => !a.tecnico_nome, ct));
+  if (senza.some(c => c.length)) righe.unshift({r: null, celle: senza});
+  let h = `<div class="cal-mx" style="grid-template-columns:150px repeat(7, minmax(128px, 1fr))"><div class="cal-th cal-ang"></div>`;
+  giorni.forEach(g => { const d = calIni(g); h += `<button type="button" class="cal-th cal-dh${g === oggi ? ' oggi' : ''}" data-cal-g="${g}" title="Apri questo giorno"><b>${esc(d.toLocaleDateString('it-IT', {weekday: 'short'}))} ${d.getDate()}</b></button>`; });
+  righe.forEach(x => {
+    h += x.r ? `<div class="cal-rh"><b>${calPt(x.r.nome)}${esc(x.r.nome)}</b>${x.r.sq ? ' <span class="chip tec">Squadra</span>' : ''}</div>` : '<div class="cal-rh senza"><b>Da assegnare</b></div>';
+    x.celle.forEach((l, i) => { h += `<div class="cal-mc${giorni[i] === oggi ? ' oggi' : ''}">${l.map(v => calVoce(v, false)).join('')}</div>`; });
+  });
+  return {titolo: 'Settimana dal ' + dataIT(lun).slice(0, 5) + ' al ' + dataIT(calSomma(lun, 6)).slice(0, 5), html: h + '</div>'};
+}
+function calMese(vis, ris, ct, oggi){          // il mese intero: per ogni giorno i primi appuntamenti e quanti altri
+  const d0 = calIni(calGiorno), mese = d0.getMonth(), primo = isoGiorno(new Date(d0.getFullYear(), mese, 1));
+  const inizio = calLunedi(primo), nGiorni = Math.ceil(((+calIni(isoGiorno(new Date(d0.getFullYear(), mese + 1, 0))) - +calIni(inizio)) / 86400000 + 1) / 7) * 7;
+  const nomi = {}; vis.forEach(r => { nomi[r.nome] = 1; }); const tutti = vis.length === ris.length, sigla = vis.length > 1;
+  let h = '<div class="cal-mese">';
+  ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].forEach(n => { h += `<div class="cal-th cal-mt">${n}</div>`; });
+  for (let i = 0; i < nGiorni; i++) {
+    const g = calSomma(inizio, i), d = calIni(g), l = calCerca(g, a => nomi[a.tecnico_nome] || (!a.tecnico_nome && tutti), ct);
+    h += `<div class="cal-md${d.getMonth() !== mese ? ' fuori' : ''}${g === oggi ? ' oggi' : ''}${l.length ? '' : ' libero'}"><button type="button" class="cal-dn" data-cal-g="${g}" title="Apri questo giorno">${d.getDate()}${l.length ? ' <span>' + l.length + '</span>' : ''}</button>${l.slice(0, 3).map(v => calVoce(v, sigla)).join('')}${l.length > 3 ? `<button type="button" class="cal-piu" data-cal-g="${g}">+ altri ${l.length - 3}</button>` : ''}</div>`;
+  }
+  return {titolo: maius(d0.toLocaleDateString('it-IT', {month: 'long', year: 'numeric'})), html: h + '</div>'};
+}
+function calMeseTec(vis, ct, oggi){          // il mese per tecnico: una riga per tecnico, una colonna per giorno; nella casella quanti appuntamenti, col colore dello stato piu' urgente
+  const d0 = calIni(calGiorno), mese = d0.getMonth(), n = new Date(d0.getFullYear(), mese + 1, 0).getDate(), giorni = [];
+  for (let i = 1; i <= n; i++) giorni.push(isoGiorno(new Date(d0.getFullYear(), mese, i)));
+  const righe = vis.map(r => ({r, celle: giorni.map(g => calCerca(g, a => a.tecnico_nome === r.nome, ct))}));
+  const senza = giorni.map(g => calCerca(g, a => !a.tecnico_nome, ct));
+  if (senza.some(c => c.length)) righe.unshift({r: null, celle: senza});
+  const pri = {manca: 6, noneseg: 6, arrivato: 5, parziale: 4, aperto: 3, registrato: 2, chiuso: 1};
+  let h = `<div class="cal-mt2" style="grid-template-columns:150px repeat(${n}, minmax(34px, 1fr))"><div class="cal-th cal-ang"></div>`;
+  giorni.forEach(g => { const w = calIni(g).getDay(); h += `<button type="button" class="cal-th cal-dh cal-dm${g === oggi ? ' oggi' : ''}${w === 0 || w === 6 ? ' fest' : ''}" data-cal-g="${g}" title="Apri questo giorno"><b>${+g.slice(8)}</b><small>${'DLMMGVS'.charAt(w)}</small></button>`; });
+  righe.forEach(x => {
+    h += x.r ? `<div class="cal-rh"><b>${calPt(x.r.nome)}${esc(x.r.nome)}</b>${x.r.sq ? ' <span class="chip tec">Squadra</span>' : ''}</div>` : '<div class="cal-rh senza"><b>Da assegnare</b></div>';
+    x.celle.forEach((l, i) => {
+      const w = calIni(giorni[i]).getDay(), st = l.length ? l.reduce((m, v) => pri[v.st] > pri[m] ? v.st : m, l[0].st) : '';
+      const tip = l.slice(0, 8).map(v => hhmm(v.a.inizio) + ' ' + v.a.titolo).join('\n') + (l.length > 8 ? '\n… altri ' + (l.length - 8) : '');
+      h += `<button type="button" class="cal-cm${st ? ' ' + st : ''}${w === 0 || w === 6 ? ' fest' : ''}${giorni[i] === oggi ? ' oggi' : ''}" data-cal-g="${giorni[i]}" title="${esc(tip)}">${l.length || ''}</button>`;
+    });
+  });
+  return {titolo: maius(d0.toLocaleDateString('it-IT', {month: 'long', year: 'numeric'})), html: h + '</div>'};
+}
+function disegnaCalendario(){
+  const box = $('#v-calendario'); if (!box) return;
+  const oggi = isoGiorno(new Date()); if (!calGiorno) calGiorno = oggi;
+  const ris = calRisorse(), nomiSel = calSel.filter(n => ris.some(r => r.nome === n));
+  const vis = nomiSel.length ? ris.filter(r => nomiSel.indexOf(r.nome) >= 0) : ris;
+  const ct = {chiusi: 0, tot: 0}, mese = calVista === 'mese', sett = calVista === 'sett';
+  let out;
+  calCol = {}; ris.forEach((r, i) => { calCol[r.nome] = CAL_COLORI[i % CAL_COLORI.length]; });
+  if (mese) out = calMeseTipo === 'tec' ? calMeseTec(vis, ct, oggi) : calMese(vis, ris, ct, oggi);
+  else if (sett && vis.length > 1) out = calMatrice(vis, ct, oggi);
+  else out = calGriglia(vis, ris, ct, oggi);
+  const selTxt = nomiSel.length === 0 ? 'Tutti i tecnici' : nomiSel.length === 1 ? nomiSel[0] : nomiSel.length + ' tecnici';
+  const pannello = `<details class="cal-sel" id="cal-sel"${calSelAperto ? ' open' : ''}><summary>${esc(selTxt)}</summary><div class="cal-sel-p"><button class="btn chiaro piccolo" type="button" data-cal-tutti="1">Tutti</button>${ris.map(r => `<label class="spunta"><input type="checkbox" data-cal-t="${esc(r.nome)}"${nomiSel.length === 0 || nomiSel.indexOf(r.nome) >= 0 ? ' checked' : ''}> <span>${calPt(r.nome)}${esc(r.nome)}${r.sq ? ' <small>squadra</small>' : ''}</span></label>`).join('')}</div></details>`;
+  const vuoto = !ct.tot && !(out.nCh) ? `<p class="aiuto" style="margin:10px 0 0">Nessun appuntamento in questo periodo${nomiSel.length ? ' per i tecnici scelti' : ''}${ct.chiusi ? ' (' + ct.chiusi + ' già chiusi, nascosti)' : ''}. Se ne mancano, rifai l'esportazione da Levante.</p>` : '';
+  const chiave = calVista + '|' + calGiorno + '|' + nomiSel.join(','), sc0 = $('#cal-scroll'), top0 = (sc0 && chiave === calChiave) ? sc0.scrollTop : null;
   box.innerHTML = `<header class="barra fissa"><button class="btn chiaro piccolo" id="b-indietro-cal" type="button">Indietro</button><h1>Calendario</h1></header>
     <div class="cal-barra">
-      <div class="seg" role="tablist" aria-label="Vista"><button type="button" data-cal-v="giorno" aria-pressed="${!sett}">Giorno</button><button type="button" data-cal-v="sett" aria-pressed="${sett}">Settimana</button></div>
-      <span class="cal-nav"><button class="btn chiaro piccolo" type="button" data-cal-n="-1" aria-label="${sett ? 'Settimana precedente' : 'Giorno precedente'}">‹</button><button class="btn chiaro piccolo" type="button" data-cal-n="0">Oggi</button><button class="btn chiaro piccolo" type="button" data-cal-n="1" aria-label="${sett ? 'Settimana successiva' : 'Giorno successivo'}">›</button></span>
-      <b class="cal-tit">${esc(titolo)}</b>${sel}
+      <div class="seg" role="tablist" aria-label="Vista"><button type="button" data-cal-v="giorno" aria-pressed="${calVista === 'giorno'}">Giorno</button><button type="button" data-cal-v="sett" aria-pressed="${sett}">Settimana</button><button type="button" data-cal-v="mese" aria-pressed="${mese}">Mese</button></div>
+      ${mese ? `<div class="seg" role="tablist" aria-label="Tipo di mese"><button type="button" data-cal-mt="cal" aria-pressed="${calMeseTipo === 'cal'}">Calendario</button><button type="button" data-cal-mt="tec" aria-pressed="${calMeseTipo === 'tec'}">Per tecnico</button></div>` : ''}
+      <span class="cal-nav"><button class="btn chiaro piccolo" type="button" data-cal-n="-1" aria-label="Precedente">‹</button><button class="btn chiaro piccolo" type="button" data-cal-n="0">Oggi</button><button class="btn chiaro piccolo" type="button" data-cal-n="1" aria-label="Successivo">›</button></span>
+      <b class="cal-tit">${esc(out.titolo)}</b>${pannello}
       <input type="date" id="cal-data" value="${esc(calGiorno)}" aria-label="Vai alla data">
-      <label class="spunta cal-chiusi"><input type="checkbox" id="cal-chiusi"${calChiusi ? ' checked' : ''}> <span>Mostra anche i già chiusi${nChiusi ? ' (' + nChiusi + ' nascosti)' : ''}</span></label>
+      <label class="spunta cal-chiusi"><input type="checkbox" id="cal-chiusi"${calChiusi ? ' checked' : ''}> <span>Mostra anche i già chiusi${ct.chiusi ? ' (' + ct.chiusi + ' nascosti)' : ''}</span></label>
     </div>
     <div class="cal-leg"><span class="cal-k aperto"></span>Da fare <span class="cal-k arrivato"></span>Rapporto arrivato, da registrare <span class="cal-k parziale"></span>Da completare <span class="cal-k manca"></span>Senza rapporto / non eseguito <span class="cal-k registrato"></span>✓ Registrato da te <span class="cal-k chiuso"></span>Chiuso in Levante (sparisce)</div>
-    <div class="cal-scroll" id="cal-scroll"><div class="cal-griglia" style="grid-template-columns:46px repeat(${nc}, minmax(${larg}px, 1fr))">${g.join('')}</div></div>${vuoto}`;
+    <div class="cal-scroll" id="cal-scroll">${out.html}</div>${vuoto}`;
   const sc = $('#cal-scroll');
-  if (sc) { if (top0 !== null) sc.scrollTop = top0; else if ((calGiorno === oggi || (sett && calLunedi(calGiorno) === calLunedi(oggi))) && adesso - minM > 420) sc.scrollTop = Math.max(0, (Math.min(adesso, maxM) - minM - 150) * CAL_PX / 60); }
+  if (sc) {
+    if (top0 !== null) sc.scrollTop = top0;
+    else if (out.ore) { const o = out.ore, oggiVista = calVista === 'giorno' ? calGiorno === oggi : calLunedi(calGiorno) === calLunedi(oggi); if (oggiVista && o.adesso - o.minM > 420) sc.scrollTop = Math.max(0, (Math.min(o.adesso, o.maxM) - o.minM - 150) * CAL_PX / 60); }
+  }
   calChiave = chiave;
 }
 function calVai(n){
   const oggi = isoGiorno(new Date());
-  if (n === 0) calGiorno = oggi; else calGiorno = calSomma(calGiorno || oggi, n * (calVista === 'sett' ? 7 : 1));
+  if (n === 0) calGiorno = oggi;
+  else if (calVista === 'mese') { const d = calIni(calGiorno || oggi); calGiorno = isoGiorno(new Date(d.getFullYear(), d.getMonth() + n, 1)); }
+  else calGiorno = calSomma(calGiorno || oggi, n * (calVista === 'sett' ? 7 : 1));
   disegnaCalendario();
 }
 function avviaCalendario(){
   const box = $('#v-calendario'); if (!box) return;
   box.addEventListener('click', e => {
     const t = e.target.closest ? e.target : e.target.parentNode; if (!t || !t.closest) return;
-    let b = t.closest('[data-cal-v]'); if (b) { calVista = b.dataset.calV === 'sett' ? 'sett' : 'giorno'; store.set('ass_cal_vista', calVista); disegnaCalendario(); return; }
+    let b = t.closest('[data-cal-v]'); if (b) { calVista = ['giorno', 'sett', 'mese'].indexOf(b.dataset.calV) >= 0 ? b.dataset.calV : 'giorno'; store.set('ass_cal_vista', calVista); disegnaCalendario(); return; }
+    b = t.closest('[data-cal-mt]'); if (b) { calMeseTipo = b.dataset.calMt === 'tec' ? 'tec' : 'cal'; store.set('ass_cal_mese', calMeseTipo); disegnaCalendario(); return; }
     b = t.closest('[data-cal-n]'); if (b) { calVai(+b.dataset.calN); return; }
     b = t.closest('[data-id]'); if (b) { tornaCal = true; apriDettaglio(b.dataset.id); return; }
     b = t.closest('[data-ch]'); if (b) { tornaCal = true; apriDettaglio(b.dataset.ch); return; }
+    b = t.closest('[data-cal-g]'); if (b) { calGiorno = b.dataset.calG; calVista = 'giorno'; store.set('ass_cal_vista', calVista); disegnaCalendario(); return; }
+    b = t.closest('[data-cal-tutti]'); if (b) { calSel = []; store.set('ass_cal_sel', calSel); disegnaCalendario(); return; }
     if (t.closest('#b-indietro-cal')) { mostra('agenda', false); disegnaAgenda(); }
   });
+  box.addEventListener('toggle', e => { if (e.target && e.target.id === 'cal-sel') calSelAperto = !!e.target.open; }, true);
   box.addEventListener('change', e => {
     const t = e.target;
-    if (t.id === 'cal-tec') { calTec = t.value; store.set('ass_cal_tec', calTec); disegnaCalendario(); }
-    else if (t.id === 'cal-data') { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) { calGiorno = t.value; disegnaCalendario(); } }
+    if (t.id === 'cal-data') { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) { calGiorno = t.value; disegnaCalendario(); } }
     else if (t.id === 'cal-chiusi') { calChiusi = !!t.checked; store.set('ass_cal_chiusi', calChiusi); disegnaCalendario(); }
+    else if (t.dataset && t.dataset.calT !== undefined) {
+      const tutte = Array.prototype.slice.call(box.querySelectorAll('[data-cal-t]')), sel = tutte.filter(x => x.checked).map(x => x.dataset.calT);
+      calSel = (sel.length === tutte.length || !sel.length) ? [] : sel; store.set('ass_cal_sel', calSel); disegnaCalendario();
+    }
   });
 }
 
@@ -7980,7 +8113,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.96.1 (15/11/2026)';
+const VERSIONE_APP = '1.98.0 (15/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
