@@ -484,6 +484,67 @@ body.uff #tab-tec{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
   body{font-size:17px}
 }
 
+/* calendario dell'ufficio */
+body.uff #b-indietro-cal{display:none}
+.cal-barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:12px 0 6px}
+.cal-barra .seg{margin:0}
+.cal-nav{display:inline-flex;gap:4px}
+.cal-tit{font-size:18px;margin-right:auto}
+.cal-barra select,.cal-barra input[type=date]{width:auto;min-height:38px;padding:4px 8px;font-size:15px}
+.cal-chiusi{margin:0;font-weight:600;font-size:14px;align-items:center}
+.cal-chiusi input{width:18px;height:18px;margin:0}
+.cal-leg{font-size:13px;color:var(--tenue);margin:0 0 8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.cal-k{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--acciaio-s);margin-left:8px}
+.cal-k.aperto{background:#fff;border-left:4px solid var(--petrolio)}
+.cal-k.arrivato{background:var(--ok-c);border-color:var(--ok)}
+.cal-k.parziale{background:var(--fiamma-c);border-color:var(--fiamma)}
+.cal-k.manca{background:var(--rosso-c);border-color:var(--rosso)}
+.cal-k.chiuso{background:#E9EDEF;opacity:.7}
+.cal-scroll{overflow:auto;max-height:calc(100vh - 210px);max-height:calc(100dvh - 210px);background:var(--foglio);border:1px solid var(--riga);border-radius:12px;-webkit-overflow-scrolling:touch}
+.cal-griglia{display:grid;position:relative}
+.cal-th{position:-webkit-sticky;position:sticky;top:0;z-index:4;background:#F6F9FA;border-bottom:1px solid var(--riga);border-left:1px solid var(--riga2);padding:6px 8px;line-height:1.25;min-width:0}
+.cal-th b{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.cal-th small{display:block;font-size:12px;color:var(--tenue);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-th small.cal-avv{color:var(--fiamma)}
+.cal-th small.cal-avv.forte{color:var(--rosso);font-weight:650;white-space:normal}
+.cal-th.oggi{background:var(--petrolio-c)}
+.cal-th.senza{background:var(--rosso-c)}
+.cal-th .chip{font-size:11px;padding:0 7px}
+.cal-ang{position:-webkit-sticky;position:sticky;left:0;z-index:5;border-left:0;background:#F6F9FA}
+.cal-chr{border-left:1px solid var(--riga2);border-bottom:1px solid var(--riga);padding:4px;display:flex;flex-direction:column;gap:3px;min-width:0;background:#FCFDFD}
+.cal-chr.cal-ang{justify-content:center;font-size:11px;color:var(--tenue);padding:2px;text-align:center}
+.cal-ch{display:block;width:100%;text-align:left;border:1px solid var(--acciaio);background:#fff;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.cal-ch.urg{border-color:var(--rosso);color:var(--rosso)}
+.cal-ore{position:-webkit-sticky;position:sticky;left:0;z-index:3;background:#F6F9FA}
+.cal-h{position:relative;border-top:1px solid var(--riga2)}
+.cal-h span{position:absolute;top:2px;right:5px;font-size:11px;color:var(--tenue);font-variant-numeric:tabular-nums}
+.cal-col{position:relative;border-left:1px solid var(--riga2);background-image:linear-gradient(var(--riga2) 1px,transparent 1px);background-size:100% 52px;min-width:0}
+.cal-col.oggi{background-color:#FAFEFF}
+.cal-adesso{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--rosso);z-index:2;pointer-events:none}
+.cal-ev{position:absolute;z-index:1;overflow:hidden;text-align:left;border:1px solid var(--acciaio);border-left:4px solid var(--petrolio);border-radius:6px;background:#fff;padding:2px 5px;font-size:12.5px;line-height:1.25;cursor:pointer;display:block}
+.cal-ev:hover,.cal-ev:focus{z-index:3;box-shadow:0 2px 8px rgba(20,35,43,.25)}
+.cal-ev span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-ev .cal-l{color:var(--tenue);font-size:11.5px}
+.cal-ev .cal-s{font-size:11px;font-weight:700}
+.cal-ev.arrivato{background:var(--ok-c);border-color:var(--ok);border-left-color:var(--ok)}
+.cal-ev.arrivato .cal-s{color:var(--ok)}
+.cal-ev.parziale{background:var(--fiamma-c);border-color:var(--fiamma);border-left-color:var(--fiamma)}
+.cal-ev.parziale .cal-s{color:var(--fiamma)}
+.cal-ev.manca,.cal-ev.noneseg{background:var(--rosso-c);border-color:var(--rosso);border-left-color:var(--rosso)}
+.cal-ev.manca .cal-s,.cal-ev.noneseg .cal-s{color:var(--rosso)}
+.cal-ev.registrato{background:#F1F7F3;border-color:#B7D6C3;border-left-color:var(--ok)}
+.cal-ev.registrato .cal-t b,.cal-ev.registrato .cal-s{color:var(--ok)}
+.cal-k.registrato{background:#F1F7F3;border-color:var(--ok)}
+.cal-ev.chiuso{background:#E9EDEF;border-color:var(--acciaio);border-left-color:var(--acciaio-s);opacity:.62}
+.cal-ev.chiuso .cal-t{text-decoration:line-through}
+.cal-ev.urg .cal-t{color:var(--rosso)}
+@media (min-width:900px){
+  body[data-vista="calendario"] .app,body.cal-det .app{grid-template-columns:minmax(0,1fr)}
+  body[data-vista="calendario"] #v-agenda,body.cal-det #v-agenda{display:none}
+  #destra #v-calendario.view{max-width:none;padding-bottom:12px}
+  body.cal-det #b-indietro-det{display:inline-flex}
+}
+
 /* allegato RCEE */
 .spunta{display:flex;gap:10px;align-items:flex-start;font-weight:600;line-height:1.35}
 .spunta input{width:22px;height:22px;flex:none;margin-top:1px}
@@ -669,6 +730,7 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
 <body>
 <nav id="nav-uff" aria-label="Sezioni dell'ufficio">
   <button type="button" data-nav="agenda" aria-pressed="true">Agenda</button>
+  <button type="button" data-nav="calendario" aria-pressed="false">Calendario</button>
   <button type="button" data-nav="posta" aria-pressed="false">Interventi in arrivo<span class="badge" id="nav-badge" hidden></span></button>
   <button type="button" data-nav="richieste" aria-pressed="false">Richieste dei tecnici<span class="badge" id="nav-badge-rq" hidden></span></button>
   <button type="button" data-nav="ufficio" aria-pressed="false">Invio ai tecnici<span class="badge" id="nav-badge-inv" hidden></span></button>
@@ -1138,6 +1200,8 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
   </section>
 
   <!-- UFFICIO: INCASSI DEI TECNICI -->
+  <section id="v-calendario" class="view"></section>
+
   <section id="v-incassi" class="view">
     <header class="barra fissa">
       <button class="btn chiaro piccolo" id="b-indietro-incassi" type="button">Indietro</button>
@@ -1505,6 +1569,7 @@ function rinfresca(){
   try { if (vistaCorrente === 'ufficio' && datiLevante) disegnaUfficio(); } catch(e) {}
   try { disegnaAutoInvio(); } catch(e) {}
   try { if (vistaCorrente === 'agenda') disegnaAgenda(); } catch(e) {}
+  try { if (vistaCorrente === 'calendario') disegnaCalendario(); } catch(e) {}
 }
 async function tira(){
   if (!sync.on || sync.occupato) return;
@@ -1582,6 +1647,8 @@ const largo = () => window.matchMedia('(min-width:900px)').matches;
 function mostra(vista, push = true){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('attiva', v.id === 'v-' + vista));
   document.body.dataset.vista = vista;
+  if (vista !== 'dettaglio' && vista !== 'calendario') tornaCal = false;
+  document.body.classList.toggle('cal-det', !!tornaCal && vista === 'dettaglio');
   if (push && vista !== vistaCorrente && vista !== 'agenda') { try { history.pushState({v: vista}, ''); storia = true; } catch(e){} }
   vistaCorrente = vista;
   if (vista === 'scheda') { try { disegnaStriscia(); } catch(e) {} }
@@ -1599,7 +1666,8 @@ function vaiIndietro(){      // usata dal tasto indietro del telefono e come rip
   if (vistaCorrente === 'scheda') {
     if (timer) { clearTimeout(timer); salvaBozza(); }
     if (corrente) apriDettaglio(corrente.id, false); else { mostra('agenda', false); disegnaAgenda(); }
-  } else { mostra('agenda', false); disegnaAgenda(); }
+  } else if (tornaCal && vistaCorrente === 'dettaglio') { corrente = null; mostra('calendario', false); disegnaCalendario(); }
+  else { mostra('agenda', false); disegnaAgenda(); }
 }
 function indietro(){
   if (storia && history.state && history.state.v) history.back(); else vaiIndietro();
@@ -1729,7 +1797,7 @@ function tabTecnici(elenco){
 let campanelloPrima = null;
 function aggiornaNav(){
   document.body.classList.toggle('uff', !!inUfficio);
-  const att = vistaCorrente === 'posta' ? 'posta' : vistaCorrente === 'ufficio' ? 'ufficio' : vistaCorrente === 'impostazioni' ? 'impostazioni' : vistaCorrente === 'incassi' ? 'incassi' : vistaCorrente === 'richieste' ? 'richieste' : 'agenda';
+  const att = (vistaCorrente === 'calendario' || (tornaCal && vistaCorrente === 'dettaglio')) ? 'calendario' : vistaCorrente === 'posta' ? 'posta' : vistaCorrente === 'ufficio' ? 'ufficio' : vistaCorrente === 'impostazioni' ? 'impostazioni' : vistaCorrente === 'incassi' ? 'incassi' : vistaCorrente === 'richieste' ? 'richieste' : 'agenda';
   document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.setAttribute('aria-pressed', b.dataset.nav === att));
   const n = posta.filter(r => !r.fatto && !r.rich).length, bd = $('#nav-badge');
   if (bd) { bd.hidden = !n; bd.textContent = n; }
@@ -1890,6 +1958,139 @@ function disegnaAgenda(){
   });
   box.innerHTML = html;
   box.querySelectorAll('.visita').forEach(b => { b.onclick = () => apriDettaglio(b.dataset.id); if (corrente && b.dataset.id === corrente.id && vistaCorrente !== 'agenda') b.classList.add('selezionata'); });
+}
+
+/* ==================================================================
+   CALENDARIO (ufficio): una colonna per tecnico o squadra, le ore in verticale.
+   Giorno = tutti i tecnici insieme; Settimana = un tecnico alla volta.
+   Lo stato di ogni appuntamento viene da Levante (chiuso) e dai rapporti arrivati: gli appuntamenti chiusi si nascondono
+   da soli (con l'interruttore si rivedono), quelli con il rapporto arrivato diventano verdi finche' non li registri.
+   ================================================================== */
+let calVista = store.get('ass_cal_vista', 'giorno') === 'sett' ? 'sett' : 'giorno';
+let calGiorno = '', calTec = store.get('ass_cal_tec', '') || '', calChiusi = store.get('ass_cal_chiusi', false) === true, tornaCal = false, calChiave = '';
+const CAL_PX = 52;      // altezza di un'ora, in pixel (la stessa e' nel CSS: .cal-col background-size)
+const CAL_ETI = {aperto: '', arrivato: 'Rapporto arrivato · da registrare', parziale: 'Da completare', manca: 'Senza rapporto', noneseg: 'Non eseguito', registrato: '✓ Registrato in Levante', chiuso: 'Chiuso in Levante'};
+const calIni = iso => new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+const calSomma = (iso, n) => { const d = calIni(iso); d.setDate(d.getDate() + n); return isoGiorno(d); };
+const calLunedi = iso => { const d = calIni(iso); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return isoGiorno(d); };
+function calStato(a){
+  if (a.fatto) return 'chiuso';          // chiuso in Levante (si vede dopo l'esportazione): sparisce dal calendario
+  if (registrato(a)) return 'registrato';          // spuntato in ufficio come registrato in Levante: resta visibile finche' Levante non lo chiude
+  const n = a.r && a.r.li, p = n ? posta.filter(x => x.li && String(x.li) === String(n)) : [];
+  if (p.length) { const e = p[p.length - 1].esito; return e === 'da_completare' ? 'parziale' : e === 'non_eseguito' ? 'noneseg' : 'arrivato'; }
+  return senzaRapporto(a) ? 'manca' : 'aperto';
+}
+function calRisorse(){          // tecnici e squadre (le squadre per prime), anche quelli che oggi non hanno appuntamenti
+  const src = (typeof datiLevanteTutti !== 'undefined' && datiLevanteTutti) || (typeof datiLevante !== 'undefined' && datiLevante) || {}, tl = src.tecnici || {}, ris = {};
+  Object.keys(tl).forEach(id => { if (!soloOperaio(id) && tl[id]) ris[tl[id]] = {nome: tl[id], id: String(id)}; });
+  appuntamenti.forEach(a => { if (a.tecnico_nome && !ris[a.tecnico_nome]) ris[a.tecnico_nome] = {nome: a.tecnico_nome, id: String(a.tecnico_id || '')}; });
+  return Object.keys(ris).map(k => { const r = ris[k]; r.sq = !!r.id && eSquadra(r.id); return r; }).sort((x, y) => ((y.sq ? 1 : 0) - (x.sq ? 1 : 0)) || x.nome.localeCompare(y.nome, 'it'));
+}
+function calCorsie(l){          // affianca gli appuntamenti che si sovrappongono: ogni voce {s, e} riceve c (corsia) e n (corsie del gruppo)
+  l.sort((x, y) => x.s - y.s || x.e - y.e);
+  let gruppo = [], fineG = 0;
+  const chiudi = () => { const n = Math.max.apply(null, gruppo.map(x => x.c)) + 1; gruppo.forEach(x => { x.n = n; }); gruppo = []; };
+  l.forEach(x => {
+    if (gruppo.length && x.s >= fineG) chiudi();
+    const usate = gruppo.filter(y => y.e > x.s).map(y => y.c); let c = 0; while (usate.indexOf(c) >= 0) c++;
+    x.c = c; gruppo.push(x); fineG = Math.max(fineG, x.e);
+  });
+  if (gruppo.length) chiudi();
+}
+function calSottotitolo(r, g, n){          // sotto il nome: per le squadre chi c'e' oggi e il capo, per i tecnici se sono dentro una squadra
+  if (r.sq) {
+    const c = sqComp(r.id, g);
+    if (!c) return `<small class="cal-avv${n ? ' forte' : ''}">${n ? 'Composizione non impostata: questi appuntamenti non partono a nessuno' : 'Composizione non impostata'}</small>`;
+    const altri = c.membri.map(String).filter(m => m !== String(c.capo)).map(sqNomeTec);
+    return `<small>capo ${esc(sqNomeTec(c.capo))}${altri.length ? ' · con ' + esc(altri.join(', ')) : ''}</small>`;
+  }
+  const dentro = sqIds().filter(s => { const c = sqComp(s, g); return c && c.membri.map(String).indexOf(String(r.id)) >= 0; });
+  return dentro.length ? `<small>oggi in ${esc(dentro.map(sqNomeTec).join(', '))}</small>` : '';
+}
+function disegnaCalendario(){
+  const box = $('#v-calendario'); if (!box) return;
+  const oggi = isoGiorno(new Date()), sett = calVista === 'sett';
+  if (!calGiorno) calGiorno = oggi;
+  const ris = calRisorse();
+  const inGiorno = (a, g) => { const i = calIni(g), f = calIni(calSomma(g, 1)); return a.inizio < f && Math.max(+a.fine, +a.inizio + 1) > +i; };
+  let ch = []; if (!sett && calGiorno >= oggi) { try { ch = chiamateTec(); } catch(e) {} }
+  let nChiusi = 0, nTot = 0;
+  const cerca = (g, filtro) => appuntamenti.filter(a => filtro(a) && inGiorno(a, g)).map(a => ({a, st: calStato(a)})).filter(x => {
+    if (x.st === 'chiuso' && !calChiusi) { nChiusi++; return false; } nTot++; return true; });
+  let cols = [], titolo = '';
+  if (sett) {
+    const lun = calLunedi(calGiorno), nomi = ris.map(r => r.nome);
+    if (!calTec || nomi.indexOf(calTec) < 0) { const con = ris.find(r => appuntamenti.some(a => a.tecnico_nome === r.nome)); calTec = con ? con.nome : (nomi[0] || ''); }
+    const r0 = ris.find(r => r.nome === calTec) || {nome: calTec, id: '', sq: false};
+    for (let i = 0; i < 7; i++) { const g = calSomma(lun, i), d = calIni(g); cols.push({g, voci: cerca(g, a => a.tecnico_nome === calTec), th: `<b>${esc(d.toLocaleDateString('it-IT', {weekday: 'short'}))} ${d.getDate()}</b>${r0.sq && !sqComp(r0.id, g) ? calSottotitolo(r0, g, 0) : ''}`, oggi: g === oggi}); }
+    const f = calIni(calSomma(lun, 6)); titolo = 'Settimana dal ' + dataIT(lun).slice(0, 5) + ' al ' + dataIT(isoGiorno(f)).slice(0, 5);
+  } else {
+    ris.forEach(r => { const voci = cerca(calGiorno, a => a.tecnico_nome === r.nome); cols.push({g: calGiorno, r, voci, ch: ch.filter(c => c.tecnico_nome === r.nome), th: `<b>${esc(r.nome)}</b>${r.sq ? ' <span class="chip tec">Squadra</span>' : ''}${calSottotitolo(r, calGiorno, voci.length)}`}); });
+    const senza = cerca(calGiorno, a => !a.tecnico_nome), chS = ch.filter(c => !c.tecnico_nome);
+    if (senza.length || chS.length) cols.unshift({g: calGiorno, voci: senza, ch: chS, th: '<b>Da assegnare</b><small class="cal-avv forte">senza tecnico</small>', senza: true});
+    titolo = giornoLungo(calIni(calGiorno));
+  }
+  /* fasce orarie: dalle 8 alle 19, piu' se serve */
+  let minM = 480, maxM = 1140;
+  cols.forEach(c => { const i = calIni(c.g); c.voci.forEach(x => {
+    x.s = Math.max(0, (+x.a.inizio - +i) / 60000); x.e = Math.min(1440, (Math.max(+x.a.fine, +x.a.inizio) - +i) / 60000); if (x.e - x.s < 30) x.e = x.s + 30;
+    minM = Math.min(minM, Math.floor(x.s / 60) * 60); maxM = Math.max(maxM, Math.ceil(x.e / 60) * 60); }); });
+  maxM = Math.min(1440, maxM); const alto = (maxM - minM) * CAL_PX / 60;
+  const adesso = (+new Date() - +calIni(oggi)) / 60000;
+  const colonna = c => {
+    calCorsie(c.voci);
+    const blocchi = c.voci.map(x => {
+      const a = x.a, top = (x.s - minM) * CAL_PX / 60, h = Math.max((x.e - x.s) * CAL_PX / 60 - 2, 22);
+      const eti = CAL_ETI[x.st], tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.luogo, a.r && a.r.tp, eti].filter(Boolean).join(' · ');
+      return `<button type="button" class="cal-ev ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}" style="top:${top}px;height:${h}px;left:calc(${x.c} * 100% / ${x.n} + 2px);width:calc(100% / ${x.n} - 4px)"><span class="cal-t"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${esc(a.titolo)}</span>${h >= 40 ? `<span class="cal-l">${esc(a.luogo || '')}</span>` : ''}${h >= 58 && eti ? `<span class="cal-s">${esc(eti)}</span>` : ''}</button>`;
+    }).join('');
+    const ora = (c.oggi || (!sett && c.g === oggi)) && adesso > minM && adesso < maxM ? `<i class="cal-adesso" style="top:${(adesso - minM) * CAL_PX / 60}px"></i>` : '';
+    return `<div class="cal-col${c.g === oggi ? ' oggi' : ''}" style="height:${alto}px">${blocchi}${ora}</div>`;
+  };
+  const nc = cols.length, larg = nc > 8 ? 128 : 156;
+  let ore = ''; for (let m = minM; m < maxM; m += 60) ore += `<div class="cal-h" style="height:${CAL_PX}px"><span>${pad2(m / 60)}:00</span></div>`;
+  const g = [];
+  g.push('<div class="cal-ang cal-th"></div>'); cols.forEach(c => g.push(`<div class="cal-th${c.oggi ? ' oggi' : ''}${c.senza ? ' senza' : ''}">${c.th}</div>`));
+  if (cols.some(c => (c.ch || []).length)) { g.push('<div class="cal-ang cal-chr"><span>Chiamate</span></div>'); cols.forEach(c => g.push(`<div class="cal-chr">${(c.ch || []).map(x => `<button type="button" class="cal-ch${x.urgente ? ' urg' : ''}" data-ch="${esc(x.id)}" title="${esc(x.titolo + ' · ' + (x.luogo || ''))}">☎ ${esc(x.titolo)}</button>`).join('')}</div>`)); }
+  g.push(`<div class="cal-ore" style="height:${alto}px">${ore}</div>`); cols.forEach(c => g.push(colonna(c)));
+  const sel = sett ? `<select id="cal-tec" aria-label="Tecnico o squadra">${ris.map(r => `<option value="${esc(r.nome)}"${r.nome === calTec ? ' selected' : ''}>${esc(r.nome)}</option>`).join('')}</select>` : '';
+  const vuoto = !nTot && !ch.length ? `<p class="aiuto" style="margin:10px 0 0">${sett ? 'Nessun appuntamento per ' + esc(calTec) + ' in questa settimana' : 'Nessun appuntamento per questo giorno'}${nChiusi ? ' (' + nChiusi + ' già chiusi, nascosti)' : ''}. Se ne mancano, rifai l'esportazione da Levante.</p>` : '';
+  const chiave = calVista + '|' + calGiorno + '|' + calTec, sc0 = $('#cal-scroll'), top0 = (sc0 && chiave === calChiave) ? sc0.scrollTop : null;
+  box.innerHTML = `<header class="barra fissa"><button class="btn chiaro piccolo" id="b-indietro-cal" type="button">Indietro</button><h1>Calendario</h1></header>
+    <div class="cal-barra">
+      <div class="seg" role="tablist" aria-label="Vista"><button type="button" data-cal-v="giorno" aria-pressed="${!sett}">Giorno</button><button type="button" data-cal-v="sett" aria-pressed="${sett}">Settimana</button></div>
+      <span class="cal-nav"><button class="btn chiaro piccolo" type="button" data-cal-n="-1" aria-label="${sett ? 'Settimana precedente' : 'Giorno precedente'}">‹</button><button class="btn chiaro piccolo" type="button" data-cal-n="0">Oggi</button><button class="btn chiaro piccolo" type="button" data-cal-n="1" aria-label="${sett ? 'Settimana successiva' : 'Giorno successivo'}">›</button></span>
+      <b class="cal-tit">${esc(titolo)}</b>${sel}
+      <input type="date" id="cal-data" value="${esc(calGiorno)}" aria-label="Vai alla data">
+      <label class="spunta cal-chiusi"><input type="checkbox" id="cal-chiusi"${calChiusi ? ' checked' : ''}> <span>Mostra anche i già chiusi${nChiusi ? ' (' + nChiusi + ' nascosti)' : ''}</span></label>
+    </div>
+    <div class="cal-leg"><span class="cal-k aperto"></span>Da fare <span class="cal-k arrivato"></span>Rapporto arrivato, da registrare <span class="cal-k parziale"></span>Da completare <span class="cal-k manca"></span>Senza rapporto / non eseguito <span class="cal-k registrato"></span>✓ Registrato da te <span class="cal-k chiuso"></span>Chiuso in Levante (sparisce)</div>
+    <div class="cal-scroll" id="cal-scroll"><div class="cal-griglia" style="grid-template-columns:46px repeat(${nc}, minmax(${larg}px, 1fr))">${g.join('')}</div></div>${vuoto}`;
+  const sc = $('#cal-scroll');
+  if (sc) { if (top0 !== null) sc.scrollTop = top0; else if ((calGiorno === oggi || (sett && calLunedi(calGiorno) === calLunedi(oggi))) && adesso - minM > 420) sc.scrollTop = Math.max(0, (Math.min(adesso, maxM) - minM - 150) * CAL_PX / 60); }
+  calChiave = chiave;
+}
+function calVai(n){
+  const oggi = isoGiorno(new Date());
+  if (n === 0) calGiorno = oggi; else calGiorno = calSomma(calGiorno || oggi, n * (calVista === 'sett' ? 7 : 1));
+  disegnaCalendario();
+}
+function avviaCalendario(){
+  const box = $('#v-calendario'); if (!box) return;
+  box.addEventListener('click', e => {
+    const t = e.target.closest ? e.target : e.target.parentNode; if (!t || !t.closest) return;
+    let b = t.closest('[data-cal-v]'); if (b) { calVista = b.dataset.calV === 'sett' ? 'sett' : 'giorno'; store.set('ass_cal_vista', calVista); disegnaCalendario(); return; }
+    b = t.closest('[data-cal-n]'); if (b) { calVai(+b.dataset.calN); return; }
+    b = t.closest('[data-id]'); if (b) { tornaCal = true; apriDettaglio(b.dataset.id); return; }
+    b = t.closest('[data-ch]'); if (b) { tornaCal = true; apriDettaglio(b.dataset.ch); return; }
+    if (t.closest('#b-indietro-cal')) { mostra('agenda', false); disegnaAgenda(); }
+  });
+  box.addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'cal-tec') { calTec = t.value; store.set('ass_cal_tec', calTec); disegnaCalendario(); }
+    else if (t.id === 'cal-data') { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) { calGiorno = t.value; disegnaCalendario(); } }
+    else if (t.id === 'cal-chiusi') { calChiusi = !!t.checked; store.set('ass_cal_chiusi', calChiusi); disegnaCalendario(); }
+  });
 }
 
 /* ==================================================================
@@ -7779,7 +7980,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.95.0 (14/11/2026)';
+const VERSIONE_APP = '1.96.1 (15/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9656,7 +9857,7 @@ async function rifaiAgendaUfficio(){            // l'agenda di questo PC si rifa
   if (!datiLevante) return;
   salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); try { aggiornaNav(); } catch(e) {}
   await salvaDati({generato: new Date().toISOString(), tecnico: null, appuntamenti: datiLevante.appuntamenti, modelli: datiLevante.modelli, azienda: datiLevante.azienda, files: datiLevante.files});
-  try { if (vistaCorrente === 'agenda') disegnaAgenda(); if (vistaCorrente === 'ufficio') disegnaUfficio(); } catch(e) {}
+  try { if (vistaCorrente === 'agenda') disegnaAgenda(); if (vistaCorrente === 'ufficio') disegnaUfficio(); if (vistaCorrente === 'calendario') disegnaCalendario(); } catch(e) {}
 }
 async function limiteTecniciCambiato(){
   if (applicaLimiteTecnici()) { try { await rifaiAgendaUfficio(); } catch(e) {} }
@@ -10189,11 +10390,12 @@ function avvia(){
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
   $('#s-chiamate').onclick = () => { periodo = 'chiamate'; disegnaAgenda(); };
   $('#s-cantieri').onclick = () => { periodo = 'cantieri'; disegnaAgenda(); };
-  avviaCantieri();
+  avviaCantieri(); avviaCalendario();
   $('#b-nuovo').onclick = apriSchedaManuale;
   document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.onclick = () => {
     const v = b.dataset.nav;
     if (v === 'agenda') { mostra('agenda', false); disegnaAgenda(); }
+    else if (v === 'calendario') { mostra('calendario'); disegnaCalendario(); }
     else if (v === 'posta') $('#b-posta').click();
     else if (v === 'ufficio') $('#b-ufficio').click();
     else if (v === 'incassi') { disegnaIncassi(); mostra('incassi'); }
