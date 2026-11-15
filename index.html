@@ -498,8 +498,8 @@ body.uff #b-indietro-cal{display:none}
 .cal-leg{font-size:13px;color:var(--tenue);margin:0 0 8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
 .cal-k{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--acciaio-s);margin-left:8px}
 .cal-k.aperto{background:#fff;border-left:4px solid var(--petrolio)}
-.cal-k.arrivato{background:var(--ok-c);border-color:var(--ok)}
-.cal-k.parziale{background:var(--fiamma-c);border-color:var(--fiamma)}
+.cal-k.arrivato{background:var(--fiamma-c);border-color:var(--fiamma)}
+.cal-k.parziale{background:#EFE9FB;border-color:#6B4BB8}
 .cal-k.manca{background:var(--rosso-c);border-color:var(--rosso)}
 .cal-k.chiuso{background:#E9EDEF;opacity:.7}
 .cal-scroll{overflow:auto;max-height:calc(100vh - 210px);max-height:calc(100dvh - 210px);background:var(--foglio);border:1px solid var(--riga);border-radius:12px;-webkit-overflow-scrolling:touch}
@@ -528,18 +528,35 @@ body.uff #b-indietro-cal{display:none}
 .cal-ev span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-ev .cal-l{color:var(--tenue);font-size:11.5px}
 .cal-ev .cal-s{font-size:11px;font-weight:700}
-.cal-ev.arrivato{background:var(--ok-c);border-color:var(--ok);border-left-color:var(--ok)}
-.cal-ev.arrivato .cal-s{color:var(--ok)}
-.cal-ev.parziale{background:var(--fiamma-c);border-color:var(--fiamma);border-left-color:var(--fiamma)}
-.cal-ev.parziale .cal-s{color:var(--fiamma)}
+.cal-ev.arrivato{background:var(--fiamma-c);border-color:var(--fiamma);border-left-color:var(--fiamma)}
+.cal-ev.arrivato .cal-s{color:var(--fiamma)}
+.cal-ev.parziale{background:#EFE9FB;border-color:#6B4BB8;border-left-color:#6B4BB8}
+.cal-ev.parziale .cal-s{color:#4B2F94}
 .cal-ev.manca,.cal-ev.noneseg{background:var(--rosso-c);border-color:var(--rosso);border-left-color:var(--rosso)}
 .cal-ev.manca .cal-s,.cal-ev.noneseg .cal-s{color:var(--rosso)}
-.cal-ev.registrato{background:#F1F7F3;border-color:#B7D6C3;border-left-color:var(--ok)}
+.cal-ev.registrato{background:var(--ok-c);border-color:var(--ok);border-left-color:var(--ok)}
 .cal-ev.registrato .cal-t b,.cal-ev.registrato .cal-s{color:var(--ok)}
-.cal-k.registrato{background:#F1F7F3;border-color:var(--ok)}
+.cal-k.registrato{background:var(--ok-c);border-color:var(--ok)}
 .cal-ev.chiuso{background:#E9EDEF;border-color:var(--acciaio);border-left-color:var(--acciaio-s);opacity:.62}
 .cal-ev.chiuso .cal-t{text-decoration:line-through}
 .cal-ev.urg .cal-t{color:var(--rosso)}
+.riep{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.riep-r{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 14px;min-height:48px;background:var(--foglio);border:1px solid var(--riga);border-radius:12px;cursor:pointer;font-weight:650;list-style:none}
+.riep-r::-webkit-details-marker{display:none}
+.riep-r:hover{border-color:var(--petrolio)}
+.riep-r small{display:block;font-weight:500;color:var(--tenue);font-size:13px;line-height:1.3}
+.riep-r .n{flex:none;min-width:30px;text-align:center;border-radius:99px;padding:1px 10px;background:var(--riga2);font-weight:700}
+.riep-r.arancio .n{background:var(--fiamma);color:#fff}
+.riep-r.rosso .n{background:var(--rosso);color:#fff}
+.riep-r.rosso{border-color:#E5B5AE;background:#FFF8F6}
+.riep-r.ok .n{background:var(--ok-c);color:var(--ok)}
+details.riep-d{background:var(--foglio);border:1px solid #E5B5AE;border-radius:12px}
+details.riep-d>summary.riep-r{border:0;background:none}
+.riep-v{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--riga2);background:none;padding:8px 14px;font:inherit;cursor:pointer}
+.riep-v small{display:block;color:var(--tenue);font-size:13px}
+.riep-v:hover{background:var(--petrolio-c)}
+body:not(.uff) #s-riep{display:none}
+body.uff #s-oggi,body.uff #s-sett,body.uff #s-scorsa,body.uff #seg-br,body.uff .spunta-p,body.uff #tab-tec{display:none}
 .cal-sel{position:relative}
 .cal-sel summary{list-style:none;cursor:pointer;min-height:38px;display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--acciaio-s);border-radius:10px;background:#fff;font-weight:650;font-size:15px}
 .cal-sel summary::-webkit-details-marker{display:none}
@@ -557,10 +574,10 @@ button.cal-dh:hover{background:var(--petrolio-c)}
 .cal-mc.oggi{background:#FAFEFF}
 .cal-mi{display:block;width:100%;text-align:left;border:1px solid var(--acciaio);border-left:4px solid var(--petrolio);border-radius:6px;background:#fff;padding:1px 5px;font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .cal-mi i{font-style:normal;font-size:10.5px;font-weight:700;background:var(--acciaio-s);color:#fff;border-radius:4px;padding:0 4px}
-.cal-mi.arrivato{background:var(--ok-c);border-color:var(--ok);border-left-color:var(--ok)}
-.cal-mi.parziale{background:var(--fiamma-c);border-color:var(--fiamma);border-left-color:var(--fiamma)}
+.cal-mi.arrivato{background:var(--fiamma-c);border-color:var(--fiamma);border-left-color:var(--fiamma)}
+.cal-mi.parziale{background:#EFE9FB;border-color:#6B4BB8;border-left-color:#6B4BB8}
 .cal-mi.manca,.cal-mi.noneseg{background:var(--rosso-c);border-color:var(--rosso);border-left-color:var(--rosso)}
-.cal-mi.registrato{background:#F1F7F3;border-color:#B7D6C3;border-left-color:var(--ok)}
+.cal-mi.registrato{background:var(--ok-c);border-color:var(--ok);border-left-color:var(--ok)}
 .cal-mi.registrato b{color:var(--ok)}
 .cal-mi.chiuso{background:#E9EDEF;border-left-color:var(--acciaio-s);opacity:.62;text-decoration:line-through}
 .cal-mi.urg{color:var(--rosso)}
@@ -574,10 +591,10 @@ button.cal-dh:hover{background:var(--petrolio-c)}
 .cal-cm{border:0;border-top:1px solid var(--riga2);border-left:1px solid var(--riga2);background:#fff;font:inherit;font-weight:700;font-size:13px;min-height:38px;padding:0;cursor:pointer;color:var(--inchiostro)}
 .cal-cm.fest{background:#F6F9FA}
 .cal-cm.aperto{background:#D5E6EE;color:var(--petrolio-s)}
-.cal-cm.arrivato{background:var(--ok-c);color:var(--ok)}
-.cal-cm.parziale{background:var(--fiamma-c);color:var(--fiamma)}
+.cal-cm.arrivato{background:var(--fiamma-c);color:var(--fiamma)}
+.cal-cm.parziale{background:#EFE9FB;color:#4B2F94}
 .cal-cm.manca,.cal-cm.noneseg{background:var(--rosso-c);color:var(--rosso)}
-.cal-cm.registrato{background:#F1F7F3;color:var(--ok)}
+.cal-cm.registrato{background:var(--ok-c);color:var(--ok)}
 .cal-cm.chiuso{background:#E9EDEF;color:var(--tenue)}
 .cal-cm.oggi{box-shadow:inset 0 0 0 2px var(--petrolio)}
 .cal-cm:hover{filter:brightness(.94)}
@@ -592,6 +609,9 @@ button.cal-dh:hover{background:var(--petrolio-c)}
 .cal-dn span{font-size:11px;font-weight:700;background:var(--petrolio);color:#fff;border-radius:99px;padding:0 7px}
 .cal-piu{border:0;background:none;font:inherit;font-size:12px;font-weight:650;color:var(--petrolio);text-align:left;padding:0 4px;cursor:pointer}
 @media (min-width:900px){
+  body.uff[data-vista="agenda"] .app{grid-template-columns:minmax(0,1fr)}
+  body.uff[data-vista="agenda"] #destra{display:none}
+  body.uff[data-vista="agenda"] #v-agenda{max-width:760px;width:100%;margin:0 auto;border-right:0}
   body[data-vista="calendario"] .app,body.cal-det .app{grid-template-columns:minmax(0,1fr)}
   body[data-vista="calendario"] #v-agenda,body.cal-det #v-agenda{display:none}
   #destra #v-calendario.view{max-width:none;padding-bottom:12px}
@@ -782,8 +802,8 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
 </head>
 <body>
 <nav id="nav-uff" aria-label="Sezioni dell'ufficio">
-  <button type="button" data-nav="agenda" aria-pressed="true">Agenda</button>
   <button type="button" data-nav="calendario" aria-pressed="false">Calendario</button>
+  <button type="button" data-nav="agenda" aria-pressed="true">Riepilogo</button>
   <button type="button" data-nav="posta" aria-pressed="false">Interventi in arrivo<span class="badge" id="nav-badge" hidden></span></button>
   <button type="button" data-nav="richieste" aria-pressed="false">Richieste dei tecnici<span class="badge" id="nav-badge-rq" hidden></span></button>
   <button type="button" data-nav="ufficio" aria-pressed="false">Invio ai tecnici<span class="badge" id="nav-badge-inv" hidden></span></button>
@@ -854,6 +874,7 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     <input type="file" id="in-pacchetto" accept=".json,.txt,application/json,text/plain" hidden>
     <div id="tab-tec" role="tablist" aria-label="Tecnici"></div>
     <div class="seg">
+      <button type="button" id="s-riep" aria-pressed="true">Riepilogo</button>
       <button type="button" id="s-oggi" aria-pressed="true">Oggi</button>
       <button type="button" id="s-sett" aria-pressed="false">Settimana</button>
       <button type="button" id="s-scorsa" aria-pressed="false">Scorsa</button>
@@ -1932,9 +1953,41 @@ function fissaChiamata(a){
   mostraAvviso('Fissata per ' + fmtQuando(q.toISOString()) + ': la trovi in agenda.', '', null, 6000);
   indietro(); disegnaAgenda();
 }
+function sqAvvisi(){          // squadre con appuntamenti nei prossimi 14 giorni ma senza composizione
+  const T = (typeof datiLevanteTutti !== 'undefined' && datiLevanteTutti && datiLevanteTutti.tecnici) || {}, ids = sqIds().filter(id => T[id] !== undefined);
+  if (!ids.length || !datiLevante) return [];
+  const oggi = isoGiorno(new Date()), fine = sqSomma(oggi, 14), app = datiLevante.appuntamenti.filter(a => !a.fatto && !eseguito(a)), out = [];
+  ids.forEach(id => { const dd = new Set(app.filter(a => String(a.tecnico_id) === id && sqGiorno(a.inizio) >= oggi && sqGiorno(a.inizio) <= fine).map(a => sqGiorno(a.inizio)));
+    const senza = Array.from(dd).filter(d => !sqComp(id, d)).sort(); if (senza.length) out.push(T[id] + ': ' + senza.map(d => dataIT(d).slice(0, 5)).join(', ')); });
+  return out;
+}
+function riepilogoUfficio(){          // ufficio: cosa c'e' da fare, con un tocco per andarci (al posto dell'elenco degli appuntamenti, che ora e' nel Calendario)
+  const box = $('#lista'); if (!box) return;
+  const oggi0 = new Date(); oggi0.setHours(0, 0, 0, 0);
+  const daReg = posta.filter(p => !p.fatto && !p.rich).length, rich = posta.filter(p => !p.fatto && p.rich).length;
+  const sr = appuntamenti.filter(a => senzaRapporto(a) && a.inizio >= new Date(oggi0.getTime() - 7 * 86400000)).sort((x, y) => y.inizio - x.inizio);
+  const og = isoGiorno(oggi0), oggiL = appuntamenti.filter(a => isoGiorno(a.inizio) === og), oggiN = oggiL.filter(a => { const st = calStato(a); return st !== 'chiuso' && st !== 'registrato'; }).length;
+  let ch = []; try { ch = chiamateTec(); } catch(e) {}
+  const chS = ch.filter(c => !c.tecnico_id).length;
+  let nov = 0; try { if (datiLevante) { const per = costruisciPer(), inv = leggiInviati(); nov = Object.keys(per).filter(id => haNovita(id, per, inv, og)).length; } } catch(e) {}
+  let sq = []; try { sq = sqAvvisi(); } catch(e) {}
+  const riga = (az, tit, sotto, n, tono) => `<button type="button" class="riep-r ${tono || ''}" data-riep="${az}"><span>${tit}${sotto ? '<small>' + sotto + '</small>' : ''}</span><span class="n">${n}</span></button>`;
+  let h = '<div class="riep">' + riga('cal', 'Oggi in agenda', oggiL.length > oggiN ? (oggiL.length - oggiN) + ' già fatti o registrati' : (oggiN ? '' : 'Nessun appuntamento'), oggiN, '');
+  h += riga('posta', 'Interventi da registrare', 'arrivati dai tecnici', daReg, daReg ? 'arancio' : 'ok');
+  if (rich) h += riga('richieste', 'Richieste dei tecnici', 'da gestire', rich, 'arancio');
+  if (sr.length) h += `<details class="riep-d"><summary class="riep-r rosso"><span>Appuntamenti senza rapporto<small>ultimi 7 giorni, non è arrivato nessun intervento</small></span><span class="n">${sr.length}</span></summary>${sr.slice(0, 40).map(a => `<button type="button" class="riep-v" data-rid="${esc(a.id)}"><b>${esc(dataIT(isoGiorno(a.inizio)).slice(0, 5))} ${esc(hhmm(a.inizio))}</b> ${esc(a.titolo)}<small>${esc(a.tecnico_nome || 'senza tecnico')}</small></button>`).join('')}</details>`;
+  if (ch.length) h += riga('chiamate', 'Chiamate aperte', chS ? chS + (chS === 1 ? ' senza tecnico' : ' senza tecnico') : 'tutte assegnate', ch.length, chS ? 'rosso' : '');
+  if (nov) h += riga('invio', 'Novità da inviare ai tecnici', 'apri «Invio ai tecnici»', nov, 'arancio');
+  if (sq.length) h += riga('invio', 'Squadre senza composizione', esc(sq.join(' · ')), sq.length, 'rosso');
+  h += '</div>';
+  if (!daReg && !rich && !sr.length && !ch.length && !nov && !sq.length) h += '<p class="aiuto" style="margin:4px 0 0">Non c\'è niente in sospeso.</p>';
+  box.innerHTML = h;
+}
 function disegnaAgenda(){
   aggiornaNav();
   disegnaBanner(); disegnaDaInviare(); disegnaNovita(); disegnaDaCompletare();
+  { const sr = $('#s-riep'); if (sr) sr.setAttribute('aria-pressed', String(!(periodo === 'chiamate' || periodo === 'cantieri'))); }
+  { const h1 = document.querySelector('#v-agenda > .barra h1'); if (h1) h1.textContent = inUfficio ? 'Riepilogo' : 'Appuntamenti'; }
   $('#sotto-agenda').textContent = (inUfficio ? 'App Ufficio · ' : impostazioni.tecnico ? impostazioni.tecnico + ' · ' : '') + giornoLungo(new Date());
   { const Lk = elencoCantieri(), sk = $('#s-cantieri');
     sk.hidden = !Lk.length; if (periodo === 'cantieri' && !Lk.length) periodo = 'oggi';
@@ -1947,10 +2000,11 @@ function disegnaAgenda(){
     } }
   { const Lc = chiamateTec(), sc = $('#s-chiamate'), nv = new Set(store.get('ass_ch_nuove', []));
     if (periodo === 'chiamate' && !Lc.length) periodo = 'oggi';
-    sc.hidden = !Lc.length; { const br = $('#seg-br'), sk2 = $('#s-cantieri'); if (br) br.hidden = !(Lc.length && sk2 && !sk2.hidden); }          // Chiamate e Cantieri insieme: vanno su una seconda riga, a meta' ciascuno
+    sc.hidden = !Lc.length; if (inUfficio) { const sg = $('#v-agenda .seg'); if (sg) sg.style.display = Lc.length ? '' : 'none'; } { const br = $('#seg-br'), sk2 = $('#s-cantieri'); if (br) br.hidden = !(Lc.length && sk2 && !sk2.hidden); }          // Chiamate e Cantieri insieme: vanno su una seconda riga, a meta' ciascuno
     sc.textContent = 'Chiamate · ' + Lc.length; sc.classList.toggle('nuovo', Lc.some(c => inUfficio ? !c.tecnico_id : nv.has(c.id))); sc.setAttribute('aria-pressed', periodo === 'chiamate');
     const lab = $('#nascondi-gestiti'); if (lab && lab.parentNode) lab.parentNode.style.display = periodo === 'chiamate' ? 'none' : '';
     if (periodo === 'chiamate') { $('#s-oggi').setAttribute('aria-pressed', false); $('#s-sett').setAttribute('aria-pressed', false); $('#s-scorsa').setAttribute('aria-pressed', false); const tt = $('#tab-tec'); if (tt) tt.innerHTML = ''; listaChiamate(Lc); return; } }
+  if (inUfficio) { const tt0 = $('#tab-tec'); if (tt0) tt0.innerHTML = ''; riepilogoUfficio(); return; }          // in ufficio l'elenco degli appuntamenti e' nel Calendario: qui c'e' il riepilogo
   $('#s-oggi').setAttribute('aria-pressed', periodo === 'oggi');
   $('#s-sett').setAttribute('aria-pressed', periodo === 'sett');
   $('#s-scorsa').setAttribute('aria-pressed', periodo === 'scorsa');
@@ -2040,6 +2094,12 @@ function calStato(a){
   if (p.length) { const e = p[p.length - 1].esito; return e === 'da_completare' ? 'parziale' : e === 'non_eseguito' ? 'noneseg' : 'arrivato'; }
   return senzaRapporto(a) ? 'manca' : 'aperto';
 }
+const calConPosta = st => ['arrivato', 'parziale', 'noneseg', 'registrato'].indexOf(st) >= 0;          // il rapporto del tecnico e' arrivato: il tocco apre l'intervento, non l'appuntamento
+function calApri(id){
+  const a = appuntamenti.find(x => x.id === id), n = a && a.r && a.r.li;
+  if (a && n && calConPosta(calStato(a))) { for (let i = posta.length - 1; i >= 0; i--) { const p = posta[i]; if (!p.rich && p.li && String(p.li) === String(n)) { apriRisultatoPosta(i); return; } } }
+  tornaCal = true; apriDettaglio(id);
+}
 function calRisorse(){          // tecnici e squadre (le squadre per prime), anche quelli che oggi non hanno appuntamenti
   const src = (typeof datiLevanteTutti !== 'undefined' && datiLevanteTutti) || (typeof datiLevante !== 'undefined' && datiLevante) || {}, tl = src.tecnici || {}, ris = {};
   Object.keys(tl).forEach(id => { if (!soloOperaio(id) && tl[id]) ris[tl[id]] = {nome: tl[id], id: String(id)}; });
@@ -2073,7 +2133,7 @@ function calCerca(g, filtro, ct){          // appuntamenti di un giorno (senza i
     if (x.st === 'chiuso' && !calChiusi) { ct.chiusi++; return false; } ct.tot++; return true; }).sort((x, y) => x.a.inizio - y.a.inizio);
 }
 const calVoce = (x, conSigla) => {
-  const a = x.a, tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.tecnico_nome, a.luogo, CAL_ETI[x.st]].filter(Boolean).join(' · ');
+  const a = x.a, tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.tecnico_nome, a.luogo, CAL_ETI[x.st], calConPosta(x.st) ? 'tocca per aprire l\'intervento' : ''].filter(Boolean).join(' · ');
   return `<button type="button" class="cal-mi ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${conSigla ? '<i style="background:' + (calCol[a.tecnico_nome] || '#9FAEB4') + '">' + esc(a.tecnico_nome ? calIniz(a.tecnico_nome) : '—') + '</i> ' : ''}${esc(a.titolo)}</button>`;
 };
 function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) o settimana di un solo tecnico (colonne = giorni), con le ore in verticale
@@ -2103,7 +2163,7 @@ function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) 
     calCorsie(c.voci);
     const blocchi = c.voci.map(x => {
       const a = x.a, top = (x.s - minM) * CAL_PX / 60, h = Math.max((x.e - x.s) * CAL_PX / 60 - 2, 22);
-      const eti = CAL_ETI[x.st], tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.luogo, a.r && a.r.tp, eti].filter(Boolean).join(' · ');
+      const eti = CAL_ETI[x.st], tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.luogo, a.r && a.r.tp, eti, calConPosta(x.st) ? 'tocca per aprire l\'intervento' : ''].filter(Boolean).join(' · ');
       return `<button type="button" class="cal-ev ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}" style="top:${top}px;height:${h}px;left:calc(${x.c} * 100% / ${x.n} + 2px);width:calc(100% / ${x.n} - 4px)"><span class="cal-t"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${esc(a.titolo)}</span>${h >= 40 ? `<span class="cal-l">${esc(a.luogo || '')}</span>` : ''}${h >= 58 && eti ? `<span class="cal-s">${esc(eti)}</span>` : ''}</button>`;
     }).join('');
     const ora = c.g === oggi && adesso > minM && adesso < maxM ? `<i class="cal-adesso" style="top:${(adesso - minM) * CAL_PX / 60}px"></i>` : '';
@@ -2185,7 +2245,7 @@ function disegnaCalendario(){
       <input type="date" id="cal-data" value="${esc(calGiorno)}" aria-label="Vai alla data">
       <label class="spunta cal-chiusi"><input type="checkbox" id="cal-chiusi"${calChiusi ? ' checked' : ''}> <span>Mostra anche i già chiusi${ct.chiusi ? ' (' + ct.chiusi + ' nascosti)' : ''}</span></label>
     </div>
-    <div class="cal-leg"><span class="cal-k aperto"></span>Da fare <span class="cal-k arrivato"></span>Rapporto arrivato, da registrare <span class="cal-k parziale"></span>Da completare <span class="cal-k manca"></span>Senza rapporto / non eseguito <span class="cal-k registrato"></span>✓ Registrato da te <span class="cal-k chiuso"></span>Chiuso in Levante (sparisce)</div>
+    <div class="cal-leg"><span class="cal-k aperto"></span>Da fare <span class="cal-k manca"></span>Senza rapporto / non eseguito <span class="cal-k arrivato"></span>Rapporto arrivato, da registrare <span class="cal-k parziale"></span>Da completare <span class="cal-k registrato"></span>✓ Registrato <span class="cal-k chiuso"></span>Chiuso in Levante (sparisce)</div>
     <div class="cal-scroll" id="cal-scroll">${out.html}</div>${vuoto}`;
   const sc = $('#cal-scroll');
   if (sc) {
@@ -2202,13 +2262,23 @@ function calVai(n){
   disegnaCalendario();
 }
 function avviaCalendario(){
+  { const l = $('#lista'), sr = $('#s-riep');
+    if (sr) sr.onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
+    if (l) l.addEventListener('click', e => {
+      const t = e.target.closest ? e.target : e.target.parentNode; if (!t || !t.closest) return;
+      let b = t.closest('[data-rid]'); if (b) { apriDettaglio(b.dataset.rid); return; }
+      b = t.closest('[data-riep]'); if (!b) return; const v = b.dataset.riep;
+      if (v === 'chiamate') { periodo = 'chiamate'; disegnaAgenda(); return; }
+      if (v === 'cal') { calVista = 'giorno'; calGiorno = ''; store.set('ass_cal_vista', 'giorno'); }
+      const nav = {cal: 'calendario', posta: 'posta', richieste: 'richieste', invio: 'ufficio'}[v], bn = nav && document.querySelector('#nav-uff [data-nav="' + nav + '"]'); if (bn) bn.click();
+    }); }
   const box = $('#v-calendario'); if (!box) return;
   box.addEventListener('click', e => {
     const t = e.target.closest ? e.target : e.target.parentNode; if (!t || !t.closest) return;
     let b = t.closest('[data-cal-v]'); if (b) { calVista = ['giorno', 'sett', 'mese'].indexOf(b.dataset.calV) >= 0 ? b.dataset.calV : 'giorno'; store.set('ass_cal_vista', calVista); disegnaCalendario(); return; }
     b = t.closest('[data-cal-mt]'); if (b) { calMeseTipo = b.dataset.calMt === 'tec' ? 'tec' : 'cal'; store.set('ass_cal_mese', calMeseTipo); disegnaCalendario(); return; }
     b = t.closest('[data-cal-n]'); if (b) { calVai(+b.dataset.calN); return; }
-    b = t.closest('[data-id]'); if (b) { tornaCal = true; apriDettaglio(b.dataset.id); return; }
+    b = t.closest('[data-id]'); if (b) { calApri(b.dataset.id); return; }
     b = t.closest('[data-ch]'); if (b) { tornaCal = true; apriDettaglio(b.dataset.ch); return; }
     b = t.closest('[data-cal-g]'); if (b) { calGiorno = b.dataset.calG; calVista = 'giorno'; store.set('ass_cal_vista', calVista); disegnaCalendario(); return; }
     b = t.closest('[data-cal-tutti]'); if (b) { calSel = []; store.set('ass_cal_sel', calSel); disegnaCalendario(); return; }
@@ -8113,7 +8183,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.98.0 (15/11/2026)';
+const VERSIONE_APP = '1.99.0 (15/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9789,7 +9859,7 @@ async function avviaPulsantiServizio(){
     return;
   }
   document.querySelectorAll('.uff-azioni').forEach(e => e.hidden = false);
-  inUfficio = true; aggiornaSola(); try { limiteTecniciCambiato(); } catch(e) {} try { disegnaAgenda(); } catch(e) {} try { schedeBaseCarica(); } catch(e) {}
+  inUfficio = true; aggiornaSola(); try { limiteTecniciCambiato(); } catch(e) {} try { disegnaAgenda(); } catch(e) {} try { if (vistaCorrente === 'agenda') { mostra('calendario', false); disegnaCalendario(); } } catch(e) {} try { schedeBaseCarica(); } catch(e) {}
   if (inWorker) { const batti = () => chiamaJson('worker-battito', {v: VERSIONE_APP}).catch(() => {}); batti(); setInterval(batti, 10000); }
   if (!s.remoto) { try { avviaRete(); } catch(e) { console.error(e); } }
   try { avviaExtraUfficio(); } catch(e) { console.error(e); }
