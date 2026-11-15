@@ -1,13 +1,12 @@
 {
- "versione": "1.42.0",
+ "versione": "1.96.1",
  "canale": "prova",
- "data": "2026-10-18",
+ "data": "2026-11-15",
  "novita": [
-  "spostato interrutori Cantieri e Chiamate in impostazioni",
-  "gestione automatica cancellazione zip interventi vecchi"
+  "aggiunta agenda appuntamenti"
  ],
- "pacchetto": "aggiornamento_1.42.0.zip",
- "sha256": "a4d75c5ae246782b71705d76575d17288ad14c30231bd0adb2f07cb49b4590d4",
- "firma": "ku2Xn3eiUvSMI7GZFH1jTgX6LWY_N4sGS_l6JaFJFXbeIE4vm_inzkTnCpSmzN_W2A46t8RGB-sliHLb86kyCg",
- "dimensione": 1308527
+ "pacchetto": "aggiornamento_1.96.1.zip",
+ "sha256": "08ffe76b112ff4befde3f691e556894624c1d7f5bde38a2155b7b4e24b8a6308",
+ "firma": "-OEV_9aNwqCF0h4FLXN-jtsaTOydlLRQLmLbusPIl4d1g4xY8L7ntZzZoESK680LmUawOJI8MDIH1uLYTivnDA",
+ "dimensione": 1471877
 }
