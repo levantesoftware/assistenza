@@ -441,6 +441,7 @@ textarea.chiave-lic{width:100%;min-height:84px;font:13px/1.35 ui-monospace,Menlo
 #nav-uff #nav-badge-inv{background:var(--fiamma);font-weight:700;animation:campanello 2.4s ease-in-out infinite}
 @keyframes campanello{0%,100%{transform:none}8%{transform:rotate(-12deg)}16%{transform:rotate(10deg)}24%{transform:rotate(-6deg)}32%{transform:none}}
 body.uff #b-indietro-uff,body.uff #b-indietro-posta,body.uff #b-impostazioni{display:none}
+body.uff.da-cal #b-indietro-posta{display:inline-flex}
 #tab-tec{display:none}
 body.uff #tab-tec{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
 #tab-tec button{flex:none;min-height:40px;padding:0 12px;border-radius:20px;border:1px solid var(--riga);background:var(--foglio);font-weight:600;cursor:pointer;white-space:nowrap}
@@ -1722,6 +1723,9 @@ function mostra(vista, push = true){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('attiva', v.id === 'v-' + vista));
   document.body.dataset.vista = vista;
   if (vista !== 'dettaglio' && vista !== 'calendario') tornaCal = false;
+  if (vista !== 'posta') tornaCalPosta = false;
+  document.body.classList.toggle('da-cal', !!tornaCalPosta && vista === 'posta');
+  { const bp = $('#b-indietro-posta'); if (bp) bp.textContent = tornaCalPosta && vista === 'posta' ? 'Torna al calendario' : 'Indietro'; }
   document.body.classList.toggle('cal-det', !!tornaCal && vista === 'dettaglio');
   if (push && vista !== vistaCorrente && vista !== 'agenda') { try { history.pushState({v: vista}, ''); storia = true; } catch(e){} }
   vistaCorrente = vista;
@@ -2076,6 +2080,7 @@ function disegnaAgenda(){
    quelli spuntati come registrati restano visibili con una ✓ fino alla prossima esportazione.
    ================================================== */
 let calVista = ['giorno', 'sett', 'mese'].indexOf(store.get('ass_cal_vista', 'giorno')) >= 0 ? store.get('ass_cal_vista', 'giorno') : 'giorno';
+let tornaCalPosta = false;          // l'intervento e' stato aperto dal Calendario: in «Interventi in arrivo» compare «Torna al calendario»
 let calMeseTipo = store.get('ass_cal_mese', 'cal') === 'tec' ? 'tec' : 'cal', calCol = {};
 let calGiorno = '', calSel = store.get('ass_cal_sel', []), calChiusi = store.get('ass_cal_chiusi', false) === true, tornaCal = false, calChiave = '', calSelAperto = false;
 if (!Array.isArray(calSel)) calSel = [];
@@ -2097,7 +2102,7 @@ function calStato(a){
 const calConPosta = st => ['arrivato', 'parziale', 'noneseg', 'registrato'].indexOf(st) >= 0;          // il rapporto del tecnico e' arrivato: il tocco apre l'intervento, non l'appuntamento
 function calApri(id){
   const a = appuntamenti.find(x => x.id === id), n = a && a.r && a.r.li;
-  if (a && n && calConPosta(calStato(a))) { for (let i = posta.length - 1; i >= 0; i--) { const p = posta[i]; if (!p.rich && p.li && String(p.li) === String(n)) { apriRisultatoPosta(i); return; } } }
+  if (a && n && calConPosta(calStato(a))) { for (let i = posta.length - 1; i >= 0; i--) { const p = posta[i]; if (!p.rich && p.li && String(p.li) === String(n)) { tornaCalPosta = true; apriRisultatoPosta(i); return; } } }
   tornaCal = true; apriDettaglio(id);
 }
 function calRisorse(){          // tecnici e squadre (le squadre per prime), anche quelli che oggi non hanno appuntamenti
@@ -8183,7 +8188,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.99.0 (15/11/2026)';
+const VERSIONE_APP = '1.99.1 (15/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9628,7 +9633,7 @@ function etichettaPosta(){ const b = $('#b-posta'); if (!b) return; const nt = p
 function avviaPosta(){
   $('#nascondi-gestiti').onchange = e => { nascondiGestiti = e.target.checked; store.set('ass_nascondi', nascondiGestiti); disegnaAgenda(); };
   $('#b-posta').onclick = () => { $('#posta-msg').textContent = ''; caricaAllegati(); disegnaPosta(); mostra('posta'); try { if (typeof caricaPostaAuto === 'function' && postaAutoAvviata) caricaPostaAuto(); } catch(e) {} };
-  $('#b-indietro-posta').onclick = indietro;
+  $('#b-indietro-posta').onclick = () => { if (tornaCalPosta) { tornaCalPosta = false; mostra('calendario', false); disegnaCalendario(); } else indietro(); };
   $('#b-posta-carica').onclick = () => $('#in-posta').click();
   $('#in-posta').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) await leggiPosta(fl); };
   $('#posta-fatti').onchange = disegnaPosta;
