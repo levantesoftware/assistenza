@@ -518,6 +518,9 @@ body.uff #b-indietro-cal{display:none}
 .cal-chr.cal-ang{justify-content:center;font-size:11px;color:var(--tenue);padding:2px;text-align:center}
 .cal-ch{display:block;width:100%;text-align:left;border:1px solid var(--acciaio);background:#fff;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .cal-ch.urg{border-color:var(--rosso);color:var(--rosso)}
+.cal-ch.trasc{cursor:grab}
+.cal-trascina [data-tec]{outline:1px dashed var(--acciaio);outline-offset:-2px}
+.cal-trascina .cal-bers{background:#E7F3F1;outline:2px solid var(--ok)}
 .cal-ore{position:-webkit-sticky;position:sticky;left:0;z-index:3;background:#F6F9FA}
 .cal-h{position:relative;border-top:1px solid var(--riga2)}
 .cal-h span{position:absolute;top:2px;right:5px;font-size:11px;color:var(--tenue);font-variant-numeric:tabular-nums}
@@ -2141,6 +2144,15 @@ const calVoce = (x, conSigla) => {
   const a = x.a, tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.tecnico_nome, a.luogo, CAL_ETI[x.st], calConPosta(x.st) ? 'tocca per aprire l\'intervento' : ''].filter(Boolean).join(' · ');
   return `<button type="button" class="cal-mi ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${conSigla ? '<i style="background:' + (calCol[a.tecnico_nome] || '#9FAEB4') + '">' + esc(a.tecnico_nome ? calIniz(a.tecnico_nome) : '—') + '</i> ' : ''}${esc(a.titolo)}</button>`;
 };
+const calBers = c => !(calVista === 'giorno') ? '' : c.senza ? ' data-tec="-"' : (c.r && c.r.id !== undefined && c.r.id !== '' ? ' data-tec="' + esc(String(c.r.id)) + '"' : '');          // dove si puo' lasciare una chiamata trascinata
+function calAssegna(idCh, tec){          // stessa assegnazione di «Invio ai tecnici»: impostazioni.chiamateTec
+  const x = chiamateTec().find(y => y.id === idCh); if (!x) return false;
+  const k = idChiamata(x); impostazioni.chiamateTec = impostazioni.chiamateTec || {};
+  if (tec === '-') delete impostazioni.chiamateTec[k]; else impostazioni.chiamateTec[k] = String(tec);
+  salvaImpostazioni(); try { disegnaUfficio(); } catch(e) {}
+  disegnaCalendario(); if (vistaCorrente === 'agenda') { try { disegnaAgenda(); } catch(e) {} }
+  return true;
+}
 function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) o settimana di un solo tecnico (colonne = giorni), con le ore in verticale
   const sett = calVista === 'sett';
   let ch = []; if (!sett && calGiorno >= oggi) { try { ch = chiamateTec(); } catch(e) {} }
@@ -2178,7 +2190,7 @@ function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) 
   let ore = ''; for (let m = minM; m < maxM; m += 60) ore += `<div class="cal-h" style="height:${CAL_PX}px"><span>${pad2(m / 60)}:00</span></div>`;
   const g = [];
   g.push('<div class="cal-ang cal-th"></div>'); cols.forEach(c => g.push(c.dh ? `<button type="button" class="cal-th cal-dh${c.oggi ? ' oggi' : ''}" data-cal-g="${c.dh}" title="Apri questo giorno">${c.th}</button>` : `<div class="cal-th${c.oggi ? ' oggi' : ''}${c.senza ? ' senza' : ''}">${c.th}</div>`));
-  if (cols.some(c => (c.ch || []).length)) { g.push('<div class="cal-ang cal-chr"><span>Chiamate</span></div>'); cols.forEach(c => g.push(`<div class="cal-chr">${(c.ch || []).map(x => `<button type="button" class="cal-ch${x.urgente ? ' urg' : ''}" data-ch="${esc(x.id)}" title="${esc(x.titolo + ' · ' + (x.luogo || ''))}">☎ ${esc(x.titolo)}</button>`).join('')}</div>`)); }
+  if (cols.some(c => (c.ch || []).length)) { g.push('<div class="cal-ang cal-chr"><span>Chiamate</span></div>'); cols.forEach(c => g.push(`<div class="cal-chr"${calBers(c)}>${(c.ch || []).map(x => { const dr = !x.tecnico_id || (impostazioni.chiamateTec || {})[idChiamata(x)]; return `<button type="button" class="cal-ch${x.urgente ? ' urg' : ''}${dr ? ' trasc' : ''}" data-ch="${esc(x.id)}"${dr ? ' draggable="true"' : ''} title="${esc(x.titolo + ' · ' + (x.luogo || '') + (dr ? ' · trascinala su un tecnico per assegnarla' : ''))}">☎ ${esc(x.titolo)}</button>`; }).join('')}</div>`)); }
   g.push(`<div class="cal-ore" style="height:${alto}px">${ore}</div>`); cols.forEach(c => g.push(colonna(c)));
   return {titolo, html: `<div class="cal-griglia" style="grid-template-columns:46px repeat(${nc}, minmax(${larg}px, 1fr))">${g.join('')}</div>`, ore: {adesso, minM, maxM}, nCh: ch.length};
 }
@@ -2289,6 +2301,14 @@ function avviaCalendario(){
     b = t.closest('[data-cal-tutti]'); if (b) { calSel = []; store.set('ass_cal_sel', calSel); disegnaCalendario(); return; }
     if (t.closest('#b-indietro-cal')) { mostra('agenda', false); disegnaAgenda(); }
   });
+  { let trasc = '';
+    const bers = e => { const t = e.target && (e.target.closest ? e.target : e.target.parentNode); return t && t.closest ? t.closest('[data-tec]') : null; };
+    const pulisci = () => box.querySelectorAll('.cal-bers').forEach(n => n.classList.remove('cal-bers'));
+    box.addEventListener('dragstart', e => { const b = e.target && e.target.closest ? e.target.closest('.cal-ch[draggable]') : null; if (!b) return; trasc = b.dataset.ch; try { e.dataTransfer.setData('text/plain', trasc); e.dataTransfer.effectAllowed = 'move'; } catch(x) {} box.classList.add('cal-trascina'); });
+    box.addEventListener('dragend', () => { trasc = ''; box.classList.remove('cal-trascina'); pulisci(); });
+    box.addEventListener('dragover', e => { if (!trasc) return; const b = bers(e); if (!b) return; e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch(x) {} if (!b.classList.contains('cal-bers')) { pulisci(); box.querySelectorAll('[data-tec="' + b.dataset.tec + '"]').forEach(n => n.classList.add('cal-bers')); } });
+    box.addEventListener('drop', e => { if (!trasc) return; const b = bers(e); if (!b) return; e.preventDefault(); const id = trasc; trasc = ''; box.classList.remove('cal-trascina'); calAssegna(id, b.dataset.tec); });
+  }
   box.addEventListener('toggle', e => { if (e.target && e.target.id === 'cal-sel') calSelAperto = !!e.target.open; }, true);
   box.addEventListener('change', e => {
     const t = e.target;
@@ -8188,7 +8208,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.99.1 (15/11/2026)';
+const VERSIONE_APP = '1.100.1 (17/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
