@@ -2166,7 +2166,7 @@ function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) 
   } else {
     vis.forEach(r => { const voci = calCerca(calGiorno, a => a.tecnico_nome === r.nome, ct); cols.push({g: calGiorno, r, voci, ch: ch.filter(c => c.tecnico_nome === r.nome), th: `<b>${calPt(r.nome)}${esc(r.nome)}</b>${r.sq ? ' <span class="chip tec">Squadra</span>' : ''}${calSottotitolo(r, calGiorno, voci.length)}`}); });
     const senza = calCerca(calGiorno, a => !a.tecnico_nome, ct), chS = ch.filter(c => !c.tecnico_nome);
-    if (senza.length || chS.length) cols.unshift({g: calGiorno, voci: senza, ch: chS, th: '<b>Da assegnare</b><small class="cal-avv forte">senza tecnico</small>', senza: true});
+    { cols.unshift({g: calGiorno, voci: senza, ch: chS, th: '<b>Da assegnare</b>' + (senza.length || chS.length ? '<small class="cal-avv forte">senza tecnico</small>' : '<small>nessuna chiamata</small>'), senza: true}); }
     titolo = giornoLungo(calIni(calGiorno));
   }
   /* fasce orarie: dalle 8 alle 19, piu' se serve */
@@ -2190,7 +2190,7 @@ function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) 
   let ore = ''; for (let m = minM; m < maxM; m += 60) ore += `<div class="cal-h" style="height:${CAL_PX}px"><span>${pad2(m / 60)}:00</span></div>`;
   const g = [];
   g.push('<div class="cal-ang cal-th"></div>'); cols.forEach(c => g.push(c.dh ? `<button type="button" class="cal-th cal-dh${c.oggi ? ' oggi' : ''}" data-cal-g="${c.dh}" title="Apri questo giorno">${c.th}</button>` : `<div class="cal-th${c.oggi ? ' oggi' : ''}${c.senza ? ' senza' : ''}">${c.th}</div>`));
-  if (cols.some(c => (c.ch || []).length)) { g.push('<div class="cal-ang cal-chr"><span>Chiamate</span></div>'); cols.forEach(c => g.push(`<div class="cal-chr"${calBers(c)}>${(c.ch || []).map(x => { const dr = !x.tecnico_id || (impostazioni.chiamateTec || {})[idChiamata(x)]; return `<button type="button" class="cal-ch${x.urgente ? ' urg' : ''}${dr ? ' trasc' : ''}" data-ch="${esc(x.id)}"${dr ? ' draggable="true"' : ''} title="${esc(x.titolo + ' · ' + (x.luogo || '') + (dr ? ' · trascinala su un tecnico per assegnarla' : ''))}">☎ ${esc(x.titolo)}</button>`; }).join('')}</div>`)); }
+  if (cols.some(c => (c.ch || []).length) || (!sett && calGiorno >= oggi && chiamateAttive())) { g.push('<div class="cal-ang cal-chr"><span>Chiamate</span></div>'); cols.forEach(c => g.push(`<div class="cal-chr"${calBers(c)}>${(c.ch || []).map(x => { const dr = !x.tecnico_id || (impostazioni.chiamateTec || {})[idChiamata(x)]; return `<button type="button" class="cal-ch${x.urgente ? ' urg' : ''}${dr ? ' trasc' : ''}" data-ch="${esc(x.id)}"${dr ? ' draggable="true"' : ''} title="${esc(x.titolo + ' · ' + (x.luogo || '') + (dr ? ' · trascinala su un tecnico per assegnarla' : ''))}">☎ ${esc(x.titolo)}</button>`; }).join('')}</div>`)); }
   g.push(`<div class="cal-ore" style="height:${alto}px">${ore}</div>`); cols.forEach(c => g.push(colonna(c)));
   return {titolo, html: `<div class="cal-griglia" style="grid-template-columns:46px repeat(${nc}, minmax(${larg}px, 1fr))">${g.join('')}</div>`, ore: {adesso, minM, maxM}, nCh: ch.length};
 }
@@ -8208,7 +8208,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.100.1 (17/11/2026)';
+const VERSIONE_APP = '1.100.2 (17/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
