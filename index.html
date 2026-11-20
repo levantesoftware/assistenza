@@ -519,6 +519,8 @@ body.uff #b-indietro-cal{display:none}
 .cal-ch{display:block;width:100%;text-align:left;border:1px solid var(--acciaio);background:#fff;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .cal-ch.urg{border-color:var(--rosso);color:var(--rosso)}
 .cal-ch.trasc{cursor:grab}
+.chip.pass{background:#EDE7F6;color:#4527A0}
+.cal-ev.pass,.cal-mi.pass{border-style:dashed}
 .cal-trascina [data-tec]{outline:1px dashed var(--acciaio);outline-offset:-2px}
 .cal-trascina .cal-bers{background:#E7F3F1;outline:2px solid var(--ok)}
 .cal-ore{position:-webkit-sticky;position:sticky;left:0;z-index:3;background:#F6F9FA}
@@ -1443,9 +1445,9 @@ function chiamateTec(){
 }
 function caricaAppuntamenti(){            // dati ricevuti dall'ufficio, altrimenti dati di esempio
   const d = store.get('ass_dati', null);
-  if (d && Array.isArray(d.appuntamenti)) { datiReali = d; return d.appuntamenti.map(riattiva).concat(chiamatePianificate(d)); }
+  if (d && Array.isArray(d.appuntamenti)) { datiReali = d; const gia = new Set(d.appuntamenti.map(x => x.id)); return d.appuntamenti.map(riattiva).concat(chiamatePianificate(d)).concat(passatiAttivi().filter(x => !gia.has(x.id)).map(riattiva)); }
   datiReali = null;
-  return demoAppuntamenti();
+  return demoAppuntamenti().concat(passatiAttivi().filter(x => !/^demo-/.test(String(x.id))).map(riattiva));
 }
 function riassuntoDaEvento(proprieta){    // pronto per Google Calendar: ricompone i pezzi ass_0, ass_1...
   const n = parseInt(proprieta.ass_n || '0', 10);
@@ -2060,6 +2062,7 @@ function disegnaAgenda(){
     if (senzaRapporto(a)) chips.push('<span class="chip urg">Senza rapporto</span>');
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
     else if (registrato(a)) chips.push('<span class="chip pdf">Registrato in Levante</span>');
+    { const bz = bozze[a.id]; if (bz && bz.passatoA) chips.unshift('<span class="chip pass">Passato a ' + esc(bz.passatoA.n) + '</span>'); else if (a.passatoDa) chips.unshift('<span class="chip pass">Da ' + esc(a.passatoDa) + '</span>'); }
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
     const eProssimo = !inUfficio && !prossimoFatto && !a.promemoria && st !== 'pdf' && !a.fatto && isoGiorno(a.inizio) === isoGiorno(new Date()) && a.fine > new Date();
@@ -2141,8 +2144,8 @@ function calCerca(g, filtro, ct){          // appuntamenti di un giorno (senza i
     if (x.st === 'chiuso' && !calChiusi) { ct.chiusi++; return false; } ct.tot++; return true; }).sort((x, y) => x.a.inizio - y.a.inizio);
 }
 const calVoce = (x, conSigla) => {
-  const a = x.a, tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.tecnico_nome, a.luogo, CAL_ETI[x.st], calConPosta(x.st) ? 'tocca per aprire l\'intervento' : ''].filter(Boolean).join(' · ');
-  return `<button type="button" class="cal-mi ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${conSigla ? '<i style="background:' + (calCol[a.tecnico_nome] || '#9FAEB4') + '">' + esc(a.tecnico_nome ? calIniz(a.tecnico_nome) : '—') + '</i> ' : ''}${esc(a.titolo)}</button>`;
+  const a = x.a, pp = passaggioDi(a), tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.tecnico_nome, pp ? 'passato a ' + pp.a : '', a.luogo, CAL_ETI[x.st], calConPosta(x.st) ? 'tocca per aprire l\'intervento' : ''].filter(Boolean).join(' · ');
+  return `<button type="button" class="cal-mi ${x.st}${a.urgente ? ' urg' : ''}${pp ? ' pass' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${pp ? '↪ ' : ''}${conSigla ? '<i style="background:' + (calCol[a.tecnico_nome] || '#9FAEB4') + '">' + esc(a.tecnico_nome ? calIniz(a.tecnico_nome) : '—') + '</i> ' : ''}${esc(a.titolo)}</button>`;
 };
 const calBers = c => !(calVista === 'giorno') ? '' : c.senza ? ' data-tec="-"' : (c.r && c.r.id !== undefined && c.r.id !== '' ? ' data-tec="' + esc(String(c.r.id)) + '"' : '');          // dove si puo' lasciare una chiamata trascinata
 function calAssegna(idCh, tec){          // stessa assegnazione di «Invio ai tecnici»: impostazioni.chiamateTec
@@ -2180,8 +2183,8 @@ function calGriglia(vis, ris, ct, oggi){          // giorno (colonne = tecnici) 
     calCorsie(c.voci);
     const blocchi = c.voci.map(x => {
       const a = x.a, top = (x.s - minM) * CAL_PX / 60, h = Math.max((x.e - x.s) * CAL_PX / 60 - 2, 22);
-      const eti = CAL_ETI[x.st], tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, a.luogo, a.r && a.r.tp, eti, calConPosta(x.st) ? 'tocca per aprire l\'intervento' : ''].filter(Boolean).join(' · ');
-      return `<button type="button" class="cal-ev ${x.st}${a.urgente ? ' urg' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}" style="top:${top}px;height:${h}px;left:calc(${x.c} * 100% / ${x.n} + 2px);width:calc(100% / ${x.n} - 4px)"><span class="cal-t"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${esc(a.titolo)}</span>${h >= 40 ? `<span class="cal-l">${esc(a.luogo || '')}</span>` : ''}${h >= 58 && eti ? `<span class="cal-s">${esc(eti)}</span>` : ''}</button>`;
+      const pp = passaggioDi(a), eti = CAL_ETI[x.st], tip = [hhmm(a.inizio) + '–' + hhmm(a.fine) + ' ' + a.titolo, pp ? 'passato a ' + pp.a : '', a.luogo, a.r && a.r.tp, eti, calConPosta(x.st) ? 'tocca per aprire l\'intervento' : ''].filter(Boolean).join(' · ');
+      return `<button type="button" class="cal-ev ${x.st}${a.urgente ? ' urg' : ''}${pp ? ' pass' : ''}" data-id="${esc(a.id)}" title="${esc(tip)}" style="top:${top}px;height:${h}px;left:calc(${x.c} * 100% / ${x.n} + 2px);width:calc(100% / ${x.n} - 4px)"><span class="cal-t"><b>${hhmm(a.inizio)}</b> ${x.st === 'registrato' ? '✓ ' : ''}${a.urgente ? '⚠ ' : ''}${pp ? '↪ ' + esc(pp.a) + ' · ' : ''}${esc(a.titolo)}</span>${h >= 40 ? `<span class="cal-l">${esc(a.luogo || '')}</span>` : ''}${h >= 58 && eti ? `<span class="cal-s">${esc(eti)}</span>` : ''}</button>`;
     }).join('');
     const ora = c.g === oggi && adesso > minM && adesso < maxM ? `<i class="cal-adesso" style="top:${(adesso - minM) * CAL_PX / 60}px"></i>` : '';
     return `<div class="cal-col${c.g === oggi ? ' oggi' : ''}" style="height:${alto}px">${blocchi}${ora}</div>`;
@@ -2605,6 +2608,7 @@ function nuovaScheda(a){
 function apriScheda(a){
   if (sola()) return;
   if (a && a.promemoria) { mostraAvviso('È solo un promemoria: la scheda la compila il capo squadra.'); return; }
+  if (a && bozze[a.id] && bozze[a.id].passatoA) { if (passaggioRiprendi(bozze[a.id])) apriScheda(a); return; }
   corrente = a;
   lavoro = bozze[a ? a.id : ''] || nuovaScheda(a);
   if (a && !bozze[a.id]) lavoro = nuovaScheda(a);
@@ -3214,6 +3218,7 @@ function disegnaScheda(){
       <div style="margin-top:12px">${campoTesto('firmaNome', 'Nome di chi firma')}</div>
     </div>
     </details>
+    ${passaggioHtml(w)}
     <div class="fatto" id="pdf-fatto" hidden>
       <p><strong id="pdf-titolo">PDF creato.</strong></p><div id="pdf-lista"></div>
       <p style="margin:16px 0 6px"><strong>Invia i documenti</strong></p>
@@ -3532,6 +3537,11 @@ function collegaForm(){
     else if (d.togliExtra !== undefined) { lavoro.ops_extra.splice(+d.togliExtra, 1); $('#extra').innerHTML = sezioneExtra(); bozzaModificata(); }
     else if (d.togliAn !== undefined) { delete lavoro.analisi[d.togliAn]; $('#analisi').innerHTML = schedeAnalisi(); bozzaModificata(); }
     else if (b.id === 'b-cancella-firma') { preparaFirma(''); bozzaModificata(); }
+    else if (b.id === 'b-pass-dir') passaggioInvia('dir');
+    else if (b.id === 'b-pass-uff') passaggioInvia('uff');
+    else if (b.id === 'b-pass-avv') passaggioAvvisa();
+    else if (b.id === 'b-pass-rigenera') { const ta = $('#pass-nota'); if (ta && lavoro) { ta.value = passaggioTestoAuto(lavoro); delete ta.dataset.mod; } }
+    else if (b.id === 'b-pass-annulla') { if (passaggioRiprendi(lavoro)) { if (corrente) apriScheda(corrente); else disegnaScheda(); } }
     else if (b.id === 'b-elimina-int') eliminaIntervento();
     else if (d.apri !== undefined) apriPdf(+d.apri);
     else if (d.apriAll !== undefined) apriAllegato(+d.apriAll);
@@ -3655,6 +3665,7 @@ function costruisciPdf(w, ctx){
   coppia('Cliente', w.cliente, 'Data', dataIT(w.data));
   coppia('Indirizzo', w.indirizzo, 'Tecnico', w.tecnico);
   if (w.squadra && (w.squadra.membri || []).some(m => m.p !== false)) coppia(w.squadra.nome ? 'Squadra' : 'Con', w.squadra.nome || w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', '), w.squadra.nome ? 'Con' : '', w.squadra.nome ? w.squadra.membri.filter(m => m.p !== false).map(m => m.n + (sqOre(m) ? ' (' + sqOre(m) + ')' : '')).join(', ') : '');
+  if ((w.storia || []).length) coppia('Iniziato da', w.storia.map(x => x.n + (passaggioFasce(x) ? ' (' + passaggioFasce(x) + ')' : '')).join(', '), '', '');
   if (w.pratica) coppia('Cantiere', (w.pratica.c ? w.pratica.c + ' - ' : '') + (w.pratica.n || ''), '', '');
   if (w.levante) coppia('Impianto', w.impianto, 'Rif. Levante', 'Appuntamento N. ' + (w.levante.li || w.levante.mi));
   if (w.tipo) coppia('Tipo di intervento', w.tipo, '', '');
@@ -8161,6 +8172,7 @@ async function caricaPacchetto(file){
   try {
     file = await decifraSeCifrato(file);
     const d = JSON.parse(await file.text());
+    if (d && d.assist === 'passaggio') { await caricaPassaggio(d); return; }
     if (!d || d.formato !== 'assistenza-v1' || !Array.isArray(d.appuntamenti)) throw new Error('formato');
     const prima = store.get('ass_dati', null);
     const leggero = d.tipo === 'aggiornamento';
@@ -8208,7 +8220,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.100.2 (17/11/2026)';
+const VERSIONE_APP = '1.101.1 (20/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9136,6 +9148,190 @@ function avviaCantieri(){
 /* ==================================================================
    POSTA IN ARRIVO (ufficio) e CSV per Levante
    ================================================================== */
+/* ==================================================================
+   PASSAGGIO DI UN INTERVENTO A UN COLLEGA
+   Il tecnico A non riesce a finire: prepara un file con tutto quello che ha compilato (relazione, materiali, foto, orari...),
+   lo manda al collega B (o all'ufficio, che lo gira) e B lo carica e continua. Nell'intervento che B poi invia resta la «storia»
+   (chi ha fatto cosa e per quante ore), cosi' l'ufficio puo' registrare in Levante le ore di ognuno.
+   ================================================================== */
+const PASS_PASSATI = 'ass_passati';            // appuntamenti ricevuti da un collega: restano in agenda anche se poi arriva un nuovo file dall'ufficio
+function passatiAttivi(){
+  const lim = Date.now() - 21 * 86400000;
+  return store.get(PASS_PASSATI, []).filter(p => p && p.id && (p.passatoQuando || 0) > lim);
+}
+function passaggioMinuti(s){          // minuti di un tratto della storia: orari dal-al, altrimenti le ore scritte a mano
+  const t = (s.orari || []).reduce((m, o) => m + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0);
+  return t > 0 ? t : Math.round((numOre(s.ore) || 0) * 60);
+}
+function passaggioFasce(s){ return (s.orari || []).filter(o => o.dal || o.al).map(o => (o.dal || '?') + '–' + (o.al || '?')).join(', '); }
+const passaggioColleghi = w => ((typeof datiReali !== 'undefined' && datiReali && datiReali.colleghi) || []).filter(c => c && c.n && normNome(c.n) !== normNome((w && w.tecnico) || impostazioni.tecnico));
+function passaggioTestoAuto(w){          // riepilogo automatico di cosa e' stato fatto e cosa resta, dai dati della scheda
+  const elenco = l => l.length > 5 ? l.slice(0, 5).join(', ') + ' e altre ' + (l.length - 5) : l.join(', ');
+  const o = (w.r && Array.isArray(w.r.o)) ? w.r.o : [], ops = w.ops || {}, nome = x => String(x.d || x.c || 'operazione').trim().toLowerCase();
+  const fatte = o.filter(x => ops[x.id] && ops[x.id].fatta).map(nome), manca = o.filter(x => !(ops[x.id] && ops[x.id].fatta)).map(nome);
+  (w.ops_extra || []).filter(x => String(x || '').trim()).forEach(x => fatte.push(String(x).trim().toLowerCase()));
+  const nFoto = (w.foto || []).length, nMat = (w.materiali || []).filter(m => m.descr || m.codice).length, nAn = Object.keys(w.analisi || {}).filter(k => w.analisi[k] && Object.keys(w.analisi[k]).length).length;
+  const fa = [], da = [];
+  if (fatte.length) fa.push('operazioni: ' + elenco(fatte));
+  if (nAn) fa.push('analisi fumi su ' + nAn + (nAn === 1 ? ' apparecchio' : ' apparecchi'));
+  if (nMat) fa.push(nMat + (nMat === 1 ? ' materiale registrato' : ' materiali registrati'));
+  if (nFoto) fa.push(nFoto + (nFoto === 1 ? ' foto' : ' foto'));
+  if ((w.relazione || '').trim()) fa.push('relazione iniziata');
+  if (manca.length) da.push('operazioni: ' + elenco(manca));
+  if (!(w.relazione || '').trim()) da.push('relazione');
+  if (!w.firma) da.push('firma del cliente');
+  if (!w.esito) da.push('esito dell\'intervento');
+  return 'Fatto: ' + (fa.length ? fa.join('; ') : 'niente di registrato') + '.\nDa fare: ' + (da.length ? da.join('; ') : 'niente, manca solo l\'invio') + '.';
+}
+const PASS_MOTIVI = ['Fine turno', 'Mancano i ricambi', 'Chiamato su un altro intervento', 'Serve un collega con altre competenze'];
+function passaggioHtml(w){
+  if (!w || inUfficio) return '';
+  const cc = passaggioColleghi(w);
+  const prec = (w.storia || []).length ? `<p class="aiuto" style="margin:0 0 8px">Questo intervento è già passato per: ${(w.storia || []).map(s => '<b>' + esc(s.n) + '</b>' + (passaggioFasce(s) ? ' (' + esc(passaggioFasce(s)) + ')' : '')).join(', ')}.</p>` : '';
+  const dec = w.passatoA ? `<div class="avviso info" style="margin:0 0 10px"><b>Passato a ${esc(w.passatoA.n)}</b> il ${esc(dataIT(isoGiorno(new Date(w.passatoA.quando))))} alle ${esc(hhmm(new Date(w.passatoA.quando)))}. <button class="btn chiaro piccolo" id="b-pass-annulla" type="button">Lo riprendo io</button></div>` : '';
+  return `<details class="passo" id="pass-d"><summary><h2>Passa a un collega</h2><span class="aiuto">se non riesci a finire</span></summary>
+    <div>${prec}${dec}
+    <p class="aiuto" style="margin:0 0 8px">Il collega riceve tutto quello che hai compilato (relazione, materiali, foto, orari) e continua lui. Le tue ore restano tue: l'ufficio vede chi ha fatto cosa. Se l'orario di fine è vuoto lo chiudo all'ora del passaggio.</p>
+    <div class="campo"><label for="pass-col">Collega</label><select id="pass-col"><option value="">— scegli —</option>${cc.map((c, i) => `<option value="${i}">${esc(c.n)}</option>`).join('')}<option value="__altro">Altro (scrivo il nome)</option></select>
+      <input type="text" id="pass-altro" placeholder="Nome del collega" style="margin-top:8px"${cc.length ? ' hidden' : ''}></div>
+    <div class="campo"><label for="pass-motivo">Motivo (facoltativo)</label><select id="pass-motivo"><option value="">— nessuno —</option>${PASS_MOTIVI.map(x => `<option>${esc(x)}</option>`).join('')}</select></div>
+    <div class="campo"><label for="pass-nota">Riepilogo per il collega <span class="aiuto">(scritto da solo: puoi correggerlo)</span></label><textarea id="pass-nota" rows="4" maxlength="600">${esc(passaggioTestoAuto(w))}</textarea>
+      <button class="btn chiaro piccolo" id="b-pass-rigenera" type="button" style="margin-top:6px">Riscrivi il riepilogo</button></div>
+    <div class="azioni2"><button class="btn" id="b-pass-dir" type="button">Invia al collega</button><button class="btn sec" id="b-pass-uff" type="button">Invia all'ufficio (lo gira lui)</button></div>
+    <p class="aiuto" id="pass-msg" role="status" style="margin:8px 0 0"></p>
+    <div id="pass-avviso" hidden style="margin-top:8px"><button class="btn chiaro pieno" id="b-pass-avv" type="button">Avvisa anche l'ufficio (messaggio breve)</button></div>
+    </div></details>`;
+}
+async function passaggioCostruisci(w, col, nota, via, avviso, trattoFisso){
+  const ora = new Date(), oggi = isoGiorno(ora);
+  const orari = (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ((o.data || w.data) === oggi && o.dal ? hhmm(ora) : '')}));
+  const tratto = trattoFisso || {n: w.tecnico || impostazioni.tecnico || '', op: (datiReali && datiReali.meOp != null) ? datiReali.meOp : null, orari, ore: w.oreMan || '', nota, quando: ora.getTime()};
+  const storia = (w.storia || []).concat([tratto]);
+  const base = {assist: 'passaggio', formato: 'assistenza-passaggio-v1', v: 1, id: w.id, li: (w.levante && w.levante.li) || '', cliente: w.cliente || '', indirizzo: w.indirizzo || '', data: w.data, da: tratto.n, a: col.n, aOp: col.op != null ? col.op : null, via, nota, quando: tratto.quando, storia, tecnico: tratto.n, inviato: Date.now()};
+  if (avviso) return base;
+  const copia = JSON.parse(JSON.stringify(w));
+  delete copia.passatoA; delete copia.passatoDa;
+  copia.storia = storia; copia.orari = [{data: oggi, dal: '', al: ''}]; copia.oreMan = ''; copia.stato = 'bozza'; copia.inviatoUff = 0; copia.inviatoCli = 0; copia.giaInviato = false;
+  const foto = [];
+  for (const f of (w.foto || [])) { try { const rec = await leggiFotoRec(chiaveFoto(w.id, f.id)); if (rec && rec.dati) foto.push({id: f.id, tipo: rec.tipo || 'image/jpeg', w: rec.w, h: rec.h, b64: b64DaBytes(new Uint8Array(rec.dati))}); } catch(e) {} }
+  let voce; try { voce = await leggiFotoRec('voce|int:' + w.id); } catch(e) {}
+  const app = (corrente && corrente.id === w.id) ? JSON.parse(JSON.stringify(corrente)) : null;
+  return Object.assign(base, {w: copia, foto, voce: voce && voce.b64 ? voce : undefined, app});
+}
+function passaggioOggetto(w, col){ return 'Intervento passato a ' + col.n + ': ' + (w.cliente || 'intervento'); }
+async function passaggioCondividi(file, oggetto, testo, ind, m){          // stessa logica dell'invio dei rapporti: menu di condivisione, altrimenti scarica e apre la mail
+  const fl = [file];
+  if (navigator.canShare && navigator.canShare({files: fl})) {
+    try { await navigator.share({files: fl, title: oggetto, text: testo}); return 'ok'; } catch(e) { if (e && e.name === 'AbortError') return 'annullato'; }
+  }
+  if (!scaricaPossibile) { m.textContent = 'Questo dispositivo è troppo vecchio per il passaggio automatico dei file: chiedi all\'ufficio.'; return 'no'; }
+  scaricaBlob(file, file.name);
+  if (ind) setTimeout(() => { const a = document.createElement('a'); a.href = 'mailto:' + encodeURIComponent(ind).replace('%40', '@') + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(testo + '\n\n(Allega il file scaricato.)'); document.body.appendChild(a); a.click(); a.remove(); }, 600);
+  return 'scaricato';
+}
+let passUltimo = null;
+async function passaggioInvia(via){
+  const w = lavoro, m = $('#pass-msg'); if (!w || !m) return;
+  const sel = $('#pass-col'); let col = null;
+  if (sel && sel.value === '__altro') { const n = (($('#pass-altro') || {}).value || '').trim(); if (n) col = {n, op: null}; }
+  else if (sel && sel.value !== '') col = passaggioColleghi(w)[+sel.value];
+  if (!col) { m.textContent = 'Scegli il collega a cui passare l\'intervento.'; return; }
+  if (via === 'uff' && !String(impostazioni.emailUfficio || '').trim() && !(navigator.canShare)) { m.textContent = 'Scrivi prima l\'email dell\'ufficio nelle Impostazioni.'; return; }
+  const ta = $('#pass-nota'), mot = (($('#pass-motivo') || {}).value || '').trim();
+  const nota = ((mot ? 'Motivo: ' + mot + '.\n' : '') + (ta && ta.dataset.mod === '1' ? ta.value.trim() : passaggioTestoAuto(w))).trim();
+  if (!confirm('Passo questo intervento a ' + col.n + (via === 'uff' ? ' tramite l\'ufficio' : '') + '?\n\nDopo l\'invio sul tuo telefono resta in sola lettura (puoi sempre riprenderlo).')) return;
+  m.textContent = 'Preparo il file…';
+  try {
+    clearTimeout(timer); timer = null; try { salvaBozza(true); } catch(e) {}
+    const d = await passaggioCostruisci(w, col, nota, via, false);
+    let file = new File([JSON.stringify(d)], 'Dati_Passaggio_' + slugNome(w.cliente) + '_' + slugNome(col.n) + '_' + (w.data || isoGiorno(new Date())) + '.txt', {type: 'text/plain'});
+    if (protezioneAttiva() && scaricaPossibile) file = await cifraFile(file);
+    const testo = via === 'uff' ? 'Ciao, passo l\'intervento «' + (w.cliente || '') + '» a ' + col.n + '. Giralo tu al collega (il file va aperto dall\'app con «Carica i dati»).' : 'Ciao ' + col.n + ', ti passo l\'intervento «' + (w.cliente || '') + '». Apri il file con «Carica i dati» nell\'app Assistenza (o Condividi > Assistenza) e continua da dove mi ero fermato.';
+    const r = await passaggioCondividi(file, passaggioOggetto(w, col), testo, via === 'uff' ? String(impostazioni.emailUfficio || '').trim() : '', m);
+    if (r === 'annullato' || r === 'no') { if (r === 'annullato') m.textContent = 'Invio annullato: l\'intervento è ancora tuo.'; return; }
+    w.passatoA = {n: col.n, op: col.op, quando: d.quando, via, nota, tratto: d.storia[d.storia.length - 1]}; try { salvaBozza(true); } catch(e) {}
+    passUltimo = {col, nota};
+    m.textContent = (r === 'scaricato' ? 'File scaricato: allegalo tu al messaggio. ' : '') + 'Passato a ' + col.n + (via === 'uff' ? ' (tramite l\'ufficio)' : '') + '. Da ora l\'intervento resta in sola lettura.';
+    const av = $('#pass-avviso'); if (av) av.hidden = (via === 'uff');
+    try { disegnaAgenda(); } catch(e) {}
+  } catch(e) { m.textContent = 'Non sono riuscito a preparare il passaggio: ' + (e && e.message ? e.message : e); }
+}
+async function passaggioAvvisa(){
+  const w = lavoro, m = $('#pass-msg'); if (!w || !w.passatoA || !m) return;
+  try {
+    const d = await passaggioCostruisci(w, {n: w.passatoA.n, op: w.passatoA.op}, w.passatoA.nota || '', 'dir', true, w.passatoA.tratto);
+    let file = new File([JSON.stringify(d)], 'Dati_Passaggio_avviso_' + slugNome(w.cliente) + '_' + (w.data || isoGiorno(new Date())) + '.txt', {type: 'text/plain'});
+    if (protezioneAttiva() && scaricaPossibile) file = await cifraFile(file);
+    const r = await passaggioCondividi(file, passaggioOggetto(w, w.passatoA), 'Avviso: ho passato l\'intervento «' + (w.cliente || '') + '» a ' + w.passatoA.n + '.', String(impostazioni.emailUfficio || '').trim(), m);
+    if (r === 'ok' || r === 'scaricato') m.textContent = 'Ufficio avvisato.';
+  } catch(e) { m.textContent = 'Non sono riuscito a preparare l\'avviso: ' + (e && e.message ? e.message : e); }
+}
+function passaggioRiprendi(b){          // l'intervento era stato passato e non e' piu' necessario (o il collega non l'ha ricevuto)
+  if (!b || !b.passatoA) return false;
+  if (!confirm('Questo intervento l\'hai passato a ' + b.passatoA.n + ' il ' + dataIT(isoGiorno(new Date(b.passatoA.quando))) + ' alle ' + hhmm(new Date(b.passatoA.quando)) + '.\n\nSe il collega non l\'ha ricevuto, o vuoi finirlo tu, lo riprendi qui. Se invece l\'ha già ripreso lui, non farlo: si avrebbero due rapporti.\n\nLo riprendo io?')) return false;
+  delete b.passatoA; b.aggiornata = Date.now(); salvaBozze(); try { disegnaAgenda(); } catch(e) {}
+  return true;
+}
+async function caricaPassaggio(d){
+  esitoImport = '';
+  try {
+    if (inUfficio) { esitoImport = 'Questo è un passaggio tra tecnici: va caricato sul telefono del collega a cui è destinato.'; return; }
+    if (!d || !d.w || !d.id) { esitoImport = d && !d.w ? 'Questo è solo un avviso per l\'ufficio: il file con l\'intervento è quello mandato al collega.' : 'Il file non è valido: chiedi di rimandarlo.'; return; }
+    const mio = String(impostazioni.tecnico || '').trim();
+    if (mio && d.a && normNome(d.a) !== normNome(mio) && !confirm('Questo intervento è stato passato a ' + d.a + ', non a te (' + mio + ').\n\nLo carico lo stesso?')) { esitoImport = 'Passaggio non caricato: è destinato a ' + d.a + '.'; return; }
+    const es = bozze[d.id];
+    if (es && es.passatoA) { esitoImport = passaggioRiprendi(es) ? 'Intervento ripreso: lo trovi in agenda.' : 'Intervento lasciato al collega.'; return; }
+    if (es && !confirm('Hai già una scheda per questo intervento («' + (es.cliente || '') + '»).\n\nLa sostituisco con quella di ' + (d.da || 'chi te l\'ha passata') + '?')) { esitoImport = 'Passaggio non caricato: tieni la tua scheda.'; return; }
+    const w = d.w;
+    w.tecnico = mio || d.a || w.tecnico || ''; w.passatoDa = d.da || ''; w.stato = 'bozza'; w.inviatoUff = 0; w.inviatoCli = 0; w.giaInviato = false; w.aggiornata = Date.now();
+    for (const f of (d.foto || [])) { try { if (f && f.id && f.b64) await scriviFoto(chiaveFoto(w.id, f.id), {tipo: f.tipo || 'image/jpeg', dati: bytesDaB64(f.b64).buffer, w: f.w, h: f.h}); } catch(e) {} }
+    if (d.voce && d.voce.b64) { try { await scriviFoto('voce|int:' + w.id, d.voce); } catch(e) {} }
+    bozze[w.id] = w; salvaBozze();
+    if (d.app && d.app.id) { const l = store.get(PASS_PASSATI, []).filter(x => x && x.id !== d.app.id); l.push(Object.assign({}, d.app, {passatoDa: d.da || '', passatoQuando: Date.now()})); store.set(PASS_PASSATI, l); appuntamenti = caricaAppuntamenti(); }
+    esitoImport = 'Intervento «' + (d.cliente || '') + '» ricevuto da ' + (d.da || 'un collega') + ': lo trovi in agenda, continua da dove si era fermato.' + (d.nota ? ' Nota: ' + d.nota : '');
+  } catch(e) { esitoImport = 'Non sono riuscito a caricare il passaggio: ' + (e && e.message ? e.message : e); }
+  disegnaAgenda();
+}
+/* ---- ufficio: passaggi ricevuti (solo i dati, senza foto) e storia nell'intervento finale ---- */
+const PASS_UFF = 'ass_passaggi_uff';
+let passaggi = store.get(PASS_UFF, []);
+const salvaPassaggi = () => store.set(PASS_UFF, passaggi);
+function passaggioRegistra(o, f){
+  const k = String(o.id || '') + '|' + (o.quando || 0), src = (f && f.arrivo) ? [f.arrivo] : [];
+  const nuovo = {k, id: String(o.id || ''), li: String(o.li || ''), cliente: o.cliente || '', indirizzo: o.indirizzo || '', data: o.data || '', da: o.da || o.tecnico || '', a: o.a || '', via: o.via === 'uff' ? 'uff' : 'dir', nota: o.nota || '', quando: o.quando || 0,
+    storia: (o.storia || []).map(s => ({n: s.n, op: s.op, orari: s.orari || [], ore: s.ore || '', nota: s.nota || '', quando: s.quando || 0})), completo: !!o.w, src, rec: Date.now()};
+  const i = passaggi.findIndex(x => x.k === k);
+  if (i >= 0) { const v = passaggi[i]; nuovo.completo = v.completo || nuovo.completo; nuovo.src = Array.from(new Set((v.src || []).concat(src))); if (!nuovo.completo && v.completo) nuovo.via = v.via; passaggi[i] = nuovo; } else passaggi.push(nuovo);
+  passaggi = passaggi.filter(x => Date.now() - (x.rec || 0) < 30 * 86400000);
+  salvaPassaggi();
+}
+function passaggioArrivato(p){          // l'intervento finale del collega e' gia' arrivato in «Interventi in arrivo»
+  return posta.some(r => !r.rich && !r.cant && (r.storia || []).some(s => s.quando === p.quando && normNome(s.n) === normNome(p.da)));
+}
+function passaggioDi(a){          // passaggio ancora in corso per un appuntamento (calendario ufficio)
+  if (!a) return null; const li = String((a.r && a.r.li) || '');
+  for (let i = passaggi.length - 1; i >= 0; i--) { const p = passaggi[i]; if (((li && p.li === li) || p.id === String(a.id)) && !passaggioArrivato(p)) return p; }
+  return null;
+}
+function passaggiHtml(){
+  const L = passaggi.filter(p => !passaggioArrivato(p) && Date.now() - (p.quando || 0) < 10 * 86400000).sort((x, y) => y.quando - x.quando);
+  if (!L.length) return '';
+  return `<div class="avviso" style="margin:0 0 12px"><b>Interventi passati tra tecnici (${L.length})</b><span class="aiuto" style="display:block;margin-bottom:4px">In attesa che il collega chiuda e invii il rapporto: allora qui compare la storia completa.</span>
+    ${L.map((p, j) => `<div style="margin:8px 0;padding-top:6px;border-top:1px solid var(--riga)"><b>${esc(p.cliente)}</b>${p.li ? ' · N. ' + esc(p.li) : ''} · ${esc(dataIT(p.data))}<br>
+      <b>${esc(p.da)}</b> → <b>${esc(p.a)}</b> · ${esc(dataIT(isoGiorno(new Date(p.quando))))} ${esc(hhmm(new Date(p.quando)))}${p.via === 'uff' ? ' · <span class="chip urg">Da girare a ' + esc(p.a) + '</span>' : ''}${p.completo ? '' : ' · solo avviso'}
+      ${passaggioFasce(p.storia[p.storia.length - 1] || {}) ? '<br><span class="aiuto">Ore di ' + esc(p.da) + ': ' + esc(passaggioFasce(p.storia[p.storia.length - 1])) + '</span>' : ''}${p.nota ? '<br><span class="aiuto">«' + esc(p.nota) + '»</span>' : ''}
+      ${(p.via === 'uff' && p.completo && (p.src || []).length) ? '<br><button class="btn sec piccolo solo-server" type="button" data-passfile="' + j + '">Scarica il file da girare a ' + esc(p.a) + '</button>' : ''}</div>`).join('')}</div>`;
+}
+function storiaHtml(r){
+  const S = (r.storia || []).filter(s => s && s.n); if (!S.length) return '';
+  const tuo = r.tecnico || 'il collega';
+  return `<div class="avviso info" style="margin:8px 0"><b>Intervento passato tra tecnici</b><ul style="margin:4px 0 0;padding-left:20px">${S.map(s => `<li><b>${esc(s.n)}</b>${s.quando ? ' · passato il ' + esc(dataIT(isoGiorno(new Date(s.quando)))) + ' alle ' + esc(hhmm(new Date(s.quando))) : ''} · ore ${esc(passaggioFasce(s) || s.ore || '—')}${passaggioMinuti(s) ? ' (' + esc(csvNum(passaggioMinuti(s) / 60, true)) + ' h)' : ''}${s.nota ? '<br><span class="aiuto">«' + esc(s.nota) + '»</span>' : ''}</li>`).join('')}<li><b>${esc(tuo)}</b> · ha chiuso e inviato il rapporto</li></ul>
+    <span class="aiuto">Nel CSV per Levante ogni persona ha la sua riga di manodopera con le sue ore. In Levante l'appuntamento è rimasto a ${esc(S[0].n)}: registra l'intervento con questa storia.</span></div>`;
+}
+
+document.addEventListener('input', e => { if (e.target && e.target.id === 'pass-nota') e.target.dataset.mod = '1'; });
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'pass-d' && d.open) { const ta = document.getElementById('pass-nota'); if (ta && ta.dataset.mod !== '1' && lavoro) ta.value = passaggioTestoAuto(lavoro); } }, true);
+document.addEventListener('change', e => { if (e.target && e.target.id === 'pass-col') { const a = document.getElementById('pass-altro'); if (a) a.hidden = e.target.value !== '__altro'; } });
 function nomeDati(w){ return 'Dati_' + slugNome(w.cliente) + '_' + (w.data || isoGiorno(new Date())) + '.txt'; }
 function impPerUfficio(w){
   try { const c = impCalcola(w); if (!impHaDati(c)) return undefined;
@@ -9153,6 +9349,7 @@ function datiIntervento(w, pdf){
     importi: impPerUfficio(w),
     ric: w.ric || undefined, voce: vocDati('int:' + w.id), ctrl: (w.ctrl || []).length ? ctrlDati(w) : undefined, fg: (w.fg || []).length ? fgDati(w) : undefined,
     portato: (w.portato || []).filter(pp => ptResto(w, pp) > 0 || !qNum(pp.qta) && !portatoUsato(w, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(w, pp)) : (pp.qta || ''), um: pp.um || ''})),
+    storia: (w.storia || []).length ? w.storia : undefined, tecnicoOp: ((w.storia || []).length && datiReali && datiReali.meOp != null) ? datiReali.meOp : undefined,
     file: pdf || [], inviato: Date.now()};
 }
 let posta = store.get('ass_posta', []);
@@ -9190,10 +9387,13 @@ const codiciMan = c => c.man.filter(m => m.cod);
 /* ripartizione delle ore sui codici di manodopera: se l'ufficio non ha toccato nulla, tutte le ore sul primo codice */
 /* squadra: una riga di manodopera per ogni persona presente, con le sue ore e il codice di manodopera del suo dipendente in Levante */
 function sqPersone(r){
-  const q = r.squadra; if (!q) return null;
+  const q = r.squadra, st = (r.storia || []).filter(x => x && x.n);
+  if (!q && !st.length) return null;
   const tot = minutiTotali(r), ff = (r.orari || []).filter(o => o.dal && o.al), primo = ff.map(o => o.dal).sort()[0] || '', ultimo = ff.map(o => o.al).sort().pop() || '';
   const minM = m => m.dal && m.al ? minuti(m.dal, m.al) : numOre(m.ore) > 0 ? Math.round(numOre(m.ore) * 60) : m.dal ? (ultimo ? minuti(m.dal, ultimo) : tot) : m.al ? (primo ? minuti(primo, m.al) : tot) : tot;
-  return [{n: r.tecnico || 'Capo squadra', op: q.capoOp, min: tot, capo: true}].concat((q.membri || []).map(m => ({n: m.n, op: m.op, min: minM(m)})));
+  const prima = st.map(x => ({n: x.n, op: x.op != null ? x.op : null, min: passaggioMinuti(x), prima: true}));          // chi ha iniziato l'intervento e lo ha passato: le sue ore sono in piu'
+  if (!q) return [{n: r.tecnico || 'Tecnico', op: r.tecnicoOp != null ? r.tecnicoOp : null, min: tot, capo: true}].concat(prima);
+  return [{n: r.tecnico || 'Capo squadra', op: q.capoOp, min: tot, capo: true}].concat((q.membri || []).map(m => ({n: m.n, op: m.op, min: minM(m)}))).concat(prima);
 }
 /* ore sovrapposte: la stessa persona in due interventi (o in un cantiere) nella stessa fascia, per esempio in squadra e in un appuntamento suo */
 const hmMin = t => { const q = String(t || '').split(':'); return (+q[0]) * 60 + (+q[1] || 0); };
@@ -9203,6 +9403,7 @@ function fascePersone(r){          // [{n, f: [[giorno, da, a]]}]
   if (r.cant) { const n = (r.operaio && r.operaio.n) || r.tecnico; return (n && r.dal && r.al) ? [{n, f: [[r.data, hmMin(r.dal), hmMin(r.al)]]}] : []; }
   const ff = (r.orari || []).filter(o => o.dal && o.al).map(o => [o.data || r.data, hmMin(o.dal), hmMin(o.al)]), out = [];
   if (r.tecnico && ff.length) out.push({n: r.tecnico, f: ff});
+  (r.storia || []).forEach(x => { const f = (x.orari || []).filter(o => o.dal && o.al).map(o => [o.data || r.data, hmMin(o.dal), hmMin(o.al)]); if (x.n && f.length) out.push({n: x.n, f}); });
   if (r.squadra) (r.squadra.membri || []).forEach(m => {
     let f = ff;
     if ((m.dal || m.al) && ff.length) f = [[ff[0][0], m.dal ? hmMin(m.dal) : Math.min.apply(null, ff.map(x => x[1])), m.al ? hmMin(m.al) : Math.max.apply(null, ff.map(x => x[2]))]];
@@ -9318,7 +9519,7 @@ function controlliIntervento(r){
       if (sp.length > 1 && !mano.length) c.push({t: 'Con la ricevuta ci sono ' + sp.length + ' persone, ma la ricevuta non ha la voce Manodopera: nel CSV non ci sono le ore di nessuno.', grave: false});
       else if (sp.length > 1) c.push({t: 'Con la ricevuta le ' + csvNum(fatt, true) + ' ore fatturate sono divise tra ' + sp.map(x => x.n).join(', ') + ' in proporzione alle ore lavorate (' + csvNum(Math.round(lav * 100) / 100, true) + ' in tutto).', grave: false});
     }
-    else if (!(Array.isArray(r.rip) && r.rip.length)) sp.filter(x => x.min > 0 && !codiceDi(csvImp(), x.op)).forEach(x => c.push({t: 'Squadra: per ' + x.n + ' non trovo il codice di manodopera (dipendente non abbinato o codice non impostato nel CSV): ho usato il primo codice.', grave: false}));
+    else if (!(Array.isArray(r.rip) && r.rip.length)) sp.filter(x => x.min > 0 && !codiceDi(csvImp(), x.op)).forEach(x => c.push({t: (r.squadra ? 'Squadra' : 'Passaggio') + ': per ' + x.n + ' non trovo il codice di manodopera (dipendente non abbinato o codice non impostato nel CSV): ho usato il primo codice.', grave: false}));
   }
   return c;
 }
@@ -9342,7 +9543,7 @@ function disegnaPosta(){
   } else if (aperti.length) {
     testa = `<button class="btn pieno" type="button" data-coda="inizia" style="margin:0 0 12px">Registra uno alla volta (${aperti.length})</button>`;
   }
-  if (!lista.length) { box.innerHTML = '<p class="aiuto">Nessun intervento da registrare.</p>'; return; }
+  if (!lista.length) { box.innerHTML = passaggiHtml() + '<p class="aiuto">Nessun intervento da registrare.</p>'; return; }
   const blocco = (tit, t, i, k) => t ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${tit}</b><button class="btn sec piccolo" type="button" data-copia="${i}|${k}">Copia</button></div><div style="white-space:pre-wrap">${esc(t)}</div></div>` : '';
   box.innerHTML = lista.map(({r, i}) => {
     const gr = (r.fatto ? 'F' : 'A') + (r.ricevuto || ''), intest = (!codaOn && gr !== grPrec) ? `<h3 style="margin:14px 0 6px;font-size:15px">${r.fatto ? 'Già registrati · ' : ''}${esc(etArrivo(r.ricevuto))}</h3>` : ''; grPrec = gr;
@@ -9351,7 +9552,7 @@ function disegnaPosta(){
     const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
     const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), att = minutiAttesi(r), diff = Math.abs(somma - att / 60) > 0.011;
-    const ripHtml = (min > 0 && !(r.importi && (r.importi.righe || []).length)) ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${r.squadra ? ' <span class="aiuto">una riga per persona</span>' : ''}${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0">${x.p ? '<b style="min-width:84px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(x.p) + '">' + esc(x.p) + '</b>' : ''}<select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(att / 60, true))} h).</p>` : ''}</div>` : '';
+    const ripHtml = (min > 0 && !(r.importi && (r.importi.righe || []).length)) ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${sqPersone(r) ? ' <span class="aiuto">una riga per persona</span>' : ''}${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0">${x.p ? '<b style="min-width:84px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(x.p) + '">' + esc(x.p) + '</b>' : ''}<select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(att / 60, true))} h).</p>` : ''}</div>` : '';
     const conTab = !!(r.importi && (r.importi.righe || []).length);
     const extra = conTab ? '' : (csvImp().kmCod && r.km ? '<li>Km ' + esc(r.km) + ' → ' + esc(csvImp().kmCod) + '</li>' : '') + (csvImp().dcCod && r.dc ? '<li>Diritto di chiamata → ' + esc(csvImp().dcCod) + '</li>' : '');
     const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
@@ -9363,6 +9564,7 @@ function disegnaPosta(){
       ${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
+      ${storiaHtml(r)}
       ${r.squadra ? '<p style="margin:8px 0"><b>' + esc(r.squadra.nome || 'Con') + ':</b> ' + ((r.squadra.membri || []).map(m => esc(m.n) + (sqOre(m) ? ' (' + esc(sqOre(m)) + ')' : '')).join(', ') || 'solo il capo') + '</p>' : ''}
       ${impUffHtml(r)}
       ${ripHtml}${extra ? '<ul style="margin:0 0 8px;padding-left:20px">' + extra + '</ul>' : ''}
@@ -9377,7 +9579,7 @@ function disegnaPosta(){
   testa += fgScadenzeHtml() + ctrlScadenzeHtml();
   { const nC = posta.filter(r => r.cant && !r.fatto).length; if (nC) testa += `<button class="btn sec piccolo" type="button" data-cantcsv="1" style="margin:0 0 12px 8px">Riepilogo ore dei cantieri da registrare (CSV, ${nC})</button>`; }
   testa += portatoPannelloHtml();
-  box.innerHTML = testa + box.innerHTML;
+  box.innerHTML = testa + (codaOn ? '' : passaggiHtml()) + box.innerHTML;
 }
 /* ---- foglio «portato e non montato» da stampare: per giorno e per tecnico, da spuntare in magazzino o sul furgone ---- */
 let ptPdfGiorno = '', ptPdfTec = '';
@@ -9517,7 +9719,7 @@ function scaricaIncassi(){
 }
 const ESITI_BREVI = {concluso: 'Concluso', da_completare: 'Da completare', non_eseguito: 'Non eseguito'};
 async function leggiPosta(files){
-  let nuovi = 0, nuoviRq = 0, agg = 0, pdf = 0, altri = 0, nZip = 0, protetti = 0, motivoProt = '';
+  let nuovi = 0, nuoviRq = 0, agg = 0, pdf = 0, altri = 0, nZip = 0, protetti = 0, motivoProt = '', nPass = 0;
   if (files.length) {            // i file protetti si aprono col codice di sicurezza; quelli che non si riescono ad aprire restano nella cartella «arrivo»
     const aperti = [];
     for (const f of files) { try { aperti.push(await decifraSeCifrato(f)); } catch(e) { protetti++; motivoProt = e.codice === 'manca' ? 'manca il codice di sicurezza (Impostazioni)' : (e.codice === 'errato' ? 'il codice di sicurezza non corrisponde' : 'file protetto danneggiato'); } }
@@ -9537,6 +9739,7 @@ async function leggiPosta(files){
     if (/\.pdf$/i.test(f.name)) { pdfPosta[f.name.normalize('NFC')] = f; salvaAllegato(f); pdfLetti.push(f); pdf++; continue; }
     try {
       const o = JSON.parse(await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsText(f); }));
+      if (o && o.assist === 'passaggio') { passaggioRegistra(o, f); nPass++; continue; }
       if (!o || (o.assist !== 'intervento' && o.assist !== 'cantiere' && o.assist !== 'richiesta')) { altri++; continue; }
       if (o.assist === 'richiesta') { o.rich = true; o.cliente = 'Richiesta chiamate · ' + (o.tecnico || 'tecnico'); o.indirizzo = ''; o.esito = ''; o.file = []; vocRicevi(o); lette.push({o, origine: f.origine || '', arrivo: f.arrivo || ''}); continue; }
       if (o.ric) { try { ricRegistra(o.ric); } catch(e) {} }
@@ -9567,9 +9770,10 @@ async function leggiPosta(files){
   }
   salvaPosta();
   $('#posta-msg').textContent = (nuoviRq ? nuoviRq + (nuoviRq === 1 ? ' richiesta di chiamate' : ' richieste di chiamate') + ' (nella sezione Richieste dei tecnici), ' : '') + nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.' + (protetti ? ' ⚠ ' + protetti + (protetti === 1 ? ' file protetto non letto' : ' file protetti non letti') + ': ' + motivoProt + '.' : '');
+  if (nPass) { const pm = $('#posta-msg'); if (pm) pm.textContent += ' ' + nPass + (nPass === 1 ? ' passaggio tra tecnici.' : ' passaggi tra tecnici.'); }
   disegnaPosta();
   try { disegnaRichieste(); } catch(e) {}
-  return {nuovi, agg, rich: nuoviRq};
+  return {nuovi, agg, rich: nuoviRq, pass: nPass};
 }
 let archiviando = false;
 async function archiviaRegistrati(){
@@ -9664,6 +9868,7 @@ function avviaPosta(){
   ['#csv-kmcod', '#csv-kmdesc', '#csv-dccod', '#csv-dcdesc', '#csv-um'].forEach(s => $(s).oninput = salva); $('#csv-man').addEventListener('input', salva); ['#csv-virgola', '#csv-intest', '#csv-prezzo', '#csv-win'].forEach(s => $(s).onchange = salva);
   $('#posta-elenco').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+    if (d.passfile !== undefined) { const L = passaggi.filter(p => !passaggioArrivato(p) && Date.now() - (p.quando || 0) < 10 * 86400000).sort((x, y) => y.quando - x.quando), p = L[+d.passfile]; if (p && (p.src || [])[0]) fetch('posta-file?nome=' + encodeURIComponent(p.src[0])).then(r => r.ok ? r.blob() : Promise.reject()).then(bl => scaricaBlob(bl, 'Dati_Passaggio_' + slugNome(p.cliente) + '_' + slugNome(p.a) + '.txt')).catch(() => { const m = $('#posta-msg'); if (m) m.textContent = 'Non riesco a leggere il file: cercalo nella cartella «arrivo».'; }); return; }
     if (d.coda !== undefined) {
       if (d.coda === 'inizia') { codaOn = true; codaPos = 0; }
       else if (d.coda === 'esci') codaOn = false;
