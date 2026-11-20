@@ -8220,7 +8220,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.101.1 (20/11/2026)';
+const VERSIONE_APP = '1.101.2 (20/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -10038,6 +10038,7 @@ async function giroPostaAuto(){
     for (const x of files) { try { await chiamaJson('posta-fatto', {nome: x.nome}); } catch(e) {} }
     if (ris && ris.rich) avvisaDesktop('Un tecnico è libero', ris.rich === 1 ? 'Nuova richiesta di chiamate dai tecnici.' : ris.rich + ' nuove richieste di chiamate dai tecnici.');
     if (ris && ris.nuovi) avvisaDesktop('Nuovo intervento in arrivo', ris.nuovi === 1 ? 'Un intervento da registrare.' : ris.nuovi + ' interventi da registrare.');
+    if (ris && ris.pass) { avvisaDesktop('Intervento passato tra tecnici', ris.pass === 1 ? 'Un tecnico ha passato un intervento a un collega.' : ris.pass + ' interventi passati tra tecnici.'); if (!(ris.nuovi || ris.agg)) mostraAvviso('Posta dei tecnici: ' + (ris.pass === 1 ? 'un intervento passato a un collega' : ris.pass + ' interventi passati tra tecnici') + '.', 'Apri', () => { disegnaPosta(); mostra('posta'); }, 15000); }
     if (ris && (ris.nuovi || ris.agg)) mostraAvviso('Posta dei tecnici: ' + (ris.nuovi ? ris.nuovi + (ris.nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') : ris.agg + ' aggiornati') + '.', 'Apri', () => { disegnaPosta(); mostra('posta'); }, 15000);
     try { disegnaAgenda(); } catch(e) {}
   } catch(e) {} finally { postaAutoOccupata = false; archiviaRegistrati(); }
