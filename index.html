@@ -102,6 +102,8 @@ h1,h2,h3,p{margin:0}
 .btn:active{background:var(--petrolio-s)}
 .btn.sec{background:var(--foglio);color:var(--petrolio)}
 .btn.chiaro{background:transparent;color:var(--petrolio);border-color:var(--riga)}
+#form.passata .passo:not(#pass-d) canvas, #form.passata .passo:not(#pass-d) label{pointer-events:none}
+#form.passata .passo:not(#pass-d) :disabled{opacity:.75}
 .pausa-or .btn.sel{background:var(--petrolio);color:#fff;border-color:var(--petrolio)}
 .pausa-or .btn{min-height:40px}
 .btn.piccolo{min-height:40px;padding:0 12px;font-weight:600;font-size:15px}
@@ -3278,6 +3280,19 @@ function disegnaScheda(){
   collegaFirma();
   aggiornaTile();
   $('#salvato').textContent = '';
+  bloccaSchedaPassata();
+}
+/* intervento passato a un collega: sul telefono di chi l'ha passato resta in SOLA LETTURA finche' non preme «Lo riprendo io» (si possono aprire le sezioni e leggere) */
+let passOsserva = null;
+function bloccaSchedaPassata(){
+  const f = $('#form'), pdf = $('#b-pdf'); if (!f) return;
+  const passata = !!(lavoro && lavoro.passatoA);
+  f.classList.toggle('passata', passata);
+  if (pdf) pdf.disabled = passata;
+  if (!passata) { if (passOsserva) { passOsserva.disconnect(); passOsserva = null; } return; }
+  const chiudi = () => { f.querySelectorAll('input,select,textarea,button').forEach(x => { if (x.closest('#pass-d') || x.closest('summary')) return; if (!x.disabled) { x.disabled = true; x.setAttribute('data-bloccato', '1'); } }); };
+  chiudi();
+  if (!passOsserva && window.MutationObserver) { passOsserva = new MutationObserver(() => { if (lavoro && lavoro.passatoA) chiudi(); }); passOsserva.observe(f, {childList: true, subtree: true}); }
 }
 function aggiornaTile(){
   document.querySelectorAll('.tile').forEach(t => { const i = t.querySelector('input'); t.classList.toggle('sel', !!(i && i.checked)); });
@@ -8261,7 +8276,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.104.0 (21/11/2026)';
+const VERSIONE_APP = '1.104.1 (21/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9231,7 +9246,7 @@ function passaggioHtml(w){
   if (!w || inUfficio) return '';
   const cc = passaggioColleghi(w);
   const prec = (w.storia || []).length ? `<p class="aiuto" style="margin:0 0 8px">Questo intervento è già passato per: ${(w.storia || []).map(s => '<b>' + esc(s.n) + '</b>' + (passaggioFasce(s) ? ' (' + esc(passaggioFasce(s)) + ')' : '')).join(', ')}.</p>` : '';
-  const dec = w.passatoA ? `<div class="avviso info" style="margin:0 0 10px"><b>${esc(passA(w.passatoA.n))}</b> il ${esc(dataIT(isoGiorno(new Date(w.passatoA.quando))))} alle ${esc(hhmm(new Date(w.passatoA.quando)))}. <button class="btn chiaro piccolo" id="b-pass-annulla" type="button">Lo riprendo io</button></div>` : '';
+  const dec = w.passatoA ? `<div class="avviso info" style="margin:0 0 10px"><b>${esc(passA(w.passatoA.n))}</b> il ${esc(dataIT(isoGiorno(new Date(w.passatoA.quando))))} alle ${esc(hhmm(new Date(w.passatoA.quando)))}. L'intervento è in sola lettura. <button class="btn chiaro piccolo" id="b-pass-annulla" type="button">Lo riprendo io</button></div>` : '';
   return `<details class="passo" id="pass-d"><summary><h2>Passa a un collega</h2><span class="aiuto">se non riesci a finire</span></summary>
     <div>${prec}${dec}
     <p class="aiuto" style="margin:0 0 8px">Il collega riceve tutto quello che hai compilato (relazione, materiali, foto, orari) e continua lui. Le tue ore restano tue: l'ufficio vede chi ha fatto cosa. Se l'orario di fine è vuoto lo chiudo all'ora del passaggio.</p>
@@ -9297,6 +9312,7 @@ async function passaggioInvia(via){
     passUltimo = {col, nota};
     m.textContent = (r === 'scaricato' ? 'File scaricato: allegalo tu al messaggio. ' : '') + (col.n ? 'Passato a ' + col.n + (via === 'uff' ? ' (tramite l\'ufficio)' : '') : 'Passato all\'ufficio: sceglie lui il collega') + '. Da ora l\'intervento resta in sola lettura.';
     const av = $('#pass-avviso'); if (av) av.hidden = (via === 'uff');
+    try { bloccaSchedaPassata(); } catch(e) {}
     try { disegnaAgenda(); } catch(e) {}
   } catch(e) { m.textContent = 'Non sono riuscito a preparare il passaggio: ' + (e && e.message ? e.message : e); }
 }
