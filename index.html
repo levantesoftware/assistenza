@@ -102,6 +102,8 @@ h1,h2,h3,p{margin:0}
 .btn:active{background:var(--petrolio-s)}
 .btn.sec{background:var(--foglio);color:var(--petrolio)}
 .btn.chiaro{background:transparent;color:var(--petrolio);border-color:var(--riga)}
+.pausa-or .btn.sel{background:var(--petrolio);color:#fff;border-color:var(--petrolio)}
+.pausa-or .btn{min-height:40px}
 .btn.piccolo{min-height:40px;padding:0 12px;font-weight:600;font-size:15px}
 .btn.pieno{display:flex;width:100%}
 .btn svg{width:20px;height:20px;flex:none}
@@ -123,6 +125,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .visita .ora small{display:block;font-size:13px;font-weight:400;color:var(--tenue);margin-top:4px}
 .visita .corpo{background:var(--foglio);border:1px solid var(--riga);border-left:5px solid var(--acciaio-s);border-radius:10px;padding:12px 14px;min-width:0}
 .visita.bozza .corpo{border-left-color:var(--fiamma)}
+.visita.pass .corpo{border-left-color:#4527A0;background:#F5F2FB}
+.visita.pass .nome{opacity:.85}
 .visita.pdf .corpo{border-left-color:var(--ok)}
 .visita.urgente .corpo{border-left-color:var(--rosso)}
 .visita .nome{font-weight:700;font-size:17px;overflow-wrap:anywhere}
@@ -1129,6 +1133,7 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     <h2 class="giorno" style="margin-top:26px">Funzioni per i tecnici</h2>
     <p class="aiuto" style="margin:0 0 8px">Sezioni in più nell'app dei tecnici. Quando le attivi, i dettagli (a chi sono stati inviati i cantieri, le chiamate in attesa) compaiono in «Invio ai tecnici».</p>
     <label class="tile" style="margin-top:8px"><input type="checkbox" id="chk-cantieri"><span>Gestisci i cantieri<small>I cantieri che in Levante hanno «visibile su Express Mag» acceso vanno a tutti, in una sezione «Cantieri»: ognuno scrive ore, cosa ha fatto, materiali e foto, e tutto torna nella posta in arrivo. Gli operai che non sono in agenda ricevono solo i cantieri (e contano nella licenza). Attiva solo se vuoi lavorare così.</small></span></label>
+    <div class="campo" style="margin-top:12px"><label for="pass-giorni">Passaggi tra tecnici: giorni in cui restano visibili</label><input type="number" id="pass-giorni" min="1" max="60" inputmode="numeric" style="max-width:110px"><span class="aiuto" style="display:block;margin-top:4px">Vale per l'ufficio e, al prossimo invio, anche per i tecnici. Di solito 10.</span></div>
     <label class="tile" style="margin-top:8px"><input type="checkbox" id="chk-chiamate"><span>Gestisci le chiamate di assistenza<small>Le chiamate aperte in Levante (senza appuntamento) vanno ai tecnici in una sezione «Chiamate»: decide il tecnico quando andare. Attiva solo se vuoi lavorare così: una chiamata può diventare appuntamento nel frattempo, quindi controlla sempre l'ultima esportazione.</small></span></label>
     </div>
     <div class="solo-uff">
@@ -1187,6 +1192,14 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     <div class="campo" style="margin:10px 0 0"><label for="bk-elenco">Oppure ripristina una copia automatica</label><select id="bk-elenco"><option value="">— nessuna copia trovata —</option></select></div>
     <div class="azioni" style="grid-template-columns:auto;justify-content:start;margin-top:8px"><button class="btn sec piccolo" id="bk-ripristina" type="button" disabled>Ripristina la copia scelta</button></div>
     <p class="aiuto" id="bk-esito" role="status" style="margin:8px 0 0"></p>
+    <h2 class="giorno" style="margin-top:26px">Backup completo</h2>
+    <p class="aiuto" style="margin:0 0 8px">Copia in una cartella a tua scelta — meglio <b>un altro disco, una chiavetta o una cartella di rete</b> — i dati dell'app, i file ricevuti dai tecnici e i PDF dei rapporti. Copia solo i file nuovi e <b>non cancella mai niente</b>.</p>
+    <div class="campo" style="margin:0 0 6px"><label for="bkc-cartella">Cartella del backup</label><input id="bkc-cartella" type="text" placeholder="Es. D:\Backup" autocomplete="off" spellcheck="false"></div>
+    <p class="aiuto" id="bkc-unita" style="margin:0 0 8px"></p>
+    <div class="campo" style="margin:0 0 6px"><label for="bkc-auto">Backup automatico</label><select id="bkc-auto"><option value="mai">Spento (lo faccio io quando voglio)</option><option value="giorno">Ogni giorno</option><option value="settimana">Ogni settimana</option></select></div>
+    <div class="campo" id="bkc-ora-box" style="margin:0 0 6px"><label for="bkc-ora">Ora del backup automatico</label><input id="bkc-ora" type="time" value="22:00"></div>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn sec piccolo" id="bkc-salva" type="button">Salva</button><button class="btn piccolo" id="bkc-ora-btn" type="button">Fai il backup ora</button></div>
+    <p class="aiuto" id="bkc-stato" role="status" style="margin:8px 0 0"></p>
     </div>
     </div>
     <button class="btn sec pieno" id="b-azzera" type="button" style="margin-top:18px">Cancella le schede salvate</button>
@@ -1542,7 +1555,7 @@ const maius = s => s.charAt(0).toUpperCase() + s.slice(1);
 const giornoLungo = d => maius(d.toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long'}));
 const dataIT = iso => { if (!iso) return ''; const [y,m,d] = iso.slice(0,10).split('-'); return `${d}/${m}/${y}`; };
 /* ---- piu' postazioni: lo stato dell'app (interventi ricevuti, invii, impostazioni) e' condiviso dal servizio del PC server ---- */
-const CONDIVISE = ['ass_posta', 'ass_inviati', 'ass_auto_inv', 'ass_impostazioni'];
+const CONDIVISE = ['ass_posta', 'ass_inviati', 'ass_auto_inv', 'ass_impostazioni', 'ass_passaggi_uff'];
 const sync = {on: false, login: false, rev: {}, base: {}, ultima: 0, attesa: {}, occupato: false, inviando: false, t: 0, ui: 0};
 const jsonUguale = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const chiaveP = r => (r.id || '') + '|' + (r.data || '') + '|' + (r.cliente || '');
@@ -1565,6 +1578,11 @@ function unisci(k, base, loc, rem, init){
     });
     loc.forEach(l => { if (!mR.has(chiaveP(l)) && !inBase.has(chiaveP(l))) out.push(l); });
     return out;
+  }
+  if (k === 'ass_passaggi_uff') {          // passaggi tra tecnici: unione per chiave (la copia invisibile e la pagina aperta li vedono entrambe)
+    if (!Array.isArray(loc) || !Array.isArray(rem)) return Array.isArray(rem) ? rem : loc;
+    const m = new Map(); rem.concat(loc).forEach(x => { if (!x || !x.k) return; const v = m.get(x.k); if (!v) { m.set(x.k, x); return; } const o = Object.assign({}, v, x); o.completo = !!(v.completo || x.completo); o.a = x.a || v.a || ''; o.scelto = !!(v.scelto || x.scelto); o.nascosto = !!(v.nascosto || x.nascosto) || undefined; o.mandato = x.mandato || v.mandato; o.src = Array.from(new Set((v.src || []).concat(x.src || []))); if (v.completo && !x.completo) o.via = v.via; m.set(x.k, o); });
+    return Array.from(m.values());
   }
   if (k === 'ass_inviati') {
     const o = Object.assign({}, rem); Object.keys(loc || {}).forEach(id => { if (!o[id] || String((loc[id] || {}).quando || '') >= String(o[id].quando || '')) o[id] = loc[id]; }); return o;
@@ -1636,6 +1654,7 @@ function applicaLocale(k, v){
     posta = Array.isArray(copia) ? copia : [];
     if (!inWorker && workerVivo && notificaPostaOk) { const nr = posta.filter(r => !r.fatto && r.rich && !prima.has(chiavePosta(r))).length; if (nr) { try { avvisaDesktop('Un tecnico è libero', nr === 1 ? 'Nuova richiesta di chiamate dai tecnici.' : nr + ' nuove richieste di chiamate dai tecnici.'); } catch(e) {} } const n = posta.filter(r => !r.fatto && !r.rich && !prima.has(chiavePosta(r))).length; if (n) { try { avvisaDesktop('Nuovo intervento in arrivo', n === 1 ? 'Un intervento da registrare.' : n + ' interventi da registrare.'); } catch(e) {} } }
   }
+  if (k === 'ass_passaggi_uff') { passaggi = Array.isArray(copia) ? copia : []; }
   if (k === 'ass_impostazioni') { impostazioni = Object.assign({azienda: '', tecnico: ''}, copia || {}); try { limiteTecniciCambiato(); } catch(e) {} }
   clearTimeout(sync.ui); sync.ui = setTimeout(rinfresca, 150);
 }
@@ -1816,7 +1835,8 @@ function chipInvio(b){
 const manualiInviati = () => inUfficio ? [] : Object.values(bozze).filter(b => b && b.manuale && b.stato === 'pdf' && b.inviatoUff && Date.now() - (b.inviatoUff || 0) < 10 * 86400000).sort((x, y) => y.inviatoUff - x.inviatoUff);
 function disegnaDaCompletare(){
   const ids = new Set(appuntamenti.map(a => a.id));
-  const aperte = Object.values(bozze).filter(b => b.stato === 'bozza' && (b.manuale || !ids.has(b.id))).sort((x, y) => y.aggiornata - x.aggiornata);
+  const tutteB = Object.values(bozze).filter(b => b.stato === 'bozza' && (b.manuale || !ids.has(b.id))).sort((x, y) => y.aggiornata - x.aggiornata);
+  const aperte = tutteB.filter(b => !b.passatoA), passate = tutteB.filter(b => b.passatoA && !b.passatoA.nascosto && Date.now() - (b.passatoA.quando || 0) < passGiorni() * 86400000);
   const box = $('#da-completare');
   const inv = nascondiGestiti ? [] : manualiInviati();
   const htmlInv = inv.length ? '<h2 class="giorno">Interventi senza appuntamento già inviati</h2>' + inv.map(b => `<button class="visita" type="button" data-bozza="${esc(b.id)}">
@@ -1824,13 +1844,20 @@ function disegnaDaCompletare(){
     <span class="corpo"><span class="nome">${esc(b.titolo || b.cliente || 'Intervento')}</span>
       <span class="dove" style="display:block">Senza appuntamento</span>
       <span class="riga">${chipEsito(b)}${chipInvio(b)}</span></span></button>`).join('') : '';
-  if (!aperte.length && !htmlInv) { box.innerHTML = ''; return; }
+  const htmlPass = passate.length ? '<h2 class="giorno">Passati a un collega</h2>' + passate.map(b => `<button class="visita pass" type="button" data-bozza="${esc(b.id)}">
+    <span class="ora" style="font-size:16px">${esc(dataIT(b.data).slice(0, 5))}</span>
+    <span class="corpo"><span class="nome">${esc(b.titolo || b.cliente || 'Intervento')}</span>
+      <span class="dove" style="display:block">${b.manuale ? 'Senza appuntamento' : 'Non è più nell\'elenco degli appuntamenti'}</span>
+      <span class="riga"><span class="chip pass">${esc(passA(b.passatoA.n))}</span> <span class="aiuto">${esc(dataIT(isoGiorno(new Date(b.passatoA.quando))))} ${esc(hhmm(new Date(b.passatoA.quando)))}${b.passatoA.via === 'uff' ? ' · tramite l\'ufficio' : ''}</span></span></span></button>
+    <div style="margin:-4px 0 10px 56px"><button class="btn chiaro piccolo" type="button" data-pass-togli="${esc(b.id)}">Togli dall'elenco</button></div>`).join('') + '<p class="aiuto" style="margin:0 0 10px">Si tolgono da soli dopo ' + passGiorni() + ' giorni.</p>' : '';
+  if (!aperte.length && !htmlInv && !htmlPass) { box.innerHTML = ''; return; }
   box.innerHTML = (aperte.length ? '<h2 class="giorno">Schede da completare</h2>' : '') + aperte.map(b => `<button class="visita bozza" type="button" data-bozza="${esc(b.id)}">
     <span class="ora" style="font-size:16px">${esc(dataIT(b.data).slice(0, 5))}</span>
     <span class="corpo"><span class="nome">${esc(b.titolo || b.cliente || 'Intervento')}</span>
       <span class="dove" style="display:block">${b.manuale ? 'Senza appuntamento' : 'Non è più nell\'elenco degli appuntamenti'}</span>
-      <span class="riga"><span class="chip bozza">Bozza</span>${chipEsito(b)}</span></span></button>`).join('') + htmlInv;
+      <span class="riga"><span class="chip bozza">Bozza</span>${chipEsito(b)}</span></span></button>`).join('') + htmlPass + htmlInv;
   box.querySelectorAll('[data-bozza]').forEach(x => x.onclick = () => apriBozza(x.dataset.bozza));
+  box.querySelectorAll('[data-pass-togli]').forEach(x => x.onclick = () => { const b = bozze[x.dataset.passTogli]; if (b && b.passatoA) { b.passatoA.nascosto = true; salvaBozze(); disegnaDaCompletare(); } });
 }
 function apriBozza(id){
   if (sola()) return;
@@ -1882,8 +1909,9 @@ function aggiornaNav(){
   document.body.classList.toggle('uff', !!inUfficio);
   const att = (vistaCorrente === 'calendario' || (tornaCal && vistaCorrente === 'dettaglio')) ? 'calendario' : vistaCorrente === 'posta' ? 'posta' : vistaCorrente === 'ufficio' ? 'ufficio' : vistaCorrente === 'impostazioni' ? 'impostazioni' : vistaCorrente === 'incassi' ? 'incassi' : vistaCorrente === 'richieste' ? 'richieste' : 'agenda';
   document.querySelectorAll('#nav-uff [data-nav]').forEach(b => b.setAttribute('aria-pressed', b.dataset.nav === att));
-  const n = posta.filter(r => !r.fatto && !r.rich).length, bd = $('#nav-badge');
-  if (bd) { bd.hidden = !n; bd.textContent = n; }
+  let nPs = 0; try { nPs = inUfficio ? passaggiAttivi().length : 0; } catch(e) {}
+  const n = posta.filter(r => !r.fatto && !r.rich).length + nPs, bd = $('#nav-badge');
+  if (bd) { bd.hidden = !n; bd.textContent = n; bd.title = nPs ? nPs + (nPs === 1 ? ' intervento passato tra tecnici' : ' interventi passati tra tecnici') : ''; }
   const nq = posta.filter(r => !r.fatto && r.rich).length, bq = $('#nav-badge-rq');
   if (bq) { bq.hidden = !nq; bq.textContent = nq; }
   const bi = $('#nav-badge-inv');
@@ -2062,7 +2090,7 @@ function disegnaAgenda(){
     if (senzaRapporto(a)) chips.push('<span class="chip urg">Senza rapporto</span>');
     if (a.fatto) chips.push('<span class="chip chiuso">Chiuso in Levante</span>');
     else if (registrato(a)) chips.push('<span class="chip pdf">Registrato in Levante</span>');
-    { const bz = bozze[a.id]; if (bz && bz.passatoA) chips.unshift('<span class="chip pass">Passato a ' + esc(bz.passatoA.n) + '</span>'); else if (a.passatoDa) chips.unshift('<span class="chip pass">Da ' + esc(a.passatoDa) + '</span>'); }
+    { const bz = bozze[a.id]; if (bz && bz.passatoA) chips.unshift('<span class="chip pass">' + esc(passA(bz.passatoA.n)) + '</span>'); else if (a.passatoDa) chips.unshift('<span class="chip pass">Da ' + esc(a.passatoDa) + '</span>'); }
     const fl = flagNovita[a.id];
     if (fl) chips.unshift(fl.t === 'nuovo' ? '<span class="chip nov">Nuovo</span>' : fl.t === 'spostato' ? `<span class="chip nov">Spostato${fl.prima ? ' · era ' + esc(isoGiorno(new Date(fl.prima)) === isoGiorno(a.inizio) ? hhmm(new Date(fl.prima)) : fmtQuando(fl.prima)) : ''}</span>` : `<span class="chip nov">Modificato${fl.cosa ? ' · ' + esc(fl.cosa) : ''}</span>`);
     const eProssimo = !inUfficio && !prossimoFatto && !a.promemoria && st !== 'pdf' && !a.fatto && isoGiorno(a.inizio) === isoGiorno(new Date()) && a.fine > new Date();
@@ -2736,7 +2764,15 @@ function righeOrari(){
     <div><label>Giorno</label><input type="date" data-orario="${n}" data-c="data" value="${esc(o.data)}"></div>
     <div><label>Dalle</label><input type="time" data-orario="${n}" data-c="dal" value="${esc(o.dal)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|dal">Adesso</button>${indPos(o, 'dal', n)}</div>
     <div><label>Alle</label><input type="time" data-orario="${n}" data-c="al" value="${esc(o.al)}"><button class="btn chiaro piccolo adesso" type="button" data-adesso="${n}|al">Adesso</button>${indPos(o, 'al', n)}</div>
-    ${lavoro.orari.length > 1 ? `<button class="togli" type="button" data-togli-orario="${n}" aria-label="Togli questa fascia">×</button>` : '<span></span>'}</div>`).join('');
+    ${lavoro.orari.length > 1 ? `<button class="togli" type="button" data-togli-orario="${n}" aria-label="Togli questa fascia">×</button>` : '<span></span>'}</div>
+    ${pausaHtml(o, n)}`).join('');
+}
+function pausaHtml(o, n){          // pausa pranzo di una fascia: scelte rapide oppure orario dal-al; non viene contata nelle ore
+  const alt = !!(o.pa || o.pdal || o.pal), m = parseInt(o.pausa, 10) || 0, sel = v => (v === 'a' ? alt : (!alt && (v === '0' ? !m : m === +v)));
+  const b = (v, t) => `<button class="btn chiaro piccolo${sel(v) ? ' sel' : ''}" type="button" data-paus="${n}|${v}" aria-pressed="${sel(v)}">${t}</button>`;
+  return `<div class="pausa-or" style="margin:-2px 0 12px"><span class="aiuto" style="display:block;margin-bottom:4px">Pausa pranzo (non conta nelle ore)</span><div style="display:flex;flex-wrap:wrap;gap:6px">${b('0', 'Nessuna')}${b('30', '30 min')}${b('45', '45 min')}${b('60', '60 min')}${b('a', 'Altro')}</div>
+    ${alt ? `<div class="riga-orario" style="grid-template-columns:1fr 1fr;margin:8px 0 0"><div style="grid-column:auto"><label>Pausa dalle</label><input type="time" data-orario="${n}" data-c="pdal" value="${esc(o.pdal || '')}"></div><div><label>Pausa alle</label><input type="time" data-orario="${n}" data-c="pal" value="${esc(o.pal || '')}"></div></div>` : ''}
+    <span class="aiuto" data-patot="${n}" style="display:block;margin-top:4px">${pausaMin(o) ? 'Tolti ' + pausaMin(o) + ' min dalle ore.' : ''}</span></div>`;
 }
 function adattaDescr(t){
   const l = t ? [t.closest('.mat')] : document.querySelectorAll('#materiali .mat');
@@ -3255,8 +3291,11 @@ function minuti(dal, al){
   const t = (h2*60 + m2) - (h1*60 + m1);
   return t > 0 ? t : 0;
 }
+const pausaMin = o => o && o.pdal && o.pal ? minuti(o.pdal, o.pal) : (parseInt(o && o.pausa, 10) || 0);          // pausa pranzo di una fascia: orario dal-al oppure minuti
+const minFascia = o => o && o.dal && o.al ? Math.max(0, minuti(o.dal, o.al) - pausaMin(o)) : 0;                 // minuti di lavoro di una fascia, senza la pausa
+const pausaTesto = o => { const m = pausaMin(o); return m ? (o.pdal && o.pal ? o.pdal + '–' + o.pal + ', ' : '') + m + ' min' : ''; };
 const fmtOre = m => Math.floor(m/60) + ' h' + (m % 60 ? ' ' + pad(m % 60) + ' min' : '');
-function oreDaFasce(){ return lavoro.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0); }
+function oreDaFasce(){ return lavoro.orari.reduce((s, o) => s + minFascia(o), 0); }
 function oreTotali(){ const t = oreDaFasce(); return t > 0 ? t : Math.round(numOre(lavoro.oreMan) * 60); }
 let orApr = {};
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'or-d') orApr[ptKey()] = d.open; }, true);
@@ -3271,6 +3310,7 @@ function aggiornaOre(){
   if (m) { if (da > 0) { const v = String(Math.round(da / 60 * 100) / 100).replace('.', ','); if (m.value !== v) m.value = v; m.readOnly = true; if (h) h.textContent = 'Calcolato dagli orari.'; }
     else { const v = lavoro.oreMan || ''; if (m.readOnly) m.value = v; m.readOnly = false; if (h) h.textContent = 'Senza gli orari, scrivilo tu (per esempio 3,5).'; } }
   const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario();
+  document.querySelectorAll('[data-patot]').forEach(e => { const o = lavoro.orari[+e.dataset.patot]; if (o) e.textContent = pausaMin(o) ? 'Tolti ' + pausaMin(o) + ' min dalle ore.' : ''; });
 }
 
 /* ---- salvataggio automatico ---- */
@@ -3527,6 +3567,7 @@ function collegaForm(){
       b.closest('.controllo').querySelectorAll('.tri').forEach(x => { const v = x.dataset.tri.split('|')[2]; const on = String(r[col] || '').toUpperCase() === v; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on); });
       bozzaModificata(); return;
     }
+    if (d.paus !== undefined) { const [pn, pv] = d.paus.split('|'), o = lavoro.orari[+pn]; if (o) { if (pv === 'a') { o.pa = true; } else { o.pa = false; o.pdal = ''; o.pal = ''; o.pausa = pv === '0' ? '' : pv; } disegnaOrari(); } return; }
     if (b.id === 'b-add-orario' && lavoro.orari.length < 5) { lavoro.orari.push({data: lavoro.data, dal:'', al:''}); disegnaOrari(); }
     else if (d.togliOrario !== undefined) { lavoro.orari.splice(+d.togliOrario, 1); disegnaOrari(); }
     else if (b.id === 'sq-ok') { const a = $('#sq-nome'); if (a) sqAggiungi(a.value, null); }
@@ -3708,9 +3749,9 @@ function costruisciPdf(w, ctx){
     if (ol.length <= 1) { blocco('Osservazioni', ol.length ? ol[0].o : w.osservazioni); blocco('Raccomandazioni', ol.length ? ol[0].a : w.raccomandazioni); blocco('Prescrizioni', ol.length ? ol[0].p : w.prescrizioni); }
     else ol.forEach(x => { blocco('Osservazioni – ' + x.nome, x.o); blocco('Raccomandazioni – ' + x.nome, x.a); blocco('Prescrizioni – ' + x.nome, x.p); }); }
 
-  let tot = w.orari.reduce((s, o) => s + minuti(o.dal, o.al), 0); if (!(tot > 0)) tot = Math.round(numOre(w.oreMan) * 60);
+  let tot = w.orari.reduce((s, o) => s + minFascia(o), 0); if (!(tot > 0)) tot = Math.round(numOre(w.oreMan) * 60);
   titolo('Orari');
-  w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—'), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
+  w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—') + (pausaMin(o) ? ' (pausa ' + pausaTesto(o) + ')' : ''), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
   if (!ctx.perCliente) w.orari.forEach(o => {
     const L = [[o.p_dal, 'Apri la posizione di arrivo in Google Maps'], [o.p_al, 'Apri la posizione di fine in Google Maps']].filter(x => x[0]);
     if (!L.length) return;
@@ -8031,7 +8072,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), cfg: cfgPer(id), cm: cmPer(id), colleghi: conOperai(id, id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : []), meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), passGiorni: passGiorni(), cfg: cfgPer(id), cm: cmPer(id), colleghi: conOperai(id, id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : []), meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
     pratiche: datiLevante.pratiche || [], cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 let salvataggioDati = {ok: true, kb: 0, senzaModelli: false};
@@ -8220,7 +8261,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.101.2 (20/11/2026)';
+const VERSIONE_APP = '1.104.0 (21/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9154,16 +9195,18 @@ function avviaCantieri(){
    lo manda al collega B (o all'ufficio, che lo gira) e B lo carica e continua. Nell'intervento che B poi invia resta la «storia»
    (chi ha fatto cosa e per quante ore), cosi' l'ufficio puo' registrare in Levante le ore di ognuno.
    ================================================================== */
+const passGiorni = () => { const v = inUfficio ? +impostazioni.passaggiGiorni : +(datiReali && datiReali.passGiorni); return Math.max(1, Math.min(60, v > 0 ? Math.round(v) : 10)); };          // quanti giorni restano visibili i passaggi (impostazione dell'ufficio, arriva anche ai tecnici)
+const passA = n => n ? 'Passato a ' + n : 'Passato all\'ufficio (da assegnare)';
 const PASS_PASSATI = 'ass_passati';            // appuntamenti ricevuti da un collega: restano in agenda anche se poi arriva un nuovo file dall'ufficio
 function passatiAttivi(){
-  const lim = Date.now() - 21 * 86400000;
+  const lim = Date.now() - passGiorni() * 86400000;
   return store.get(PASS_PASSATI, []).filter(p => p && p.id && (p.passatoQuando || 0) > lim);
 }
 function passaggioMinuti(s){          // minuti di un tratto della storia: orari dal-al, altrimenti le ore scritte a mano
-  const t = (s.orari || []).reduce((m, o) => m + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0);
+  const t = (s.orari || []).reduce((m, o) => m + minFascia(o), 0);
   return t > 0 ? t : Math.round((numOre(s.ore) || 0) * 60);
 }
-function passaggioFasce(s){ return (s.orari || []).filter(o => o.dal || o.al).map(o => (o.dal || '?') + '–' + (o.al || '?')).join(', '); }
+function passaggioFasce(s){ return (s.orari || []).filter(o => o.dal || o.al).map(o => (o.dal || '?') + '–' + (o.al || '?') + (pausaMin(o) ? ' (pausa ' + pausaMin(o) + ' min)' : '')).join(', '); }
 const passaggioColleghi = w => ((typeof datiReali !== 'undefined' && datiReali && datiReali.colleghi) || []).filter(c => c && c.n && normNome(c.n) !== normNome((w && w.tecnico) || impostazioni.tecnico));
 function passaggioTestoAuto(w){          // riepilogo automatico di cosa e' stato fatto e cosa resta, dai dati della scheda
   const elenco = l => l.length > 5 ? l.slice(0, 5).join(', ') + ' e altre ' + (l.length - 5) : l.join(', ');
@@ -9188,11 +9231,11 @@ function passaggioHtml(w){
   if (!w || inUfficio) return '';
   const cc = passaggioColleghi(w);
   const prec = (w.storia || []).length ? `<p class="aiuto" style="margin:0 0 8px">Questo intervento è già passato per: ${(w.storia || []).map(s => '<b>' + esc(s.n) + '</b>' + (passaggioFasce(s) ? ' (' + esc(passaggioFasce(s)) + ')' : '')).join(', ')}.</p>` : '';
-  const dec = w.passatoA ? `<div class="avviso info" style="margin:0 0 10px"><b>Passato a ${esc(w.passatoA.n)}</b> il ${esc(dataIT(isoGiorno(new Date(w.passatoA.quando))))} alle ${esc(hhmm(new Date(w.passatoA.quando)))}. <button class="btn chiaro piccolo" id="b-pass-annulla" type="button">Lo riprendo io</button></div>` : '';
+  const dec = w.passatoA ? `<div class="avviso info" style="margin:0 0 10px"><b>${esc(passA(w.passatoA.n))}</b> il ${esc(dataIT(isoGiorno(new Date(w.passatoA.quando))))} alle ${esc(hhmm(new Date(w.passatoA.quando)))}. <button class="btn chiaro piccolo" id="b-pass-annulla" type="button">Lo riprendo io</button></div>` : '';
   return `<details class="passo" id="pass-d"><summary><h2>Passa a un collega</h2><span class="aiuto">se non riesci a finire</span></summary>
     <div>${prec}${dec}
     <p class="aiuto" style="margin:0 0 8px">Il collega riceve tutto quello che hai compilato (relazione, materiali, foto, orari) e continua lui. Le tue ore restano tue: l'ufficio vede chi ha fatto cosa. Se l'orario di fine è vuoto lo chiudo all'ora del passaggio.</p>
-    <div class="campo"><label for="pass-col">Collega</label><select id="pass-col"><option value="">— scegli —</option>${cc.map((c, i) => `<option value="${i}">${esc(c.n)}</option>`).join('')}<option value="__altro">Altro (scrivo il nome)</option></select>
+    <div class="campo"><label for="pass-col">Collega</label><select id="pass-col"><option value="">— scegli —</option>${cc.map((c, i) => `<option value="${i}">${esc(c.n)}</option>`).join('')}<option value="__uff">Non so: lo decide l'ufficio</option><option value="__altro">Altro (scrivo il nome)</option></select>
       <input type="text" id="pass-altro" placeholder="Nome del collega" style="margin-top:8px"${cc.length ? ' hidden' : ''}></div>
     <div class="campo"><label for="pass-motivo">Motivo (facoltativo)</label><select id="pass-motivo"><option value="">— nessuno —</option>${PASS_MOTIVI.map(x => `<option>${esc(x)}</option>`).join('')}</select></div>
     <div class="campo"><label for="pass-nota">Riepilogo per il collega <span class="aiuto">(scritto da solo: puoi correggerlo)</span></label><textarea id="pass-nota" rows="4" maxlength="600">${esc(passaggioTestoAuto(w))}</textarea>
@@ -9204,7 +9247,7 @@ function passaggioHtml(w){
 }
 async function passaggioCostruisci(w, col, nota, via, avviso, trattoFisso){
   const ora = new Date(), oggi = isoGiorno(ora);
-  const orari = (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ((o.data || w.data) === oggi && o.dal ? hhmm(ora) : '')}));
+  const orari = (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ((o.data || w.data) === oggi && o.dal ? hhmm(ora) : ''), pausa: o.pausa || '', pdal: o.pdal || '', pal: o.pal || ''}));
   const tratto = trattoFisso || {n: w.tecnico || impostazioni.tecnico || '', op: (datiReali && datiReali.meOp != null) ? datiReali.meOp : null, orari, ore: w.oreMan || '', nota, quando: ora.getTime()};
   const storia = (w.storia || []).concat([tratto]);
   const base = {assist: 'passaggio', formato: 'assistenza-passaggio-v1', v: 1, id: w.id, li: (w.levante && w.levante.li) || '', cliente: w.cliente || '', indirizzo: w.indirizzo || '', data: w.data, da: tratto.n, a: col.n, aOp: col.op != null ? col.op : null, via, nota, quando: tratto.quando, storia, tecnico: tratto.n, inviato: Date.now()};
@@ -9218,7 +9261,7 @@ async function passaggioCostruisci(w, col, nota, via, avviso, trattoFisso){
   const app = (corrente && corrente.id === w.id) ? JSON.parse(JSON.stringify(corrente)) : null;
   return Object.assign(base, {w: copia, foto, voce: voce && voce.b64 ? voce : undefined, app});
 }
-function passaggioOggetto(w, col){ return 'Intervento passato a ' + col.n + ': ' + (w.cliente || 'intervento'); }
+function passaggioOggetto(w, col){ return 'Intervento passato ' + (col.n ? 'a ' + col.n : '(collega da scegliere)') + ': ' + (w.cliente || 'intervento'); }
 async function passaggioCondividi(file, oggetto, testo, ind, m){          // stessa logica dell'invio dei rapporti: menu di condivisione, altrimenti scarica e apre la mail
   const fl = [file];
   if (navigator.canShare && navigator.canShare({files: fl})) {
@@ -9233,25 +9276,26 @@ let passUltimo = null;
 async function passaggioInvia(via){
   const w = lavoro, m = $('#pass-msg'); if (!w || !m) return;
   const sel = $('#pass-col'); let col = null;
-  if (sel && sel.value === '__altro') { const n = (($('#pass-altro') || {}).value || '').trim(); if (n) col = {n, op: null}; }
+  if (sel && sel.value === '__uff') { if (via !== 'uff') { m.textContent = 'Se non sai chi andrà usa «Invia all\'ufficio (lo gira lui)»: il collega lo sceglie l\'ufficio.'; return; } col = {n: '', op: null}; }
+  else if (sel && sel.value === '__altro') { const n = (($('#pass-altro') || {}).value || '').trim(); if (n) col = {n, op: null}; }
   else if (sel && sel.value !== '') col = passaggioColleghi(w)[+sel.value];
   if (!col) { m.textContent = 'Scegli il collega a cui passare l\'intervento.'; return; }
   if (via === 'uff' && !String(impostazioni.emailUfficio || '').trim() && !(navigator.canShare)) { m.textContent = 'Scrivi prima l\'email dell\'ufficio nelle Impostazioni.'; return; }
   const ta = $('#pass-nota'), mot = (($('#pass-motivo') || {}).value || '').trim();
   const nota = ((mot ? 'Motivo: ' + mot + '.\n' : '') + (ta && ta.dataset.mod === '1' ? ta.value.trim() : passaggioTestoAuto(w))).trim();
-  if (!confirm('Passo questo intervento a ' + col.n + (via === 'uff' ? ' tramite l\'ufficio' : '') + '?\n\nDopo l\'invio sul tuo telefono resta in sola lettura (puoi sempre riprenderlo).')) return;
+  if (!confirm('Passo questo intervento ' + (col.n ? 'a ' + col.n + (via === 'uff' ? ' tramite l\'ufficio' : '') : 'all\'ufficio: sceglie lui il collega') + '?\n\nDopo l\'invio sul tuo telefono resta in sola lettura (puoi sempre riprenderlo).')) return;
   m.textContent = 'Preparo il file…';
   try {
     clearTimeout(timer); timer = null; try { salvaBozza(true); } catch(e) {}
     const d = await passaggioCostruisci(w, col, nota, via, false);
-    let file = new File([JSON.stringify(d)], 'Dati_Passaggio_' + slugNome(w.cliente) + '_' + slugNome(col.n) + '_' + (w.data || isoGiorno(new Date())) + '.txt', {type: 'text/plain'});
+    let file = new File([JSON.stringify(d)], 'Dati_Passaggio_' + slugNome(w.cliente) + '_' + (col.n ? slugNome(col.n) : 'da_assegnare') + '_' + (w.data || isoGiorno(new Date())) + '.txt', {type: 'text/plain'});
     if (protezioneAttiva() && scaricaPossibile) file = await cifraFile(file);
-    const testo = via === 'uff' ? 'Ciao, passo l\'intervento «' + (w.cliente || '') + '» a ' + col.n + '. Giralo tu al collega (il file va aperto dall\'app con «Carica i dati»).' : 'Ciao ' + col.n + ', ti passo l\'intervento «' + (w.cliente || '') + '». Apri il file con «Carica i dati» nell\'app Assistenza (o Condividi > Assistenza) e continua da dove mi ero fermato.';
+    const testo = via === 'uff' ? 'Ciao, passo l\'intervento «' + (w.cliente || '') + '» ' + (col.n ? 'a ' + col.n : '(non so a chi: scegli tu il collega)') + '. Giralo tu al collega (il file va aperto dall\'app con «Carica i dati»).' : 'Ciao ' + col.n + ', ti passo l\'intervento «' + (w.cliente || '') + '». Apri il file con «Carica i dati» nell\'app Assistenza (o Condividi > Assistenza) e continua da dove mi ero fermato.';
     const r = await passaggioCondividi(file, passaggioOggetto(w, col), testo, via === 'uff' ? String(impostazioni.emailUfficio || '').trim() : '', m);
     if (r === 'annullato' || r === 'no') { if (r === 'annullato') m.textContent = 'Invio annullato: l\'intervento è ancora tuo.'; return; }
     w.passatoA = {n: col.n, op: col.op, quando: d.quando, via, nota, tratto: d.storia[d.storia.length - 1]}; try { salvaBozza(true); } catch(e) {}
     passUltimo = {col, nota};
-    m.textContent = (r === 'scaricato' ? 'File scaricato: allegalo tu al messaggio. ' : '') + 'Passato a ' + col.n + (via === 'uff' ? ' (tramite l\'ufficio)' : '') + '. Da ora l\'intervento resta in sola lettura.';
+    m.textContent = (r === 'scaricato' ? 'File scaricato: allegalo tu al messaggio. ' : '') + (col.n ? 'Passato a ' + col.n + (via === 'uff' ? ' (tramite l\'ufficio)' : '') : 'Passato all\'ufficio: sceglie lui il collega') + '. Da ora l\'intervento resta in sola lettura.';
     const av = $('#pass-avviso'); if (av) av.hidden = (via === 'uff');
     try { disegnaAgenda(); } catch(e) {}
   } catch(e) { m.textContent = 'Non sono riuscito a preparare il passaggio: ' + (e && e.message ? e.message : e); }
@@ -9301,8 +9345,8 @@ function passaggioRegistra(o, f){
   const nuovo = {k, id: String(o.id || ''), li: String(o.li || ''), cliente: o.cliente || '', indirizzo: o.indirizzo || '', data: o.data || '', da: o.da || o.tecnico || '', a: o.a || '', via: o.via === 'uff' ? 'uff' : 'dir', nota: o.nota || '', quando: o.quando || 0,
     storia: (o.storia || []).map(s => ({n: s.n, op: s.op, orari: s.orari || [], ore: s.ore || '', nota: s.nota || '', quando: s.quando || 0})), completo: !!o.w, src, rec: Date.now()};
   const i = passaggi.findIndex(x => x.k === k);
-  if (i >= 0) { const v = passaggi[i]; nuovo.completo = v.completo || nuovo.completo; nuovo.src = Array.from(new Set((v.src || []).concat(src))); if (!nuovo.completo && v.completo) nuovo.via = v.via; passaggi[i] = nuovo; } else passaggi.push(nuovo);
-  passaggi = passaggi.filter(x => Date.now() - (x.rec || 0) < 30 * 86400000);
+  if (i >= 0) { const v = passaggi[i]; nuovo.completo = v.completo || nuovo.completo; if (v.a && !nuovo.a) nuovo.a = v.a; if (v.scelto) nuovo.scelto = true; if (v.nascosto) nuovo.nascosto = true; if (v.mandato) nuovo.mandato = v.mandato; nuovo.src = Array.from(new Set((v.src || []).concat(src))); if (!nuovo.completo && v.completo) nuovo.via = v.via; passaggi[i] = nuovo; } else passaggi.push(nuovo);
+  passaggi = passaggi.filter(x => Date.now() - (x.rec || 0) < Math.max(30, passGiorni() + 20) * 86400000);
   salvaPassaggi();
 }
 function passaggioArrivato(p){          // l'intervento finale del collega e' gia' arrivato in «Interventi in arrivo»
@@ -9313,14 +9357,33 @@ function passaggioDi(a){          // passaggio ancora in corso per un appuntamen
   for (let i = passaggi.length - 1; i >= 0; i--) { const p = passaggi[i]; if (((li && p.li === li) || p.id === String(a.id)) && !passaggioArrivato(p)) return p; }
   return null;
 }
+let passApertoUI = false;
+const passaggiAttivi = () => passaggi.filter(p => !p.nascosto && !passaggioArrivato(p) && Date.now() - (p.quando || 0) < passGiorni() * 86400000).sort((x, y) => y.quando - x.quando);
 function passaggiHtml(){
-  const L = passaggi.filter(p => !passaggioArrivato(p) && Date.now() - (p.quando || 0) < 10 * 86400000).sort((x, y) => y.quando - x.quando);
+  const L = passaggiAttivi();
   if (!L.length) return '';
-  return `<div class="avviso" style="margin:0 0 12px"><b>Interventi passati tra tecnici (${L.length})</b><span class="aiuto" style="display:block;margin-bottom:4px">In attesa che il collega chiuda e invii il rapporto: allora qui compare la storia completa.</span>
-    ${L.map((p, j) => `<div style="margin:8px 0;padding-top:6px;border-top:1px solid var(--riga)"><b>${esc(p.cliente)}</b>${p.li ? ' · N. ' + esc(p.li) : ''} · ${esc(dataIT(p.data))}<br>
-      <b>${esc(p.da)}</b> → <b>${esc(p.a)}</b> · ${esc(dataIT(isoGiorno(new Date(p.quando))))} ${esc(hhmm(new Date(p.quando)))}${p.via === 'uff' ? ' · <span class="chip urg">Da girare a ' + esc(p.a) + '</span>' : ''}${p.completo ? '' : ' · solo avviso'}
-      ${passaggioFasce(p.storia[p.storia.length - 1] || {}) ? '<br><span class="aiuto">Ore di ' + esc(p.da) + ': ' + esc(passaggioFasce(p.storia[p.storia.length - 1])) + '</span>' : ''}${p.nota ? '<br><span class="aiuto">«' + esc(p.nota) + '»</span>' : ''}
-      ${(p.via === 'uff' && p.completo && (p.src || []).length) ? '<br><button class="btn sec piccolo solo-server" type="button" data-passfile="' + j + '">Scarica il file da girare a ' + esc(p.a) + '</button>' : ''}</div>`).join('')}</div>`;
+  const tecElenco = () => { let L = []; try { L = (sqReali() || []).map(x => sqNomeTec(x)); } catch(e) {} if (!L.length) { try { L = Object.values((datiLevante && datiLevante.tecnici) || {}); } catch(e) {} } return Array.from(new Set(L.filter(Boolean))); };
+  const riga = (p, j) => !p.a ? `<div style="padding:6px 0;border-top:1px solid var(--riga);font-size:14px;line-height:1.35"><span style="font-weight:700">${esc(p.cliente || 'Intervento')}</span>${p.li ? ' · N. ' + esc(p.li) : ''} · passato da ${esc(p.da)} · ${esc(dataIT(isoGiorno(new Date(p.quando))))} ${esc(hhmm(new Date(p.quando)))} <span class="chip urg">Da assegnare</span>
+      ${p.nota ? '<br><span class="aiuto" title="' + esc(p.nota) + '">' + esc(p.nota.replace(/\s+/g, ' ').slice(0, 110)) + (p.nota.length > 110 ? '…' : '') + '</span>' : ''}
+      <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><select data-passsel="${j}" aria-label="Scegli il collega"><option value="">A chi lo passi?</option>${tecElenco().filter(n => normNome(n) !== normNome(p.da)).map(n => `<option>${esc(n)}</option>`).join('')}</select><button class="btn chiaro piccolo" type="button" data-passnasc="${j}">Nascondi</button></div></div>` : `<div style="padding:6px 0;border-top:1px solid var(--riga);font-size:14px;line-height:1.35"><span style="font-weight:700">${esc(p.cliente || 'Intervento')}</span>${p.li ? ' · N. ' + esc(p.li) : ''} · ${esc(p.da)} → <span style="font-weight:700">${esc(p.a)}</span> · ${esc(dataIT(isoGiorno(new Date(p.quando))))} ${esc(hhmm(new Date(p.quando)))}${p.via === 'uff' && !p.mandato ? ' <span class="chip urg">Da girare</span>' : ''}${p.mandato ? ' <span class="chip pdf">Inviato a ' + esc(p.mandato.a) + ' ' + esc(hhmm(new Date(p.mandato.quando))) + '</span>' : ''}${p.completo ? '' : ' <span class="aiuto">(solo avviso)</span>'}
+      ${p.nota ? '<br><span class="aiuto" title="' + esc(p.nota) + '">' + esc(p.nota.replace(/\s+/g, ' ').slice(0, 110)) + (p.nota.length > 110 ? '…' : '') + '</span>' : ''}
+      <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${(p.via === 'uff' && p.completo && (p.src || []).length) ? (inUfficio && smtpPronto ? '<button class="btn piccolo solo-server" type="button" data-passmail="' + j + '">' + (p.mandato ? 'Invia di nuovo' : 'Invia per mail') + '</button>' : '') + '<button class="btn sec piccolo solo-server" type="button" data-passfile="' + j + '">Scarica il file</button>' : ''}<button class="btn chiaro piccolo" type="button" data-passnasc="${j}">Nascondi</button></div></div>`;
+  return `<details class="avviso" data-passbox="1" style="margin:0 0 12px"${passApertoUI ? ' open' : ''}><summary><span style="font-weight:700">Interventi passati tra tecnici (${L.length})</span> <span class="aiuto">in attesa del rapporto del collega</span></summary>${L.map(riga).join('')}</details>`;
+}
+async function passaggioMandaMail(j){          // l'ufficio gira il passaggio al collega per mail, senza scaricare e allegare a mano
+  const p = passaggiAttivi()[j], m = $('#posta-msg');
+  if (!p || !(p.src || [])[0]) return;
+  const a = emailTecnico(p.a);
+  if (!a) { if (m) m.textContent = 'Manca l\'email di ' + p.a + ': scrivila in «Invio ai tecnici», sotto il suo nome.'; return; }
+  if (m) m.textContent = 'Invio a ' + p.a + '…';
+  try {
+    const r0 = await fetch('posta-file?nome=' + encodeURIComponent(p.src[0])); if (!r0.ok) throw new Error('file');
+    const b64 = b64DaBytes(new Uint8Array(await r0.arrayBuffer()));
+    const testo = 'Ciao ' + p.a + ',\n\n' + p.da + ' ti ha passato l\'intervento «' + (p.cliente || 'intervento') + '»' + (p.indirizzo ? ' (' + p.indirizzo + ')' : '') + '.' + (p.nota ? '\n\n' + p.nota : '') + '\n\nApri l\'app Assistenza, tocca «Carica i dati» e scegli il file allegato: ritrovi tutto quello che è già stato fatto.\n\n' + nomeAziendaMail();
+    const r = await chiamaJson('posta-invia', {a, oggetto: 'Intervento passato a ' + p.a + ': ' + (p.cliente || 'intervento'), testo, allegati: [{nome: 'Dati_Passaggio_' + slugNome(p.cliente) + '_' + slugNome(p.a) + '.txt', tipo: 'text/plain', b64}]});
+    if (r && r.ok) { const i = passaggi.findIndex(x => x.k === p.k); if (i >= 0) { passaggi[i].mandato = {a: p.a, quando: Date.now()}; salvaPassaggi(); } if (m) m.textContent = 'Mandato a ' + p.a + '.'; disegnaPosta(); }
+    else if (m) m.textContent = (r && r.messaggio) || 'Invio non riuscito.';
+  } catch(e) { if (m) m.textContent = 'Non sono riuscito a leggere il file o a inviarlo: puoi scaricarlo e mandarlo a mano.'; }
 }
 function storiaHtml(r){
   const S = (r.storia || []).filter(s => s && s.n); if (!S.length) return '';
@@ -9330,6 +9393,8 @@ function storiaHtml(r){
 }
 
 document.addEventListener('input', e => { if (e.target && e.target.id === 'pass-nota') e.target.dataset.mod = '1'; });
+document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && t.dataset.passsel !== undefined && t.value) { const p = passaggiAttivi()[+t.dataset.passsel]; if (p) { const i = passaggi.findIndex(x => x.k === p.k); if (i >= 0) { passaggi[i].a = t.value; passaggi[i].scelto = true; salvaPassaggi(); } disegnaPosta(); } } });
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.passbox) passApertoUI = d.open; }, true);
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'pass-d' && d.open) { const ta = document.getElementById('pass-nota'); if (ta && ta.dataset.mod !== '1' && lavoro) ta.value = passaggioTestoAuto(lavoro); } }, true);
 document.addEventListener('change', e => { if (e.target && e.target.id === 'pass-col') { const a = document.getElementById('pass-altro'); if (a) a.hidden = e.target.value !== '__altro'; } });
 function nomeDati(w){ return 'Dati_' + slugNome(w.cliente) + '_' + (w.data || isoGiorno(new Date())) + '.txt'; }
@@ -9342,7 +9407,7 @@ function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
     li: (w.levante && w.levante.li) || '', tipoInt: w.tipo || '', pratica: w.pratica ? {id: w.pratica.id, c: w.pratica.c || '', n: w.pratica.n || ''} : undefined,
     squadra: (w.squadra && (w.squadra.nome || (w.squadra.membri || []).some(m => m.p !== false))) ? {nome: w.squadra.nome || '', capoOp: w.squadra.capoOp != null ? w.squadra.capoOp : null, membri: (w.squadra.membri || []).filter(m => m.p !== false).map(m => ({n: m.n, dal: m.dal || '', al: m.al || '', ore: m.ore || '', op: m.op != null ? m.op : null}))} : undefined,
-    orari: (w.orari || []).filter(o => o.dal || o.al).map(o => ({data: o.data || w.data, dal: o.dal || '', al: o.al || ''})), ore: w.oreMan || '',
+    orari: (w.orari || []).filter(o => o.dal || o.al).map(o => { const x = {data: o.data || w.data, dal: o.dal || '', al: o.al || ''}; if (pausaMin(o)) { x.pausa = String(pausaMin(o)); if (o.pdal && o.pal) { x.pdal = o.pdal; x.pal = o.pal; } } return x; }), ore: w.oreMan || '',
     km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: ossUnite(w, 'osservazioni'), raccomandazioni: ossUnite(w, 'raccomandazioni'), prescrizioni: ossUnite(w, 'prescrizioni'), note: w.note || '',
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
@@ -9431,7 +9496,7 @@ function ripartizione(r){
   if (sp) return sp.map(x => ({c: codiceDi(c, x.op) || (man[0] || {cod: 'M0'}).cod, o: x.min ? csvNum(Math.round(x.min / 60 * 100) / 100, true) : '', p: x.n}));
   return [{c: (man[0] || {cod: 'M0'}).cod, o: tot ? csvNum(tot, true) : ''}];
 }
-function minutiTotali(r){ const t = (r.orari || []).reduce((s, o) => s + (o.dal && o.al ? Math.max(0, minuti(o.dal, o.al)) : 0), 0); return t > 0 ? t : Math.round(numOre(r.ore) * 60); }
+function minutiTotali(r){ const t = (r.orari || []).reduce((s, o) => s + minFascia(o), 0); return t > 0 ? t : Math.round(numOre(r.ore) * 60); }
 function csvNum(v, virg){
   let s = String(v == null ? '' : v).trim(); if (!s) return '';
   const n = parseFloat(s.replace(',', '.')); if (isNaN(n) || !/^[\d.,\s]+$/.test(s)) return s.replace(/[;\r\n]+/g, ' ');
@@ -9549,7 +9614,7 @@ function disegnaPosta(){
     const gr = (r.fatto ? 'F' : 'A') + (r.ricevuto || ''), intest = (!codaOn && gr !== grPrec) ? `<h3 style="margin:14px 0 6px;font-size:15px">${r.fatto ? 'Già registrati · ' : ''}${esc(etArrivo(r.ricevuto))}</h3>` : ''; grPrec = gr;
     if (r.cant) return intest + schedaCantiere(r, i);
     const min = minutiTotali(r), h = min ? fmtOre(min) : '';
-    const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—')).join(' · ');
+    const fasce = (r.orari || []).map(o => dataIT(o.data) + ' ' + (o.dal || '—') + ' – ' + (o.al || '—') + (pausaMin(o) ? ' (pausa ' + pausaTesto(o) + ')' : '')).join(' · ');
     const mat = (r.materiali || []).map(m => `<li>${esc(m.codice ? m.codice + ' · ' : '')}${esc(m.descr)} — ${esc((m.qta + ' ' + m.um).trim())}</li>`).join('');
     const man = codiciMan(csvImp()), rip = ripartizione(r), somma = rip.reduce((s, x) => s + (parseFloat(String(x.o || '').replace(',', '.')) || 0), 0), att = minutiAttesi(r), diff = Math.abs(somma - att / 60) > 0.011;
     const ripHtml = (min > 0 && !(r.importi && (r.importi.righe || []).length)) ? `<div style="margin:10px 0"><b>Manodopera per il CSV</b>${sqPersone(r) ? ' <span class="aiuto">una riga per persona</span>' : ''}${rip.map((x, j) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0">${x.p ? '<b style="min-width:84px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(x.p) + '">' + esc(x.p) + '</b>' : ''}<select data-rcod="${i}|${j}" style="flex:1;min-width:0">${man.map(m => `<option value="${esc(m.cod)}"${m.cod === x.c ? ' selected' : ''}>${esc(m.cod + (m.desc ? ' – ' + m.desc : ''))}</option>`).join('')}</select><input type="text" inputmode="decimal" data-rore="${i}|${j}" value="${esc(x.o)}" style="width:80px"> h${rip.length > 1 ? `<button class="btn chiaro piccolo" type="button" data-rtogli="${i}|${j}">×</button>` : ''}</div>`).join('')}<button class="btn sec piccolo" type="button" data-raggiungi="${i}">Aggiungi un altro codice</button>${diff ? `<p class="aiuto" style="margin:6px 0;color:#b3261e">Le ore divise (${esc(csvNum(somma, true))} h) non coincidono con il totale (${esc(csvNum(att / 60, true))} h).</p>` : ''}</div>` : '';
@@ -9868,7 +9933,10 @@ function avviaPosta(){
   ['#csv-kmcod', '#csv-kmdesc', '#csv-dccod', '#csv-dcdesc', '#csv-um'].forEach(s => $(s).oninput = salva); $('#csv-man').addEventListener('input', salva); ['#csv-virgola', '#csv-intest', '#csv-prezzo', '#csv-win'].forEach(s => $(s).onchange = salva);
   $('#posta-elenco').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
-    if (d.passfile !== undefined) { const L = passaggi.filter(p => !passaggioArrivato(p) && Date.now() - (p.quando || 0) < 10 * 86400000).sort((x, y) => y.quando - x.quando), p = L[+d.passfile]; if (p && (p.src || [])[0]) fetch('posta-file?nome=' + encodeURIComponent(p.src[0])).then(r => r.ok ? r.blob() : Promise.reject()).then(bl => scaricaBlob(bl, 'Dati_Passaggio_' + slugNome(p.cliente) + '_' + slugNome(p.a) + '.txt')).catch(() => { const m = $('#posta-msg'); if (m) m.textContent = 'Non riesco a leggere il file: cercalo nella cartella «arrivo».'; }); return; }
+    if (d.passmail !== undefined) { passaggioMandaMail(+d.passmail); return; }
+    if (d.passsel !== undefined) return;
+    if (d.passnasc !== undefined) { const p = passaggiAttivi()[+d.passnasc]; if (p) { const i = passaggi.findIndex(x => x.k === p.k); if (i >= 0) { passaggi[i].nascosto = true; salvaPassaggi(); } disegnaPosta(); try { etichettaPosta(); } catch(e) {} } return; }
+    if (d.passfile !== undefined) { const p = passaggiAttivi()[+d.passfile]; if (p && (p.src || [])[0]) fetch('posta-file?nome=' + encodeURIComponent(p.src[0])).then(r => r.ok ? r.blob() : Promise.reject()).then(bl => scaricaBlob(bl, 'Dati_Passaggio_' + slugNome(p.cliente) + '_' + slugNome(p.a) + '.txt')).catch(() => { const m = $('#posta-msg'); if (m) m.textContent = 'Non riesco a leggere il file: cercalo nella cartella «arrivo».'; }); return; }
     if (d.coda !== undefined) {
       if (d.coda === 'inizia') { codaOn = true; codaPos = 0; }
       else if (d.coda === 'esci') codaOn = false;
@@ -10049,7 +10117,7 @@ function avviaPostaAuto(){
   setInterval(() => { giroPostaAuto(); caricaAllegati(); if (!$('#posta-auto').hidden && $('#v-posta').classList.contains('attiva')) caricaPostaAuto(); }, 15000);
   $('#pa-metodo').onchange = mostraCampiPosta;
   $('#pa-riga-ora').onclick = () => $('#pa-ora').click();
-  $('#pa-riga-imp').onclick = () => { const d = $('#posta-auto'); d.open = true; d.scrollIntoView({block: 'start'}); };
+  $('#pa-riga-imp').onclick = () => { impostaTabPosta('imp'); const d = $('#posta-auto'); d.open = true; d.scrollIntoView({block: 'start'}); };
   $('#pa-preset').onchange = e => { const p = PRESET_POSTA[e.target.value]; $('#pa-hint').textContent = p ? p[2] : ''; if (p) { $('#pa-server').value = p[0]; $('#pa-porta').value = p[1]; } };
   const msg = t => { $('#pa-msg').textContent = t; };
   $('#pa-salva').onclick = async () => { try { const r = await chiamaJson('posta-config', datiFormPosta()); $('#pa-pwd').value = ''; caricaPostaAuto.fatto = false; await caricaPostaAuto(); msg(r.ok ? 'Salvato.' : 'Non sono riuscito a salvare.'); } catch(e) { msg('Il servizio non risponde.'); } };
@@ -10431,6 +10499,57 @@ async function aggiornaPulizia(giorniScelti){
   if (st.ultima) t += ' Ultima pulizia: ' + dataIT(st.ultima.slice(0, 10)) + ' alle ' + st.ultima.slice(11, 16) + ' — ' + (st.eliminati ? 'eliminati ' + st.eliminati + (st.eliminati === 1 ? ' file' : ' file') + ' (' + dimStr(st.byte) + ').' : 'nessun file eliminato.');
   $('#pul-stato').textContent = t; $('#pul-ora').disabled = !g;
 }
+/* backup completo (Impostazioni): copia dati app + file ricevuti + PDF in una cartella scelta */
+let bkcTimer = 0;
+async function aggiornaBackupCompleto(riempi){
+  const el = $('#bkc-stato'); if (!el || !inUfficio) return;
+  let st; try { const r = await fetch('backup-completo-stato', {cache: 'no-store'}); if (!r.ok) throw 0; st = await r.json(); } catch(e) { el.textContent = 'Il servizio non risponde.'; return; }
+  if (!st || !st.ok) return;
+  if (riempi) { $('#bkc-cartella').value = st.cartella || ''; $('#bkc-auto').value = st.auto; $('#bkc-ora').value = st.ora; }
+  $('#bkc-ora-box').hidden = $('#bkc-auto').value === 'mai';
+  $('#bkc-ora-btn').disabled = !!st.in_corso || !st.cartella;
+  const r = [];
+  if (!st.cartella) r.push('Backup non ancora impostato: scrivi la cartella e premi Salva.');
+  else {
+    r.push('Destinazione: <b>' + esc(st.destinazione || st.cartella) + '</b>' + (st.prossimo ? ' · automatico ' + esc(st.prossimo) : ' · automatico spento'));
+    if (!st.raggiungibile) r.push('<b style="color:#b3261e">⚠ ' + esc(st.avviso) + '</b>');
+    else if (st.stesso_disco) r.push('<b style="color:#b3261e">⚠ La cartella è sullo stesso disco del programma: se il disco si rompe perdi anche il backup. Meglio un altro disco o una chiavetta.</b>');
+  }
+  if (st.in_corso) r.push('<b>Backup in corso…</b> ' + (st.totale ? st.fatti + ' di ' + st.totale + ' file' : 'controllo i file'));
+  else if (st.ultimo && st.ultimo.quando) {
+    const u = st.ultimo, q = dataIT(u.quando.slice(0, 10)) + ' alle ' + u.quando.slice(11, 16);
+    if (u.esito === 'ok') r.push('Ultimo backup: ' + q + ' — ' + (u.copiati ? 'copiati ' + u.copiati + ' file (' + dimStr(u.byte) + ')' : 'tutto già al sicuro, niente di nuovo') + '.');
+    else r.push('<b style="color:#b3261e">Ultimo backup non riuscito (' + q + '):</b> ' + esc((u.errori || []).slice(0, 3).join(' · ')));
+  }
+  el.innerHTML = r.join('<br>');
+  clearTimeout(bkcTimer);
+  if (st.in_corso) bkcTimer = setTimeout(() => aggiornaBackupCompleto(false), 1500);
+}
+async function aggiornaUnitaBackup(){
+  const el = $('#bkc-unita'); if (!el || !inUfficio) return;
+  let u = []; try { const r = await fetch('backup-unita', {cache: 'no-store'}); if (r.ok) u = (await r.json()).unita || []; } catch(e) {}
+  if (!u.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = 'Dischi trovati: ' + u.map(x => '<button class="btn sec piccolo" type="button" data-bkc-unita="' + esc(x.percorso) + '" style="margin:2px 4px 2px 0">' + esc(x.percorso) + ' ' + esc(x.tipo) + (x.liberi != null ? ' · ' + dimStr(x.liberi) + ' liberi' : '') + (x.sistema ? ' · stesso del programma' : '') + '</button>').join('');
+  el.querySelectorAll('[data-bkc-unita]').forEach(b => b.onclick = () => { $('#bkc-cartella').value = b.dataset.bkcUnita + 'Backup'; });
+}
+function avviaBackupCompleto(){
+  if (!$('#bkc-salva')) return;
+  const salvaConf = async () => {
+    const d = await chiamaJson('backup-completo-config', {cartella: $('#bkc-cartella').value, auto: $('#bkc-auto').value, ora: $('#bkc-ora').value || '22:00'}).catch(() => null);
+    if (!d) { $('#bkc-stato').textContent = 'Il servizio non risponde.'; return false; }
+    if (d.ok === false) { $('#bkc-stato').innerHTML = '<b style="color:#b3261e">' + esc(d.messaggio || 'Non riesco a salvare.') + '</b>'; return false; }
+    return true;
+  };
+  $('#bkc-auto').onchange = () => { $('#bkc-ora-box').hidden = $('#bkc-auto').value === 'mai'; };
+  $('#bkc-salva').onclick = async () => { if (await salvaConf()) aggiornaBackupCompleto(true); };
+  $('#bkc-ora-btn').onclick = async () => {
+    if (!(await salvaConf())) return;
+    const d = await chiamaJson('backup-completo-ora').catch(() => null);
+    if (d && d.ok === false) { $('#bkc-stato').innerHTML = '<b style="color:#b3261e">' + esc(d.messaggio) + '</b>'; return; }
+    aggiornaBackupCompleto(true);
+  };
+}
 function avviaPulizia(){
   const sel = $('#pul-giorni'); if (!sel) return;
   sel.onchange = async () => {
@@ -10469,7 +10588,7 @@ function avviaAggiornamenti(){
   $('#ag-auto').onchange = e => chiamaJson('aggiorna-config', {auto: e.target.checked}).catch(() => {});
 }
 function avviaLicenzaBackup(){
-  avviaAggiornamenti(); avviaPulizia();
+  avviaAggiornamenti(); avviaPulizia(); avviaBackupCompleto();
   controllaLicenza(); setInterval(controllaLicenza, 3600000);
   $('#lic-attiva').onclick = () => attivaLicenza('#lic-chiave', '#lic-esito');
   $('#lb-attiva').onclick = () => attivaLicenza('#lb-chiave', '#lb-esito');
@@ -10845,8 +10964,9 @@ function avvia(){
   $('#b-pdf').onclick = creaPdf;
   $('#b-impostazioni').onclick = () => {
     try { aggiornaImpPin(); } catch(e) {}
-    $('#chk-cantieri').checked = cantieriAttivi(); $('#chk-chiamate').checked = chiamateAttive();
+    $('#chk-cantieri').checked = cantieriAttivi(); $('#chk-chiamate').checked = chiamateAttive(); { const pg = $('#pass-giorni'); if (pg) pg.value = passGiorni(); }
     try { aggiornaPulizia(); } catch(e) {}
+    try { aggiornaBackupCompleto(true); aggiornaUnitaBackup(); } catch(e) {}
     $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || ''; $('#i-posizione').checked = !!impostazioni.posizione;
     $('#i-privacy-on').checked = impostazioni.privacyOn !== false; $('#i-privacy').value = testoPrivacy(); $('#i-codice').value = impostazioni.codiceSic || ''; aggiornaCodiceStato();
     $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
@@ -10872,6 +10992,7 @@ function avvia(){
   $('#i-tecnico').oninput = e => { impostazioni.tecnico = e.target.value.trim(); salvaImpostazioni(); };
   const aggiornaCodiceStato = () => { const c = codiceSic(), el = $('#codice-stato'); if (el) el.textContent = c ? (c.length < 12 ? '⚠ Codice troppo corto: usa «Crea un nuovo codice».' : '🔒 Protezione attiva. Non perdere questo codice: senza non si aprono i file protetti.') : '⚠ Protezione NON attiva: agende, interventi e copie di sicurezza viaggiano in chiaro. Scrivi un codice (o usa «Crea un nuovo codice»).'; try { disegnaAvvisoProt(); } catch(e) {} };
   $('#chk-cantieri').onchange = e => { impostazioni.cantieri = e.target.checked; salvaImpostazioni(); try { ricalcolaOperai(); disegnaUfficio(); } catch(x) {} };
+  { const pg = $('#pass-giorni'); if (pg) pg.onchange = () => { const v = Math.max(1, Math.min(60, Math.round(+pg.value) || 10)); pg.value = v; impostazioni.passaggiGiorni = v; salvaImpostazioni(); try { disegnaPosta(); etichettaPosta(); } catch(x) {} }; }
   $('#chk-chiamate').onchange = e => { impostazioni.chiamate = e.target.checked; salvaImpostazioni(); try { disegnaUfficio(); } catch(x) {} };
   $('#i-codice').oninput = e => { impostazioni.codiceSic = e.target.value.trim().toUpperCase() || undefined; salvaImpostazioni(); aggiornaCodiceStato(); };
   $('#b-codice-nuovo').onclick = () => { if (codiceSic() && !confirm('Esiste già un codice. Se ne crei uno nuovo, devi riscriverlo su tutti i dispositivi dei tecnici e in ufficio, e i file già inviati col vecchio codice non si apriranno più. Continuo?')) return; impostazioni.codiceSic = CIFRA.genera(); salvaImpostazioni(); $('#i-codice').value = impostazioni.codiceSic; aggiornaCodiceStato(); };
