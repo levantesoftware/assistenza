@@ -1,12 +1,12 @@
 {
- "versione": "1.104.0",
+ "versione": "1.104.1",
  "canale": "stabile",
  "data": "2026-11-21",
  "novita": [
-  "Aggiunta gestione degli interventi da completare che passano da un tecnico ad un'altro"
+  "nessuna"
  ],
- "pacchetto": "aggiornamento_1.104.0.zip",
- "sha256": "514c4ca65a4d480891e03d7c657f5c96790cb30ae343fa229c4b65ed1f3321c4",
- "firma": "laJHmCN_j-xck841JWXVTWGEgYQVoYOwVo6FJfl8jMHta2pcH3jjXxY-gXIlOmVC0U3Dd98OyXW1_b4mmM03Bw",
- "dimensione": 1491869
+ "pacchetto": "aggiornamento_1.104.1.zip",
+ "sha256": "1758c4dcc0380122d1c74c4c6a3f085ce74e72244cd0ae540157ad28df41d0ea",
+ "firma": "XsaYUxw1E6Nn9jDWCx1cDekqVUZxYuJbwoXqZRdcawL4yI9P0CNEtowA1h4CEmJWLI3bmH9ihKmVHX6inw2wDw",
+ "dimensione": 1492344
 }
