@@ -1,12 +1,12 @@
 {
- "versione": "1.104.2",
+ "versione": "1.104.3",
  "canale": "stabile",
  "data": "2026-11-21",
  "novita": [
-  "nessuna novità"
+  "aggiunta sezione passa a un nell'app ufficio"
  ],
- "pacchetto": "aggiornamento_1.104.2.zip",
- "sha256": "ebb063b010408844d3264659752c42a5ffbd1be71462e3429c01b58dc4b7f494",
- "firma": "tmyE9RYkd0MQuTZ0Bbsqvr8VKEK7MHx3wEQ03M8k56-CUBFkhM5a23Q8Hp2ISlu9BnzlhpjH-Lo-XELRUFtLCw",
- "dimensione": 1492491
+ "pacchetto": "aggiornamento_1.104.3.zip",
+ "sha256": "13ad8fb564bec8b66d0409ec8656a5de289d8e23a7f82b9f4a7b9967a6630782",
+ "firma": "7yg374zmeTtUNxuD-6jDL4hMoup-WpzKRvVWfhREHYDgZVcP0MpikguWr51J5d4VdxaCptJ62-4w6fzJ9l_nAg",
+ "dimensione": 1492570
 }
