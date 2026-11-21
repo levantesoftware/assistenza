@@ -3333,7 +3333,7 @@ let timer = null;
 
 /* ---- sezioni attive per questo tecnico: le decide l'ufficio (Impostazioni) e arrivano nel pacchetto ----
    Senza configurazione tutto resta com'e'. Una sezione spenta compare comunque se contiene gia' dei dati o se Levante la richiede (per esempio un'operazione «estintori»). */
-const SEZ_CFG = [['altre', 'Altre operazioni'], ['rcee', 'Altri rapporti di efficienza energetica'], ['ctrl', 'Controlli e verifiche'], ['fgas', 'F-gas'], ['portato', 'Materiale portato'], ['materiali', 'Materiali'], ['importi', 'Importi e pagamento'], ['foto', 'Foto']];
+const SEZ_CFG = [['altre', 'Altre operazioni'], ['rcee', 'Altri rapporti di efficienza energetica'], ['ctrl', 'Controlli e verifiche'], ['fgas', 'F-gas'], ['portato', 'Materiale portato'], ['materiali', 'Materiali'], ['importi', 'Importi e pagamento'], ['foto', 'Foto'], ['passa', 'Passa a un collega']];
 /* profili: [chiave, nome, sezioni spente, controlli spenti] */
 const CFG_PROFILI = [['tutto', 'Tutte le sezioni', [], []], ['termo', 'Termoidraulico', [], ['idranti', 'estintori']], ['antincendio', 'Antincendio', ['rcee', 'fgas'], ['centrale', 'addolcitore']], ['frigo', 'Frigorista (F-gas e pompe di calore)', ['ctrl'], []]];
 /* libreria schede di manutenzione (impostazioni.ctrlModuli): al tecnico vanno quelle non spente per lui */
@@ -3360,6 +3360,7 @@ function sezHaDati(k, w){
     case 'materiali': return (w.materiali || []).length > 0;
     case 'importi': return impHaDati(impCalcola(w));
     case 'foto': return (w.foto || []).length > 0;
+    case 'passa': return !!w.passatoA;          // gia' passato: resta visibile (serve «Lo riprendo io»)
   } } catch(e) {}
   return false;
 }
@@ -3368,6 +3369,7 @@ function sezElemento(k){
     case 'altre': { const e = $('#extra'); return e && e.closest('.passo'); }
     case 'rcee': return document.querySelector('details[data-rcd="altri-rapporti"]');
     case 'ctrl': return $('#ctrl-d'); case 'fgas': return $('#fg-d'); case 'portato': return $('#pt-d'); case 'materiali': return $('#mat-d'); case 'importi': return $('#imp-box');
+    case 'passa': return $('#pass-d');
     case 'foto': { const h = Array.prototype.find.call(document.querySelectorAll('#form h2'), x => x.textContent.trim() === 'Foto'); return h && h.closest('.passo'); }
   }
   return null;
@@ -8276,7 +8278,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.104.2 (21/11/2026)';
+const VERSIONE_APP = '1.104.3 (21/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
