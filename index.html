@@ -3290,7 +3290,7 @@ function bloccaSchedaPassata(){
   f.classList.toggle('passata', passata);
   if (pdf) pdf.disabled = passata;
   if (!passata) { if (passOsserva) { passOsserva.disconnect(); passOsserva = null; } return; }
-  const chiudi = () => { f.querySelectorAll('input,select,textarea,button').forEach(x => { if (x.closest('#pass-d') || x.closest('summary')) return; if (!x.disabled) { x.disabled = true; x.setAttribute('data-bloccato', '1'); } }); };
+  const chiudi = () => { f.querySelectorAll('input,select,textarea,button').forEach(x => { if (x.closest('summary') || x.id === 'b-pass-annulla' || x.id === 'b-pass-avv') return; if (!x.disabled) { x.disabled = true; x.setAttribute('data-bloccato', '1'); } }); };
   chiudi();
   if (!passOsserva && window.MutationObserver) { passOsserva = new MutationObserver(() => { if (lavoro && lavoro.passatoA) chiudi(); }); passOsserva.observe(f, {childList: true, subtree: true}); }
 }
@@ -8276,7 +8276,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.104.1 (21/11/2026)';
+const VERSIONE_APP = '1.104.2 (21/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9312,7 +9312,10 @@ async function passaggioInvia(via){
     passUltimo = {col, nota};
     m.textContent = (r === 'scaricato' ? 'File scaricato: allegalo tu al messaggio. ' : '') + (col.n ? 'Passato a ' + col.n + (via === 'uff' ? ' (tramite l\'ufficio)' : '') : 'Passato all\'ufficio: sceglie lui il collega') + '. Da ora l\'intervento resta in sola lettura.';
     const av = $('#pass-avviso'); if (av) av.hidden = (via === 'uff');
-    try { bloccaSchedaPassata(); } catch(e) {}
+    try {
+      if (!$('#b-pass-annulla')) { const box = $('#pass-d > div'); if (box) { const dv = document.createElement('div'); dv.className = 'avviso info'; dv.style.margin = '0 0 10px'; dv.innerHTML = '<b>' + esc(passA(w.passatoA.n)) + '</b> il ' + esc(dataIT(isoGiorno(new Date(w.passatoA.quando)))) + ' alle ' + esc(hhmm(new Date(w.passatoA.quando))) + '. L\'intervento è in sola lettura. <button class="btn chiaro piccolo" id="b-pass-annulla" type="button">Lo riprendo io</button>'; box.insertBefore(dv, box.firstChild); } }
+      bloccaSchedaPassata();
+    } catch(e) {}
     try { disegnaAgenda(); } catch(e) {}
   } catch(e) { m.textContent = 'Non sono riuscito a preparare il passaggio: ' + (e && e.message ? e.message : e); }
 }
