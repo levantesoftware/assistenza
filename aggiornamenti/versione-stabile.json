@@ -1,12 +1,12 @@
 {
- "versione": "1.104.3",
+ "versione": "1.105.1",
  "canale": "stabile",
- "data": "2026-11-21",
+ "data": "2026-11-22",
  "novita": [
-  "aggiunta sezione passa a un nell'app ufficio"
+  "inseriti anche i gruppi"
  ],
- "pacchetto": "aggiornamento_1.104.3.zip",
- "sha256": "13ad8fb564bec8b66d0409ec8656a5de289d8e23a7f82b9f4a7b9967a6630782",
- "firma": "7yg374zmeTtUNxuD-6jDL4hMoup-WpzKRvVWfhREHYDgZVcP0MpikguWr51J5d4VdxaCptJ62-4w6fzJ9l_nAg",
- "dimensione": 1492570
+ "pacchetto": "aggiornamento_1.105.1.zip",
+ "sha256": "3bb9f347247c403cc87b7cf6f47f8b3a20a9a67b2db5bd0f924efce931d1e840",
+ "firma": "OKyreHj27TN2G8Cf6UBnzXv-imRhaz2l2nmXZVJFopVUM0Y9CoEqRpeQb95J8wCjxv4u3HUTRGU0Z8R9jPKbBA",
+ "dimensione": 1494826
 }
