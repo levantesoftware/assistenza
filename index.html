@@ -8073,7 +8073,8 @@ function riepilogoRcee(){
 /* listino per tecnico: spunta "manda gli articoli" (preferiti o listino completo); dopo l'invio si toglie da sola e resta la data */
 const lstDi = nome => Object.assign({on: undefined, tipo: 'pref', ultimo: '', tipoUltimo: '', gruppi: []}, (impostazioni.listino || {})[nome]);
 /* gruppi di articoli di Levante (fino a 6 livelli): si puo' mandare al tecnico solo il listino di alcuni gruppi (con tutti i sottogruppi) */
-function grpKey(c){ const o = []; for (let i = 0; i < c.length; i++) { const t = String(c[i] == null ? '' : c[i]).trim(); if (!t) break; o.push(t); } return o.join('|'); }
+/* in Levante «nessun livello» e' -1 nei gruppi e vuoto negli articoli */
+function grpKey(c){ const o = []; for (let i = 0; i < c.length; i++) { const t = String(c[i] == null ? '' : c[i]).trim(); if (!t || t === '-1') break; o.push(t); } return o.join('|'); }
 const GRP_NESSUNO = '~';
 let grpCache = {L: null, G: null, nodi: [], conta: {}};
 function grpNodi(){
@@ -8082,7 +8083,7 @@ function grpNodi(){
   const conta = {}; let senza = 0;
   L.forEach(k => { if (!k) { senza++; return; } const p = k.split('|'); for (let n = 1; n <= p.length; n++) { const q = p.slice(0, n).join('|'); conta[q] = (conta[q] || 0) + 1; } });
   const desc = {}; G.forEach(g => { desc[g.k] = g.d; });
-  const nodi = Object.keys(conta).map(k => { const p = k.split('|'); return {k, p, t: (desc[k] ? p[p.length - 1] + ' - ' + desc[k] : p[p.length - 1]), n: conta[k]}; });
+  const nodi = Object.keys(conta).map(k => { const p = k.split('|'); return {k, p, t: desc[k] || p[p.length - 1], c: p[p.length - 1], n: conta[k]}; });
   nodi.sort((a, b) => { for (let i = 0; i < Math.min(a.p.length, b.p.length); i++) { const c = a.p[i].localeCompare(b.p[i], 'it', {numeric: true}); if (c) return c; } return a.p.length - b.p.length; });
   if (senza) { conta[GRP_NESSUNO] = senza; nodi.push({k: GRP_NESSUNO, p: [GRP_NESSUNO], t: 'Articoli senza gruppo', n: senza}); }
   grpCache = {L, G, nodi, conta}; return grpCache;
@@ -8104,7 +8105,7 @@ function grpPannello(nome, l){
   const sel = new Set(l.gruppi || []);
   const eredita = k => { const p = k.split('|'); for (let n = 1; n < p.length; n++) if (sel.has(p.slice(0, n).join('|'))) return true; return false; };
   const righe = nodi.map(n => { const liv = n.k === GRP_NESSUNO ? 0 : n.p.length - 1, er = eredita(n.k);
-    return `<label class="spunta" style="margin:0;padding:3px 0 3px ${liv * 18}px"><input type="checkbox" data-lstg="${esc(nome)}" data-k="${esc(n.k)}"${(sel.has(n.k) || er) ? ' checked' : ''}${er ? ' disabled' : ''}> ${esc(n.t)} <span class="aiuto">(${n.n.toLocaleString('it-IT')})</span></label>`; }).join('');
+    return `<label class="spunta" title="${esc(n.c || '')}" style="margin:0;padding:3px 0 3px ${liv * 18}px"><input type="checkbox" data-lstg="${esc(nome)}" data-k="${esc(n.k)}"${(sel.has(n.k) || er) ? ' checked' : ''}${er ? ' disabled' : ''}> ${esc(n.t)} <span class="aiuto">(${n.n.toLocaleString('it-IT')})</span></label>`; }).join('');
   const nSel = (l.gruppi || []).length;
   return `<details data-lstgd="${esc(nome)}" style="margin:8px 0 0"${lstApri[nome] ? ' open' : ''}><summary><b>Scegli i gruppi</b> <span class="aiuto">${nSel ? nSel + (nSel === 1 ? ' gruppo scelto' : ' gruppi scelti') + ', ' + grpConta(l.gruppi).toLocaleString('it-IT') + ' articoli' : 'nessuno scelto'}</span></summary>
     <div data-lstgbox="${esc(nome)}" style="max-height:260px;overflow:auto;margin-top:6px;padding:4px 6px;border:1px solid var(--riga);border-radius:8px">${righe}</div>
@@ -8342,7 +8343,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.105.0 (21/11/2026)';
+const VERSIONE_APP = '1.105.1 (22/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
