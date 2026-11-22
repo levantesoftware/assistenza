@@ -7560,6 +7560,8 @@ function costruisciDaLevante(T){
   return {appuntamenti: out, chiamate, tecnici, cantieri, pratiche, dipendenti, tecNomi, tipiOre, iva, stat, modelli: T.modelli || {}, azienda: (T.azienda || [])[0] || null, files,
     articoli: (T.articoli || []).filter(r => r.CODICE || r.DESCRIZIONE).map(r => [r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
     listino: (T.listino || []).filter(r => r.CODICE).map(r => [r.CODICE, r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || '']),
+    listinoG: (T.listino || []).filter(r => r.CODICE).map(r => grpKey([r.G1, r.G2, r.G3, r.G4, r.G5, r.G6])),          // gruppo di ogni articolo (stesso ordine di «listino»): codici dei livelli uniti da «|»
+    gruppi: (T.gruppi || []).map(g => ({k: grpKey([g.G1, g.G2, g.G3, g.G4, g.G5, g.G6]), d: String(g.DESCRIZIONE || '').trim()})).filter(g => g.k),
     barre: (T.codici_barre || []).filter(r => r.BARRE).map(r => [String(r.BARRE).trim(), r.CODICE || '', r.DESCRIZIONE || '', r.UM || '', r.PREZZO || '', r.PREZZO2 || '', r.PREZZO3 || '', r.PREZZO4 || ''])};
 }
 
@@ -7875,7 +7877,7 @@ async function leggiUltimaEsportazione(cambia){
 }
 let datiLevante = null;                 // quello che si usa: dati di Levante limitati ai tecnici compresi nella licenza
 let datiLevanteTutti = null;            // tutto quello che c'e' in Levante
-const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','listino','codici_barre','cantieri','pratiche_cantiere','dipendenti','tipiore','contratti','operazioni_importi','aliquote_iva','sottocantieri1','sottocantieri2','sottocantieri3'];
+const NOMI_FILE = ['appuntamenti','chiamate','impianti','apparecchi','operazioni_pianificate','operazioni_appuntamento','storico_interventi','clienti','tecnici','allegati','azienda','articoli','listino','codici_barre','cantieri','pratiche_cantiere','dipendenti','tipiore','contratti','operazioni_importi','aliquote_iva','sottocantieri1','sottocantieri2','sottocantieri3','gruppi'];
 const COL_MODELLO = [['RCEE1B','TERM_RCEE1B_STMMOD_FILENAME'],['RCEE1','TERM_RCEE1_STMMOD_FILENAME'],['RCEE2','FRIGO_RCEE2_STMMOD_FILENAME'],['RCEE3','SCAMB_RCEE3_STMMOD_FILENAME'],['RCEE4','COGEN_RCEE4_STMMOD_FILENAME']];
 /* legge un .zip (quello creato da Esporta_Levante.bat) e restituisce i file che contiene */
 async function espandiZip(file){
@@ -7962,9 +7964,11 @@ function impostaTabUff(t){
 function bloccoListino(id, nome){
   const l = lstDi(nome), on = lstAttivo(nome), nL = (datiLevante.listino || []).length, nP = (datiLevante.articoli || []).length;
   const q = x => (impostazioni.listino && impostazioni.listino[nome] ? impostazioni.listino[nome][x] : '');
-  const ult = l.ultimo ? `Ultimo invio: <b>${esc(dataIT(isoGiorno(new Date(l.ultimo))))}</b>${l.tipoUltimo === 'tutto' ? ' (listino completo)' : l.tipoUltimo === 'pref' ? ' (solo preferiti)' : ''}` : 'Mai inviato';
+  const ult = l.ultimo ? `Ultimo invio: <b>${esc(dataIT(isoGiorno(new Date(l.ultimo))))}</b>${l.tipoUltimo === 'tutto' ? ' (listino completo)' : l.tipoUltimo === 'gruppi' ? ' (alcuni gruppi)' : l.tipoUltimo === 'pref' ? ' (solo preferiti)' : ''}` : 'Mai inviato';
   return `<div style="margin:10px 0 0;padding:8px 10px;border:1px solid var(--riga);border-radius:10px"><label class="spunta" style="margin:0"><input type="checkbox" data-lst="${esc(nome)}"${on ? ' checked' : ''}> Manda gli articoli con il prossimo invio</label>
-    <div style="margin:6px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select data-lstt="${esc(nome)}" aria-label="Quali articoli"${on ? '' : ' disabled'}><option value="pref"${l.tipo !== 'tutto' ? ' selected' : ''}>Solo preferiti (${nP.toLocaleString('it-IT')})</option><option value="tutto"${l.tipo === 'tutto' ? ' selected' : ''}>Listino completo (${nL.toLocaleString('it-IT')})</option></select><span class="aiuto">${ult}</span></div>
+    <div style="margin:6px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select data-lstt="${esc(nome)}" aria-label="Quali articoli"${on ? '' : ' disabled'}><option value="pref"${l.tipo !== 'tutto' ? ' selected' : ''}>Solo preferiti (${nP.toLocaleString('it-IT')})</option><option value="tutto"${l.tipo === 'tutto' ? ' selected' : ''}>Listino completo (${nL.toLocaleString('it-IT')})</option><option value="gruppi"${l.tipo === 'gruppi' ? ' selected' : ''}>Solo alcuni gruppi…</option></select><span class="aiuto">${ult}</span></div>
+    ${l.tipo === 'gruppi' ? grpPannello(nome, l) : ''}
+    ${on && l.tipo === 'gruppi' && !(l.gruppi || []).length ? '<p class="aiuto" style="margin:6px 0 0;color:var(--rosso)">Scegli almeno un gruppo, altrimenti il listino non viene mandato.</p>' : ''}
     ${on && l.tipo === 'tutto' && !nL ? '<p class="aiuto" style="margin:6px 0 0;color:var(--rosso)">Nell\'esportazione di Levante non c\'è il listino completo: rilancia l\'esportazione con la versione nuova.</p>' : ''}</div>`;
 }
 function disegnaUfficio(){
@@ -8033,7 +8037,15 @@ function disegnaUfficio(){
   esito.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => consegna(b.dataset.scarica, false));
   $('#chk-completo').onchange = e => { infoUff.completo = e.target.checked; };
   esito.querySelectorAll('[data-lst]').forEach(c => c.onchange = () => { const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {}); m[c.dataset.lst] = Object.assign({}, m[c.dataset.lst] || {}, {on: c.checked}); salvaImpostazioni(); disegnaUfficio(); });
-  esito.querySelectorAll('[data-lstt]').forEach(s => s.onchange = () => { const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {}); m[s.dataset.lstt] = Object.assign({}, m[s.dataset.lstt] || {}, {tipo: s.value}); salvaImpostazioni(); disegnaUfficio(); });
+  esito.querySelectorAll('[data-lstg]').forEach(c => c.onchange = () => {
+    const nome = c.dataset.lstg, k = c.dataset.k, bx = c.closest('[data-lstgbox]'); if (bx) lstScroll[nome] = bx.scrollTop; lstApri[nome] = true;
+    const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {}); let g = ((m[nome] && m[nome].gruppi) || []).slice();
+    if (c.checked) { g = g.filter(x => x.indexOf(k + '|') !== 0); if (g.indexOf(k) < 0) g.push(k); } else g = g.filter(x => x !== k);
+    m[nome] = Object.assign({}, m[nome] || {}, {gruppi: g}); salvaImpostazioni(); disegnaUfficio();
+    const nb = document.querySelector('[data-lstgbox="' + nome.replace(/"/g, '\\"') + '"]'); if (nb) nb.scrollTop = lstScroll[nome] || 0;
+  });
+  esito.querySelectorAll('[data-lstgd]').forEach(d => d.ontoggle = () => { lstApri[d.dataset.lstgd] = d.open; });
+  esito.querySelectorAll('[data-lstt]').forEach(s => s.onchange = () => { const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {}); m[s.dataset.lstt] = Object.assign({}, m[s.dataset.lstt] || {}, {tipo: s.value}); if (s.value === 'gruppi') lstApri[s.dataset.lstt] = true; salvaImpostazioni(); disegnaUfficio(); });
   esito.querySelectorAll('[data-optec]').forEach(sl => sl.onchange = () => { impostazioni.operaiTec = Object.assign({}, impostazioni.operaiTec || {}); if (sl.value) impostazioni.operaiTec[sl.dataset.optec] = sl.value; else delete impostazioni.operaiTec[sl.dataset.optec]; salvaImpostazioni(); ricalcolaOperai(); disegnaUfficio(); });
   esito.querySelectorAll('[data-ch]').forEach(sel => sel.onchange = () => { if (!sel.value) return; (impostazioni.chiamateTec = impostazioni.chiamateTec || {})[sel.dataset.ch] = sel.value; salvaImpostazioni(); disegnaUfficio(); });
   $('#b-usa-qui').onclick = async () => { salvaArticoli(datiLevante.articoli); salvaBarre(datiLevante.barre); await salvaDati({generato:new Date().toISOString(), tecnico:null, appuntamenti:datiLevante.appuntamenti, chiamate: chiamateAperte(), modelli:datiLevante.modelli, azienda:datiLevante.azienda, files:datiLevante.files}); esitoImport = (esitoImport || 'Dati caricati.'); indietro(); };
@@ -8059,7 +8071,45 @@ function riepilogoRcee(){
   return h;
 }
 /* listino per tecnico: spunta "manda gli articoli" (preferiti o listino completo); dopo l'invio si toglie da sola e resta la data */
-const lstDi = nome => Object.assign({on: undefined, tipo: 'pref', ultimo: '', tipoUltimo: ''}, (impostazioni.listino || {})[nome]);
+const lstDi = nome => Object.assign({on: undefined, tipo: 'pref', ultimo: '', tipoUltimo: '', gruppi: []}, (impostazioni.listino || {})[nome]);
+/* gruppi di articoli di Levante (fino a 6 livelli): si puo' mandare al tecnico solo il listino di alcuni gruppi (con tutti i sottogruppi) */
+function grpKey(c){ const o = []; for (let i = 0; i < c.length; i++) { const t = String(c[i] == null ? '' : c[i]).trim(); if (!t) break; o.push(t); } return o.join('|'); }
+const GRP_NESSUNO = '~';
+let grpCache = {L: null, G: null, nodi: [], conta: {}};
+function grpNodi(){
+  const L = datiLevante.listinoG || [], G = datiLevante.gruppi || [];
+  if (grpCache.L === L && grpCache.G === G) return grpCache;
+  const conta = {}; let senza = 0;
+  L.forEach(k => { if (!k) { senza++; return; } const p = k.split('|'); for (let n = 1; n <= p.length; n++) { const q = p.slice(0, n).join('|'); conta[q] = (conta[q] || 0) + 1; } });
+  const desc = {}; G.forEach(g => { desc[g.k] = g.d; });
+  const nodi = Object.keys(conta).map(k => { const p = k.split('|'); return {k, p, t: (desc[k] ? p[p.length - 1] + ' - ' + desc[k] : p[p.length - 1]), n: conta[k]}; });
+  nodi.sort((a, b) => { for (let i = 0; i < Math.min(a.p.length, b.p.length); i++) { const c = a.p[i].localeCompare(b.p[i], 'it', {numeric: true}); if (c) return c; } return a.p.length - b.p.length; });
+  if (senza) { conta[GRP_NESSUNO] = senza; nodi.push({k: GRP_NESSUNO, p: [GRP_NESSUNO], t: 'Articoli senza gruppo', n: senza}); }
+  grpCache = {L, G, nodi, conta}; return grpCache;
+}
+function grpRighe(sel){          // righe del listino che stanno nei gruppi scelti
+  const L = datiLevante.listino || [], K = datiLevante.listinoG || [], set = new Set(sel), out = [];
+  for (let i = 0; i < L.length; i++) {
+    const k = K[i] || ''; let ok = false;
+    if (!k) ok = set.has(GRP_NESSUNO); else { const p = k.split('|'); for (let n = 1; n <= p.length && !ok; n++) ok = set.has(p.slice(0, n).join('|')); }
+    if (ok) out.push(L[i]);
+  }
+  return out;
+}
+function grpConta(sel){ const c = grpNodi().conta; return (sel || []).reduce((n, k) => n + (c[k] || 0), 0); }
+let lstApri = {}, lstScroll = {};
+function grpPannello(nome, l){
+  const nodi = grpNodi().nodi;
+  if (!nodi.length) return '<p class="aiuto" style="margin:6px 0 0;color:var(--rosso)">Nell\'esportazione di Levante non ci sono i gruppi degli articoli: rilancia l\'esportazione con la versione nuova.</p>';
+  const sel = new Set(l.gruppi || []);
+  const eredita = k => { const p = k.split('|'); for (let n = 1; n < p.length; n++) if (sel.has(p.slice(0, n).join('|'))) return true; return false; };
+  const righe = nodi.map(n => { const liv = n.k === GRP_NESSUNO ? 0 : n.p.length - 1, er = eredita(n.k);
+    return `<label class="spunta" style="margin:0;padding:3px 0 3px ${liv * 18}px"><input type="checkbox" data-lstg="${esc(nome)}" data-k="${esc(n.k)}"${(sel.has(n.k) || er) ? ' checked' : ''}${er ? ' disabled' : ''}> ${esc(n.t)} <span class="aiuto">(${n.n.toLocaleString('it-IT')})</span></label>`; }).join('');
+  const nSel = (l.gruppi || []).length;
+  return `<details data-lstgd="${esc(nome)}" style="margin:8px 0 0"${lstApri[nome] ? ' open' : ''}><summary><b>Scegli i gruppi</b> <span class="aiuto">${nSel ? nSel + (nSel === 1 ? ' gruppo scelto' : ' gruppi scelti') + ', ' + grpConta(l.gruppi).toLocaleString('it-IT') + ' articoli' : 'nessuno scelto'}</span></summary>
+    <div data-lstgbox="${esc(nome)}" style="max-height:260px;overflow:auto;margin-top:6px;padding:4px 6px;border:1px solid var(--riga);border-radius:8px">${righe}</div>
+    <p class="aiuto" style="margin:6px 0 0">Scegliendo un gruppo si prendono anche i suoi sottogruppi. Sul telefono il listino viene sostituito con questi articoli (i preferiti e i codici a barre restano).</p></details>`;
+}
 const lstAttivo = nome => { const l = lstDi(nome); return l.on === undefined ? !l.ultimo : !!l.on; };
 let listinoTsvCache = {rif: null, tsv: ''};
 function listinoTsv(){
@@ -8068,7 +8118,21 @@ function listinoTsv(){
   return listinoTsvCache.tsv;
 }
 /* il listino viaggia compresso (deflate + base64): circa 1/5 del peso */
-function listinoZ(){
+function listinoPer(nome){          // listino compresso da mandare a questo tecnico ('' = niente)
+  const l = lstDi(nome); if (!lstAttivo(nome)) return '';
+  if (l.tipo === 'tutto') return listinoZ();
+  if (l.tipo === 'gruppi' && (l.gruppi || []).length) return listinoZ(l.gruppi);
+  return '';
+}
+function listinoZ(gruppi){
+  if (gruppi) {
+    const ch = gruppi.slice().sort().join('\u0001') + '#' + (datiLevante.listino || []).length;
+    if (!listinoTsvCache.gz || listinoTsvCache.gz.ch !== ch || listinoTsvCache.gz.L !== datiLevante.listino) {
+      const tsv = grpRighe(gruppi).map(r => r.map(x => String(x == null ? '' : x).replace(/[\t\r\n]+/g, ' ').trim()).join('\t')).join('\n');
+      listinoTsvCache.gz = {ch, L: datiLevante.listino, z: (tsv && window.pako) ? b64DaBytes(pako.deflate(tsv, {level: 9})) : ''};
+    }
+    return listinoTsvCache.gz.z;
+  }
   const tsv = listinoTsv(); if (!tsv) return '';
   if (listinoTsvCache.z === undefined || listinoTsvCache.zDi !== tsv) { listinoTsvCache.z = (window.pako ? b64DaBytes(pako.deflate(tsv, {level: 9})) : ''); listinoTsvCache.zDi = tsv; }
   return listinoTsvCache.z;
@@ -8076,7 +8140,7 @@ function listinoZ(){
 function listinoInviato(nome, pk){
   if (!(pk.articoli.length || pk.barre.length || pk.listinoZ)) return;
   const m = impostazioni.listino = Object.assign({}, impostazioni.listino || {});
-  m[nome] = Object.assign({}, m[nome] || {}, {on: false, ultimo: new Date().toISOString(), tipoUltimo: pk.listinoZ ? 'tutto' : 'pref'});
+  m[nome] = Object.assign({}, m[nome] || {}, {on: false, ultimo: new Date().toISOString(), tipoUltimo: pk.listinoZ ? (lstDi(nome).tipo === 'gruppi' ? 'gruppi' : 'tutto') : 'pref'});
   salvaImpostazioni();
 }
 function pacchettoPer(id, completo){
@@ -8089,7 +8153,7 @@ function pacchettoPer(id, completo){
   apps.forEach(a => (a.rc || []).forEach(r => { if (r._tpl && datiLevante.modelli[r._tpl]) modelli[r._tpl] = datiLevante.modelli[r._tpl]; }));
   const files = {};
   apps.forEach(a => (a.docs || []).forEach(d => { if (datiLevante.files[d.id] && !giaMandati.has(d.id)) files[d.id] = datiLevante.files[d.id]; }));
-  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), passGiorni: passGiorni(), cfg: cfgPer(id), cm: cmPer(id), colleghi: conOperai(id, id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : []), meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: (lstAttivo(nome) && lstDi(nome).tipo === 'tutto') ? listinoZ() : '',
+  return {formato:'assistenza-v1', tipo: leggero ? 'aggiornamento' : 'completo', generato:new Date().toISOString(), tecnico: id ? {id, nome} : null, appuntamenti: apps, chiamate: chiamateDi(id), modelli, azienda: datiLevante.azienda, files, iva: datiLevante.iva || {}, voci: impostazioni.voci || {}, tipiInt: impostazioniTipi(), passGiorni: passGiorni(), cfg: cfgPer(id), cm: cmPer(id), colleghi: conOperai(id, id ? sqReali().filter(x => x !== String(id)).map(x => { let dd = null; try { dd = dipDiTecnico(x); } catch(e) {} return {n: sqNomeTec(x), op: dd ? (dd.op || 0) : null}; }) : []), meOp: (() => { let dd = null; try { dd = id ? dipDiTecnico(String(id)) : null; } catch(e) {} return dd ? (dd.op || 0) : null; })(), reg: ctrlRegPer(apps), ric: ricPerTecnico(id, nome), articoli: lstAttivo(nome) ? (datiLevante.articoli || []) : [], barre: lstAttivo(nome) ? (datiLevante.barre || []) : [], listinoZ: listinoPer(nome),
     pratiche: datiLevante.pratiche || [], cantieri: cantieriAttivi() ? (datiLevante.cantieri || []) : [], operaio: (cantieriAttivi() && operaioDi(id)) ? (({k, n, op}) => ({k, n, op: op || 0}))(operaioDi(id)) : null, tipiOre: (cantieriAttivi() && (datiLevante.cantieri || []).length) ? (datiLevante.tipiOre || []) : []};
 }
 let salvataggioDati = {ok: true, kb: 0, senzaModelli: false};
@@ -8278,7 +8342,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.104.3 (21/11/2026)';
+const VERSIONE_APP = '1.105.0 (21/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
