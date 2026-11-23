@@ -1196,6 +1196,7 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     <p class="aiuto" id="bk-esito" role="status" style="margin:8px 0 0"></p>
     <h2 class="giorno" style="margin-top:26px">Backup completo</h2>
     <p class="aiuto" style="margin:0 0 8px">Copia in una cartella a tua scelta — meglio <b>un altro disco, una chiavetta o una cartella di rete</b> — i dati dell'app, i file ricevuti dai tecnici e i PDF dei rapporti. Copia solo i file nuovi e <b>non cancella mai niente</b>.</p>
+    <p class="aiuto" style="margin:0 0 8px"><b>Attenzione:</b> i file ricevuti e i PDF vengono copiati <b>così come sono, non cifrati</b>, e contengono dati dei clienti. Usa un disco, una chiavetta o una cartella di rete protetti (che non possa leggere chiunque) e non lasciare la chiavetta in giro. Le copie dei dati dell'app restano cifrate solo se hai impostato il codice di sicurezza.</p>
     <div class="campo" style="margin:0 0 6px"><label for="bkc-cartella">Cartella del backup</label><input id="bkc-cartella" type="text" placeholder="Es. D:\Backup" autocomplete="off" spellcheck="false"></div>
     <p class="aiuto" id="bkc-unita" style="margin:0 0 8px"></p>
     <div class="campo" style="margin:0 0 6px"><label for="bkc-auto">Backup automatico</label><select id="bkc-auto"><option value="mai">Spento (lo faccio io quando voglio)</option><option value="giorno">Ogni giorno</option><option value="settimana">Ogni settimana</option></select></div>
@@ -3732,7 +3733,8 @@ function costruisciPdf(w, ctx){
   blocco('Richiesta del cliente', w.richiesta);
 
   const opsPian = ((ctx.r && ctx.r.o) || []).filter(o => o.f || (w.ops[o.id] && w.ops[o.id].fatta));
-  if (opsPian.length || w.ops_extra.filter(Boolean).length) {
+  const ctrlOp = ctrlSenzaOp(w);
+  if (opsPian.length || w.ops_extra.filter(Boolean).length || ctrlOp.length) {
     serve(12); doc.setFont('helvetica','bold'); doc.setFontSize(9); colore(GRIGIO); doc.text('Operazioni', M, y + 3); y += 6;
     const c2 = 52, c3 = 28, c1 = CW - c2 - c3;
     doc.setFillColor(238,243,244); doc.rect(M, y, CW, 7, 'F'); doc.setFontSize(8.5);
@@ -3745,6 +3747,7 @@ function costruisciPdf(w, ctx){
       y += h; doc.setDrawColor(RIGA[0], RIGA[1], RIGA[2]); doc.setLineWidth(0.2); doc.line(M, y, M + CW, y); };
     opsPian.forEach(o => riga(o.d, o.a ? apparecchio(o.a) : 'Impianto', (w.ops[o.id] && w.ops[o.id].fatta) ? 'Eseguita' : 'Non eseguita'));
     w.ops_extra.filter(Boolean).forEach(t => riga(t, 'Fuori programma', 'Eseguita'));
+    ctrlOp.forEach(c => { const m = ctrlM(c.mod); riga(m.nome + (c.et ? ' · ' + c.et : ''), 'Fuori programma', 'Eseguita'); });
     y += 3;
   }
 
@@ -4758,6 +4761,13 @@ function fgScadenzeHtml(){
 }
 
 const ctrlLettDati = (m, c) => m.gest.filter(g => (g[3] === 'num' || g[3] === 'txt' || g[3] === 'sel' || g[3] === 'chk') && String((c.lett || {})[g[0]] || '').trim()).map(g => { const sc = g[3] === 'sel' || g[3] === 'chk'; return {v: g[1], val: sc ? String(c.lett[g[0]]).split('|').filter(Boolean).join(', ') : String(c.lett[g[0]]).trim(), u: sc ? '' : (g[4] || '')}; });
+/* scheda di controllo compilata (qualcosa e' stato segnato) e senza operazione pianificata collegata: il suo nome va tra le «Operazioni» del rapporto */
+function ctrlCompilato(c){
+  const m = ctrlM(c.mod); if (!m) return false;
+  try { if (m.pmp) return ctrlPmpConta(m, c).f > 0; } catch(e) { return false; }
+  return !!((c.idr || []).length || ((m.solo || m.autoImp) && (Object.keys(c.gest || {}).length || Object.keys(c.lett || {}).some(k => String(c.lett[k] || '').trim()))));
+}
+const ctrlSenzaOp = w => (w.ctrl || []).filter(c => !c.opId && (!c.da || c.da === 'impianto') && ctrlCompilato(c));
 function ctrlDati(w){ return (w.ctrl || []).filter(c => ctrlM(c.mod)).map(c => { const m = ctrlM(c.mod), n = ctrlNegativi(m, c);
   return {mod: c.mod, nome: m.nome + (c.et ? ' · ' + c.et : ''), pm: m.pmp ? ctrlPmpConta(m, c) : undefined, n: (c.idr || []).length, solo: m.solo ? 1 : undefined, pre: m.gestPre !== undefined ? m.gestPre : undefined, app: m.campi ? ctrlDatiApp(m, c) : undefined, sc: ctrlConScad(m) ? ctrlScadDati(m, c, w) : undefined, rk: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) || undefined, rd: w.data || undefined, ri: (!m.solo && ctrlConScad(m) && (c.idr || []).length && fgChiave(w)) ? ctrlRegVoci(w, c, m) : undefined, lett: ctrlLettDati(m, c), note: c.note || '', prossimo: c.prossimo || '', neg: {g: n.g, a: n.a.map(x => ({t: ctrlTipo(m, x.i.tipo, x.i)[1], matr: x.i.matr || '', pos: x.i.pos || '', v: ctrlKoTesto(m, x.i), nota: ctrlNotaI(m, x.i)}))}}; }); }
 function nomePdfCtrl(w, c){ const m = ctrlM(c.mod); const s = (w.cliente || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
@@ -8343,7 +8353,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.105.1 (22/11/2026)';
+const VERSIONE_APP = '1.106.1 (23/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
