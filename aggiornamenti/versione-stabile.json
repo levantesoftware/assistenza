@@ -1,12 +1,13 @@
 {
- "versione": "1.105.1",
+ "versione": "1.106.1",
  "canale": "stabile",
- "data": "2026-11-22",
+ "data": "2026-11-23",
  "novita": [
-  "inseriti anche i gruppi"
+  "Inserito nel listino cod art produttore",
+  "nel rapporto finiscono anche le descrizioni dei controlli"
  ],
- "pacchetto": "aggiornamento_1.105.1.zip",
- "sha256": "3bb9f347247c403cc87b7cf6f47f8b3a20a9a67b2db5bd0f924efce931d1e840",
- "firma": "OKyreHj27TN2G8Cf6UBnzXv-imRhaz2l2nmXZVJFopVUM0Y9CoEqRpeQb95J8wCjxv4u3HUTRGU0Z8R9jPKbBA",
- "dimensione": 1494826
+ "pacchetto": "aggiornamento_1.106.1.zip",
+ "sha256": "3545472c3196145367eebc0712c973b7dd34ff71604e51bfd7ff5165377613e6",
+ "firma": "Sc5YkedmAKD_IbQb74RWMZbfdZRDy-6hLqW76bbcDQqCMrVWTi0lCRwOlTXA4eBJIVhPKRFHA461W24gztTuBw",
+ "dimensione": 1495639
 }
