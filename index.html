@@ -1203,6 +1203,15 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
     <div class="campo" id="bkc-ora-box" style="margin:0 0 6px"><label for="bkc-ora">Ora del backup automatico</label><input id="bkc-ora" type="time" value="22:00"></div>
     <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn sec piccolo" id="bkc-salva" type="button">Salva</button><button class="btn piccolo" id="bkc-ora-btn" type="button">Fai il backup ora</button></div>
     <p class="aiuto" id="bkc-stato" role="status" style="margin:8px 0 0"></p>
+    <h2 class="giorno" style="margin-top:26px">Bacheca di Levante</h2>
+    <p class="aiuto" style="margin:0 0 8px">Con il pulsante <b>«Manda in bacheca»</b> (in Posta in arrivo) l'intervento arriva nella bacheca di Levante con le sue righe di manodopera e materiali: in Levante trasformi la chiamata in intervento e trascini l'elemento dalla bacheca. Si scrive solo nella bacheca (LevGen.GDB), mai nei dati delle aziende. Se il campo qui sotto è vuoto, il programma lo cerca da solo.</p>
+    <div class="campo" style="margin:0 0 6px"><label for="bc-gdb">Percorso di LevGen.GDB (come lo vede il PC server di Levante)</label><input id="bc-gdb" type="text" placeholder="" autocomplete="off" spellcheck="false"></div>
+    <div class="campo" style="margin:0 0 6px"><label for="bc-utente">Utente di Firebird (vuoto = quello dell'esportazione)</label><input id="bc-utente" type="text" autocomplete="off" spellcheck="false"></div>
+    <div class="campo" style="margin:0 0 6px"><label for="bc-pwd">Password di Firebird (vuota = quella dell'esportazione)</label><input id="bc-pwd" type="password" autocomplete="new-password" placeholder="lascia vuoto per non cambiarla"></div>
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin:8px 0 0"><button class="btn sec piccolo" id="bc-salva" type="button">Salva</button><button class="btn piccolo" id="bc-prova" type="button">Prova il collegamento</button></div>
+    <p class="aiuto" id="bc-stato" role="status" style="margin:8px 0 0"></p>
+    <label class="spunta" style="margin:14px 0 4px"><input type="checkbox" id="bc-allegati"> Permetti di allegare i PDF direttamente in Levante (spento di default)</label>
+    <p class="aiuto" style="margin:0">Con questa opzione, in Posta in arrivo compare il pulsante <b>«Allega in Levante»</b>: i PDF del rapporto vengono inseriti nell'elenco allegati dell'intervento (o della pratica, per i cantieri). Si <b>aggiunge soltanto</b>: non si modifica né si cancella niente. Se manca il numero dell'intervento o la pratica, il pulsante non compare e si trascina a mano. Prima di usarla fai una prova su un'azienda di prova e tieni un backup di Levante.</p>
     </div>
     </div>
     <button class="btn sec pieno" id="b-azzera" type="button" style="margin-top:18px">Cancella le schede salvate</button>
@@ -8353,7 +8362,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.106.1 (23/11/2026)';
+const VERSIONE_APP = '1.108.3 (24/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9735,7 +9744,7 @@ function disegnaPosta(){
       ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc(((pp.qta || '') + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${(r.rcee || []).length ? '<p style="margin:8px 0"><b>RCEE:</b> ' + esc(r.rcee.join(', ')) + '</p>' : ''}
       <p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
-      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
+      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button>${bachBtn(r, i)}${allegBtn(r, i)}<label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
   }).join('');
   testa += fgScadenzeHtml() + ctrlScadenzeHtml();
   { const nC = posta.filter(r => r.cant && !r.fatto).length; if (nC) testa += `<button class="btn sec piccolo" type="button" data-cantcsv="1" style="margin:0 0 12px 8px">Riepilogo ore dei cantieri da registrare (CSV, ${nC})</button>`; }
@@ -10001,7 +10010,7 @@ function schedaCantiere(r, i){
       ${mat ? '<p style="margin:8px 0 2px"><b>Materiali</b></p><ul style="margin:0;padding-left:20px">' + mat + '</ul>' : '<p class="aiuto">Nessun materiale.</p>'}
       ${(r.portato || []).length ? '<p style="margin:8px 0 2px"><b>Portato e non installato</b> <span class="aiuto">(da rientrare, o rimasto sul furgone)</span></p><ul style="margin:0;padding-left:20px">' + r.portato.map(pp => `<li>${esc(pp.codice ? pp.codice + ' · ' : '')}${esc(pp.descr)} — ${esc((pp.qta + ' ' + (pp.um || '')).trim())}</li>`).join('') + '</ul>' : ''}
       ${r.nfoto ? `<p style="margin:8px 0">${r.nfoto} ${r.nfoto === 1 ? 'foto' : 'foto'}</p>` : ''}<p style="margin:8px 0">${pdf}${zipPdf(r) ? ' ' + zipPdf(r) : ''}</p>
-      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button><label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
+      <div class="azioni" style="grid-template-columns:auto auto auto;justify-content:start;margin-top:10px"><button class="btn piccolo" type="button" data-csv="${i}">Scarica il CSV per Levante</button>${bachBtn(r, i)}${allegBtn(r, i)}<label class="spunta"><input type="checkbox" data-fatto="${i}"${r.fatto ? ' checked' : ''}> Registrato in Levante</label><button class="btn chiaro piccolo" type="button" data-togli-posta="${i}">Elimina</button></div>${avanti}</details>`;
 }
 function blobRiepilogoCantieri(){
   const c = csvImp(), cp = v => String(v == null ? '' : v).replace(/[;\r\n]+/g, ' ').trim(), num = n => c.virgola ? String(n).replace('.', ',') : String(n);
@@ -10053,6 +10062,8 @@ function avviaPosta(){
       return; }
     if (d.cantcsv !== undefined) { scaricaBlob(blobRiepilogoCantieri(), 'Riepilogo_ore_cantieri_' + isoGiorno(new Date()) + '.csv'); return; }
     if (d.copia !== undefined) { const p = d.copia.split('|'); copiaTesto(posta[+p[0]][p[1]] || ''); b.textContent = 'Copiato ✓'; }
+    else if (d.bach !== undefined) { mandaInBacheca(+d.bach, b); }
+    else if (d.alleg !== undefined) { allegaInLevante(+d.alleg, b); }
     else if (d.csv !== undefined) { const r = posta[+d.csv]; scaricaBlob(blobCsv(r), 'Levante_' + slugNome(r.cliente) + '_' + (r.data || '') + '.csv'); }
     else if (d.pdf !== undefined) { const f = pdfPosta[d.pdf]; if (f) scaricaBlob(f, d.pdf); else window.open('posta-allegato?nome=' + encodeURIComponent(d.pdf), '_blank'); }
     else if (d.mostrazip !== undefined) { chiamaJson('posta-zip-mostra', {zip: d.mostrazip, nomi: d.zipn.split('|')}).then(r => { if (!r || !r.ok) mostraAvviso('Non riesco ad aprire la cartella: lo zip è in C:\\Assistenza\\allegati.'); }).catch(() => {}); }
@@ -10595,6 +10606,123 @@ async function aggiornaPulizia(giorniScelti){
   if (st.ultima) t += ' Ultima pulizia: ' + dataIT(st.ultima.slice(0, 10)) + ' alle ' + st.ultima.slice(11, 16) + ' — ' + (st.eliminati ? 'eliminati ' + st.eliminati + (st.eliminati === 1 ? ' file' : ' file') + ' (' + dimStr(st.byte) + ').' : 'nessun file eliminato.');
   $('#pul-stato').textContent = t; $('#pul-ora').disabled = !g;
 }
+
+/* BACHECA DI LEVANTE: manda le righe del CSV (manodopera, km, materiali) nella bacheca; l'operatore le trascina nell'intervento */
+function bachBtn(r, i){
+  if (!inUfficio || !r) return '';
+  const g = r.bach && r.bach.num ? ' <span class="aiuto" style="align-self:center">In bacheca come ' + esc(r.bach.etichetta || ('Intervento ' + r.bach.num)) + ' · ' + esc(String(r.bach.quando || '').slice(0, 10).split('-').reverse().join('/')) + '</span>' : '';
+  return r.bach ? `<button class="btn chiaro piccolo" type="button" data-bach="${i}" title="Clic per rimandarlo">Già inviato in bacheca ✓</button>${g}` : `<button class="btn piccolo" type="button" data-bach="${i}">Manda in bacheca</button>`;
+}
+let bachAllegatiOn = false;
+function allegPratica(r){ const pr = r.pratica || (r.cantiere ? {id: r.cantiere.id} : null); return pr && /^\d+$/.test(String(pr.id || '')) ? String(pr.id) : ''; }
+function allegFile(r){ return (r.file || []).filter(n => pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))); }
+function allegBtn(r, i){          // solo con l'opzione accesa, con almeno un PDF gia' arrivato e un numero intervento o una pratica: altrimenti si trascina a mano
+  if (!inUfficio || !bachAllegatiOn || !r) return '';
+  const nf = allegFile(r).length, num = r.li ? String(r.li) : '';
+  if (!nf || !(num || allegPratica(r))) return '';
+  return r.alleg ? `<button class="btn chiaro piccolo" type="button" data-alleg="${i}" title="Già allegato in Levante: clic per allegare altri file (quelli già presenti vengono saltati)">Già allegato in Levante ✓</button>` : `<button class="btn piccolo" type="button" data-alleg="${i}">Allega in Levante…</button>`;
+}
+function sceltaAllegati(nomi, dove, nz){          // finestra: quali file allegare, e se singoli o in un solo zip. Risolve {nomi, zip} oppure null
+  return new Promise(ris => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--foglio,#fff);color:inherit;border-radius:12px;padding:18px;max-width:460px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.3)';
+    box.innerHTML = '<h3 style="margin:0 0 6px;font-size:17px">Allega in Levante</h3><p class="aiuto" style="margin:0 0 10px">Da allegare ' + esc(dove) + '. Si aggiunge soltanto, non si cambia né si cancella niente.</p>'
+      + '<div style="margin:0 0 10px">' + nomi.map((n, k) => '<label class="spunta" style="display:flex;gap:8px;margin:4px 0"><input type="checkbox" data-k="' + k + '" checked> <span>' + esc(n) + '</span></label>').join('') + '</div>'
+      + (nomi.length > 1 ? '<div style="margin:0 0 12px"><label class="spunta" style="display:flex;gap:8px;margin:4px 0"><input type="radio" name="al-modo" value="sep" checked> <span>Ogni PDF come allegato separato</span></label><label class="spunta" style="display:flex;gap:8px;margin:4px 0"><input type="radio" name="al-modo" value="zip"> <span>Un solo file zip con i PDF scelti (<i>' + esc(nz) + '</i>)</span></label></div>' : '')
+      + '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn chiaro piccolo" type="button" id="al-no">Annulla</button><button class="btn piccolo" type="button" id="al-si">Allega</button></div>';
+    ov.appendChild(box); document.body.appendChild(ov);
+    const chiudi = v => { ov.remove(); ris(v); };
+    box.querySelector('#al-no').onclick = () => chiudi(null);
+    ov.addEventListener('click', e => { if (e.target === ov) chiudi(null); });
+    box.querySelector('#al-si').onclick = () => {
+      const sc = nomi.filter((n, k) => box.querySelector('[data-k="' + k + '"]').checked);
+      if (!sc.length) { mostraAvviso('Scegli almeno un file.'); return; }
+      const m = box.querySelector('[name="al-modo"]:checked');
+      chiudi({nomi: sc, zip: !!(m && m.value === 'zip' && sc.length > 1)});
+    };
+  });
+}
+async function allegaInLevante(i, b){
+  const r = posta[i]; if (!r) return;
+  const tutti = allegFile(r); if (!tutti.length) { mostraAvviso('I PDF non sono ancora arrivati.'); return; }
+  const num = r.li ? String(r.li) : '', pr = num ? '' : allegPratica(r);
+  const dove = num ? 'all\'intervento ' + num : 'alla pratica del cantiere';
+  const nz = 'Rapporto_' + slugNome(r.cliente) + '_' + String(r.data || '').slice(0, 10) + '.zip';
+  const sc = await sceltaAllegati(tutti, dove, nz); if (!sc) return;
+  const txt = b.textContent; b.disabled = true; b.textContent = 'Invio…';
+  let d = null; try { d = await chiamaJson('allegato-invia', {num: num, pratica: pr, nomi: sc.nomi, zip: sc.zip, nome_zip: nz}); } catch(e) {}
+  b.disabled = false; b.textContent = txt;
+  if (!d) { mostraAvviso('Il servizio non risponde: non ho allegato niente.'); return; }
+  if (d.ok || d.esiste) { r.alleg = {quando: new Date().toISOString(), dove: d.dove || ''}; salvaPosta(); disegnaPosta(); }
+  mostraAvviso(d.messaggio || 'Non sono riuscito ad allegare.', '', null, d.ok ? 10000 : 9000);
+}
+function numCsv(v){ const t = String(v == null ? '' : v).trim().replace(',', '.'); return t === '' || isNaN(+t) ? '' : t; }
+function righeBacheca(r){
+  const c = csvImp(), rows = righeCsv(r);
+  const out = rows.slice(c.intest ? 1 : 0).map(x => ({c: String(x[0] || ''), d: String(x[1] || ''), u: String(x[2] || ''), q: numCsv(x[3]) || '0', p: numCsv(x[4]) || '0'}))
+    .filter(x => x.c || x.d);
+  const nt = bachNota(r); if (nt && out.length) out.unshift({c: '', d: nt, u: '', q: '', p: '', nota: true});     // senza numero di Levante: una riga di testo dice di cosa si tratta
+  return out;
+}
+const bachSenzaNumero = r => !(r && r.li);
+function bachNota(r){
+  if (!bachSenzaNumero(r)) return '';
+  const g = r.data ? dataIT(r.data) : '', chi = r.tecnico || (r.operaio && r.operaio.n) || '';
+  if (r.cant) return ('Cantiere ' + (r.cantiere && r.cantiere.cod ? r.cantiere.cod + ' · ' : '') + (r.cantiere && r.cantiere.nome || String(r.cliente || '')) + (g ? ' del ' + g : '') + (chi ? ' - ' + chi : '')).slice(0, 300);
+  return ('Intervento senza appuntamento: ' + (r.cliente || '') + (r.indirizzo ? ' - ' + r.indirizzo : '') + (g ? ' del ' + g : '') + (chi ? ' - ' + chi : '')).slice(0, 300);
+}
+function bachCliente(r){          // nome che si vede in bacheca per i documenti senza numero
+  if (r.cant) return ('Cantiere ' + (r.cantiere && r.cantiere.cod ? r.cantiere.cod + ' ' : '') + (r.cantiere && r.cantiere.nome || String(r.cliente || ''))).slice(0, 60);
+  return String(r.cliente || 'Senza appuntamento').slice(0, 60);
+}
+function cliBacheca(r){          // codice del cliente in Levante: dall'appuntamento o dalla chiamata con lo stesso numero
+  try {
+    const dl = (typeof datiLevante !== 'undefined' && datiLevante) || null, n = String(r.li || '');
+    if (dl && n) { const l = (dl.appuntamenti || []).concat(dl.chiamate || []); for (let i = 0; i < l.length; i++) { const x = l[i]; if (x && x.r && String(x.r.li) === n && x.r.c && x.r.c.k) return String(x.r.c.k); } }
+  } catch(e) {}
+  return '';
+}
+async function mandaInBacheca(i, b){
+  const r = posta[i]; if (!r) return;
+  const righe = righeBacheca(r);
+  if (!righe.length) { mostraAvviso('Non ci sono righe da mandare: manca la manodopera o i materiali.'); return; }
+  if (r.bach && !confirm('Questo intervento è già stato mandato in bacheca il ' + String(r.bach.quando || '').slice(0, 10).split('-').reverse().join('/') + '.\n\nSostituisco le righe in bacheca con quelle di adesso?')) return;
+  const txt = b.textContent; b.disabled = true; b.textContent = 'Invio…';
+  const sn = bachSenzaNumero(r), pr = r.pratica || (r.cantiere ? {id: r.cantiere.id, c: r.cantiere.cod, n: r.cantiere.nome} : null);
+  const corpo = {num: sn ? '' : String(r.li), num_bach: r.bach && r.bach.tipo !== 'Intervento' ? String(r.bach.num) : '', tipo_bach: r.bach && r.bach.tipo || '', data: r.data || '', cliente: sn ? '' : cliBacheca(r), ragsoc: sn ? bachCliente(r) : (r.cliente || ''), pratica: (pr && /^\d+$/.test(String(pr.id || ''))) ? String(pr.id) : '', descpratica: (pr && (pr.n || pr.c)) || '', righe: righe, sostituisci: !!r.bach};
+  let d = null; try { d = await chiamaJson('bacheca-invia', corpo); } catch(e) {}
+  b.disabled = false; b.textContent = txt;
+  if (!d) { mostraAvviso('Il servizio non risponde: la bacheca non è stata aggiornata.'); return; }
+  if (d.ok) { r.bach = {num: String(d.num), tipo: d.tipo, etichetta: d.etichetta, quando: new Date().toISOString(), righe: d.righe}; salvaPosta(); disegnaPosta(); mostraAvviso('Mandato in bacheca: ' + d.etichetta + ' (' + d.righe + ' righe).' + (sn ? ' In Levante lo trovi con il nome «' + corpo.ragsoc + '»: trascinalo nel documento giusto.' : ' In Levante trasforma la chiamata in intervento e trascina l\'elemento dalla bacheca.'), '', null, 12000); }
+  else mostraAvviso(d.messaggio || 'Non sono riuscito a mandarlo in bacheca.', '', null, 9000);
+}
+async function aggiornaBacheca(riempi){
+  const el = $('#bc-stato'); if (!el || !inUfficio) return;
+  let st; try { const r = await fetch('bacheca-stato', {cache: 'no-store'}); if (!r.ok) throw 0; st = await r.json(); } catch(e) { el.textContent = 'Il servizio non risponde.'; return; }
+  const era = bachAllegatiOn; bachAllegatiOn = !!st.allegati; if ($('#bc-allegati')) $('#bc-allegati').checked = bachAllegatiOn; if (era !== bachAllegatiOn) { try { disegnaPosta(); } catch(e) {} }
+  if (riempi) { $('#bc-gdb').value = st.gdb || ''; $('#bc-gdb').placeholder = st.gdb_proposto || 'C:\\...\\Levante\\LevGen.GDB'; $('#bc-utente').value = st.utente || ''; $('#bc-pwd').value = ''; }
+  el.textContent = (st.gdb || st.gdb_proposto) ? 'Percorso usato: ' + (st.gdb || st.gdb_proposto) + (st.gdb ? '' : ' (proposto)') + (st.password_propria ? ' · password propria salvata' : '') : 'Percorso non trovato: scrivilo qui sopra.';
+}
+function avviaBacheca(){
+  if (!$('#bc-salva')) return;
+  const salva = async () => { const d = await chiamaJson('bacheca-config', {gdb: $('#bc-gdb').value, utente: $('#bc-utente').value, password: $('#bc-pwd').value}).catch(() => null); if (!d) { $('#bc-stato').textContent = 'Il servizio non risponde.'; return false; } $('#bc-pwd').value = ''; return true; };
+  $('#bc-salva').onclick = async () => { if (await salva()) aggiornaBacheca(true); };
+  $('#bc-allegati').onchange = async function(){
+    const on = this.checked;
+    if (on && !confirm('ATTENZIONE: il programma scriverà nella tabella allegati di Levante (solo aggiungendo righe).\n\nUn uso sbagliato può creare allegati nel posto sbagliato o doppi, e in Levante non c\'è un modo semplice per toglierli.\n\nAttivala solo dopo aver fatto una prova su un\'azienda di prova e con un backup di Levante.\n\nVuoi attivarla?')) { this.checked = false; return; }
+    const d = await chiamaJson('bacheca-config', {allegati: on}).catch(() => null);
+    if (!d) { this.checked = !on; $('#bc-stato').textContent = 'Il servizio non risponde.'; return; }
+    aggiornaBacheca(false);
+  };
+  $('#bc-prova').onclick = async () => {
+    if (!(await salva())) return; $('#bc-stato').textContent = 'Provo il collegamento…';
+    const d = await chiamaJson('bacheca-prova').catch(() => null);
+    $('#bc-stato').innerHTML = d ? (d.ok ? esc(d.messaggio) : '<b style="color:#b3261e">' + esc(d.messaggio) + '</b>') : 'Il servizio non risponde.';
+  };
+  aggiornaBacheca(false);
+}
 /* backup completo (Impostazioni): copia dati app + file ricevuti + PDF in una cartella scelta */
 let bkcTimer = 0;
 async function aggiornaBackupCompleto(riempi){
@@ -10684,7 +10812,7 @@ function avviaAggiornamenti(){
   $('#ag-auto').onchange = e => chiamaJson('aggiorna-config', {auto: e.target.checked}).catch(() => {});
 }
 function avviaLicenzaBackup(){
-  avviaAggiornamenti(); avviaPulizia(); avviaBackupCompleto();
+  avviaAggiornamenti(); avviaPulizia(); avviaBackupCompleto(); avviaBacheca();
   controllaLicenza(); setInterval(controllaLicenza, 3600000);
   $('#lic-attiva').onclick = () => attivaLicenza('#lic-chiave', '#lic-esito');
   $('#lb-attiva').onclick = () => attivaLicenza('#lb-chiave', '#lb-esito');
@@ -11063,6 +11191,7 @@ function avvia(){
     $('#chk-cantieri').checked = cantieriAttivi(); $('#chk-chiamate').checked = chiamateAttive(); { const pg = $('#pass-giorni'); if (pg) pg.value = passGiorni(); }
     try { aggiornaPulizia(); } catch(e) {}
     try { aggiornaBackupCompleto(true); aggiornaUnitaBackup(); } catch(e) {}
+    try { aggiornaBacheca(true); } catch(e) {}
     $('#i-azienda').value = impostazioni.azienda; $('#i-tecnico').value = impostazioni.tecnico; $('#i-email-ufficio').value = impostazioni.emailUfficio || ''; $('#i-posizione').checked = !!impostazioni.posizione;
     $('#i-privacy-on').checked = impostazioni.privacyOn !== false; $('#i-privacy').value = testoPrivacy(); $('#i-codice').value = impostazioni.codiceSic || ''; aggiornaCodiceStato();
     $('#i-frasi').value = frasiRapide().join('\n'); $('#i-frase-std').value = impostazioni.fraseStandard || FRASE_TUTTO_PREDEFINITA;
