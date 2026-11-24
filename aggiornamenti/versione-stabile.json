@@ -1,13 +1,13 @@
 {
- "versione": "1.106.1",
+ "versione": "1.108.3",
  "canale": "stabile",
- "data": "2026-11-23",
+ "data": "2026-11-24",
  "novita": [
-  "Inserito nel listino cod art produttore",
-  "nel rapporto finiscono anche le descrizioni dei controlli"
+  "Ora è possibile inserire in Bacheca l'elenco materiali e manodopera dall'app ufficio",
+  "Ora anche gli allegati possono essere inseriti automaticamente nell'intervento"
  ],
- "pacchetto": "aggiornamento_1.106.1.zip",
- "sha256": "3545472c3196145367eebc0712c973b7dd34ff71604e51bfd7ff5165377613e6",
- "firma": "Sc5YkedmAKD_IbQb74RWMZbfdZRDy-6hLqW76bbcDQqCMrVWTi0lCRwOlTXA4eBJIVhPKRFHA461W24gztTuBw",
- "dimensione": 1495639
+ "pacchetto": "aggiornamento_1.108.3.zip",
+ "sha256": "7389c4cce9846dc6d1c914dbfc8fb0faa4be7534126170f81cd3b4947e7f2f33",
+ "firma": "jRLSV_1J87FRTnxLfH4rqm541dv419MLm3Y4n4EuES_SzccQETGQRT54ePOmmp-0_3mwo6R3oFPJ-f2YqLyLBQ",
+ "dimensione": 1506097
 }
