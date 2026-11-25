@@ -1,12 +1,10 @@
 {
- "versione": "1.109.0",
+ "versione": "1.109.1",
  "canale": "stabile",
  "data": "2026-11-25",
- "novita": [
-  "inserita lista ' Materiale Portato' dall' appuntamento"
- ],
- "pacchetto": "aggiornamento_1.109.0.zip",
- "sha256": "c5311d2cbf325751de32b19fb208bd54bfc3c14ddd23eacb4fa628d2c62403c4",
- "firma": "IMS88YYjvPvpYYME-5KeJn2YKENIeR5-vOLtLVnIw6ENUJuRkGift2-W6RDADhYt0z9ocgEZTJ9Gv7Be8HByAg",
- "dimensione": 1508340
+ "novita": [],
+ "pacchetto": "aggiornamento_1.109.1.zip",
+ "sha256": "8b25251c6624c4263c7cc8efc2b62047f10ffbb050e027a6cbaa55298c836da0",
+ "firma": "-gtC8MNvaZw3F-azj1W2KlLEfFiJEji2FFhnwOHlHRgkJ9m2G25WMECjvxdX1A3ChzYsC4we4hJaqKGP2hVBAw",
+ "dimensione": 1508849
 }
