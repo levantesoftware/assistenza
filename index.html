@@ -2094,7 +2094,7 @@ function disegnaAgenda(){
   let html = '', giorno = '', prossimoFatto = false;
   elenco.forEach(a => {
     const g = isoGiorno(a.inizio);
-    if (g !== giorno) { const nPt = appuntamenti.filter(x => isoGiorno(x.inizio) === g && !x.promemoria && vociPortato([x]).length).length;
+    if (g !== giorno) { const nPt = appuntamenti.filter(x => isoGiorno(x.inizio) === g && !x.promemoria && vociPortato([x]).length).length + vociPortatoCant(leggiRegCant().filter(r => !r.inviato && r.data === g)).length;
       html += `<h2 class="giorno">${esc(giornoLungo(a.inizio))}${nPt && !inUfficio ? `<button class="btn chiaro piccolo" type="button" data-stampa-giorno="${esc(g)}" style="float:right;margin:-4px 0 0" title="Stampa la lista del materiale da caricare per questo giorno">Stampa materiale (${nPt})</button>` : ''}</h2>`; giorno = g; }
     const st = stato(a.id);
     const nOp = opDaFare(a.r).length;
@@ -2110,6 +2110,7 @@ function disegnaAgenda(){
     if (nOp) chips.push(`<span class="chip">${nOp} ${nOp === 1 ? 'operazione' : 'operazioni'} da fare</span>`);
     const nDoc = (a.docs || []).filter(d => !d.altro).length;
     if (nDoc) chips.push(`<span class="chip info">${nDoc} ${nDoc === 1 ? 'documento' : 'documenti'}</span>`);
+    { const bzp = bozze[a.id]; const np = bzp && bzp.portato ? bzp.portato.filter(p => p.descr || p.codice).length : 0; if (np && !a.promemoria) chips.push(`<span class="chip pdf">Materiale caricato · ${np}</span>`); }
     if (st === 'pdf') chips.push('<span class="chip pdf">PDF creato</span>');
     else if (st === 'bozza') chips.push(bozze[a.id].inCorso ? '<span class="chip bozza">In corso dalle ' + esc(bozze[a.id].inizioOra || '') + '</span>' : '<span class="chip bozza">Bozza</span>');
     if (st === 'pdf' || st === 'bozza') { const ce = chipEsito(bozze[a.id]); if (ce) chips.push(ce); const ci = chipInvio(bozze[a.id]); if (ci) chips.push(ci); }
@@ -7190,7 +7191,7 @@ function pdfListaPortato(voci, giorno){          // foglio da stampare: niente p
     voci.forEach(v => v.portato.forEach(pp => { const key = (pp.codice || pp.descr).toLowerCase(), q = qNum(pp.qta); if (!somma[key]) somma[key] = {codice: pp.codice, descr: pp.descr, um: pp.um, q: 0}; if (q) somma[key].q += q; }));
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5); col(INK); doc.text('Totale da caricare', M, y + 3); y += 6; intesta();
     Object.keys(somma).forEach(k => { const x = somma[k]; riga({codice: x.codice, descr: x.descr, um: x.um, qta: x.q ? qtaTesto(x.q) : ''}); });
-    y += 6; serve(14); doc.setFont('helvetica','bold'); doc.setFontSize(10.5); col(INK); doc.text('Dettaglio per appuntamento', M, y + 3); y += 7;
+    y += 6; serve(14); doc.setFont('helvetica','bold'); doc.setFontSize(10.5); col(INK); doc.text('Dettaglio per appuntamento e cantiere', M, y + 3); y += 7;
   }
   voci.forEach(v => {
     serve(24); doc.setFont('helvetica','bold'); doc.setFontSize(10); col(GRIGIO);
@@ -7199,8 +7200,11 @@ function pdfListaPortato(voci, giorno){          // foglio da stampare: niente p
   const n = doc.getNumberOfPages(); for (let k = 1; k <= n; k++) { doc.setPage(k); doc.setFont('helvetica','normal'); doc.setFontSize(8); col(GRIGIO); doc.text('Pagina ' + k + ' di ' + n, W - M, 290, {align:'right'}); }
   return doc.output('blob');
 }
-function stampaListaPortato(lista, giorno, nomeFile){
-  const voci = vociPortato(lista);
+function vociPortatoCant(regs){          // rapportini di cantiere con una lista di materiale
+  return regs.filter(r => r && (r.portato || []).some(p => p.descr || p.codice)).map(r => ({cliente: 'Cantiere ' + (r.cod ? r.cod + ' · ' : '') + titoloCn(r), indirizzo: r.ind || '', quando: '', num: '', portato: r.portato.filter(p => p.descr || p.codice)}));
+}
+function stampaListaPortato(lista, giorno, nomeFile){ stampaVoci(vociPortato(lista), giorno, nomeFile); }
+function stampaVoci(voci, giorno, nomeFile){
   if (!voci.length) { mostraAvviso('Non c\'è ancora nessun articolo nella lista da stampare.'); return; }
   try { scaricaBlob(pdfListaPortato(voci, giorno), nomeFile); }
   catch(x) { mostraAvviso('Non sono riuscito a creare il PDF (' + ((x && x.message) || 'errore') + ').'); }
@@ -7214,8 +7218,13 @@ function avviaPortatoSolo(){
       const a = corrente || {id: lavoro.id, titolo: lavoro.cliente, inizio: new Date(lavoro.data + 'T00:00:00'), r: lavoro.r};
       const g = lavoro.data || isoGiorno(new Date());
       stampaListaPortato([Object.assign({}, a, {id: lavoro.id})], g, 'Materiale_' + slugNome(lavoro.cliente || 'appuntamento') + '_' + g + '.pdf'); return; }
+    if (t.closest('#cn-port-stampa')) {          // la lista del rapportino di cantiere aperto
+      if (!regCorr) return; salvaReg(true);
+      stampaVoci(vociPortatoCant([regCorr]), regCorr.data || isoGiorno(new Date()), 'Materiale_' + slugNome((regCorr.cod ? regCorr.cod + ' ' : '') + (regCorr.nome || 'cantiere')) + '_' + (regCorr.data || isoGiorno(new Date())) + '.pdf'); return; }
     const bg = t.closest('[data-stampa-giorno]');
-    if (bg) { const g = bg.dataset.stampaGiorno; stampaListaPortato(appuntamenti.filter(a => isoGiorno(a.inizio) === g && !a.promemoria).sort((x, y) => x.inizio - y.inizio), g, 'Materiale_da_caricare_' + g + '.pdf'); }
+    if (bg) { const g = bg.dataset.stampaGiorno;
+      const voci = vociPortato(appuntamenti.filter(a => isoGiorno(a.inizio) === g && !a.promemoria).sort((x, y) => x.inizio - y.inizio)).concat(vociPortatoCant(leggiRegCant().filter(r => !r.inviato && r.data === g)));
+      stampaVoci(voci, g, 'Materiale_da_caricare_' + g + '.pdf'); }
   });
 }
 function avviaPortatoL(){
@@ -8441,7 +8450,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.0 (25/11/2026)';
+const VERSIONE_APP = '1.109.1 (25/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -8928,7 +8937,7 @@ let timerReg = null;
 function salvaReg(subito){
   const r = regCorr; if (!r) return;
   try { cnAggSomm(); } catch(e) {}
-  const pieno = r.ore || (r.relazione || '').trim() || r.materiali.length || r.foto.length;
+  const pieno = r.ore || (r.relazione || '').trim() || r.materiali.length || r.foto.length || (r.portato || []).length;
   const vai = () => {
     const L = leggiRegCant(), i = L.findIndex(x => x.id === r.id);
     if (i < 0) { if (!pieno) return; delete r.nuova; L.push(r); } else L[i] = r;
@@ -8940,9 +8949,10 @@ function listaCantieri(){
   const box = $('#lista'), C = elencoCantieri(), R = leggiRegCant();
   const daInv = R.filter(r => !r.inviato).sort((a, b) => String(b.data).localeCompare(String(a.data)));
   const inv = R.filter(r => r.inviato).sort((a, b) => b.inviato - a.inviato).slice(0, 5);
-  const riga = r => `<button class="visita" type="button" data-cn-reg="${esc(r.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(r.data).slice(0, 5))}<small>${esc(r.ore ? fmtOreDec(numOre(r.ore)) + ' h' : 'senza ore')}</small></span><span class="corpo"><span class="nome">${esc((r.cod ? r.cod + ' · ' : '') + titoloCn(r))}</span><span class="riga">${r.inviato ? '<span class="chip pdf">Inviata</span>' : '<span class="chip bozza">Da inviare</span>'}</span></span></button>`;
+  const riga = r => `<button class="visita" type="button" data-cn-reg="${esc(r.id)}"><span class="ora" style="font-size:16px">${esc(dataIT(r.data).slice(0, 5))}<small>${esc(r.ore ? fmtOreDec(numOre(r.ore)) + ' h' : 'senza ore')}</small></span><span class="corpo"><span class="nome">${esc((r.cod ? r.cod + ' · ' : '') + titoloCn(r))}</span><span class="riga">${r.inviato ? '<span class="chip pdf">Inviata</span>' : '<span class="chip bozza">Da inviare</span>'}${(r.portato || []).some(p => p.descr || p.codice) ? ' <span class="chip pdf">Materiale caricato · ' + r.portato.filter(p => p.descr || p.codice).length + '</span>' : ''}</span></span></button>`;
   let h = '<p class="aiuto" style="margin:6px 0 10px">Scegli il cantiere dove hai lavorato: scrivi le <b>ore</b>, cosa hai fatto, i materiali e le foto, poi <b>invia in ufficio</b>.</p>';
-  if (daInv.length) h += `<h2 class="giorno">Da inviare in ufficio (${daInv.length})</h2>` + daInv.map(riga).join('');
+  { const og = isoGiorno(new Date()), nOg = vociPortatoCant(daInv.filter(r => r.data === og)).length;
+    if (daInv.length) h += `<h2 class="giorno">Da inviare in ufficio (${daInv.length})${nOg ? `<button class="btn chiaro piccolo" type="button" data-stampa-giorno="${esc(og)}" style="float:right;margin:-4px 0 0">Stampa materiale di oggi (${nOg})</button>` : ''}</h2>` + daInv.map(riga).join(''); }
   h += `<h2 class="giorno">Cantieri (${C.length})</h2><div class="campo" style="margin:0 0 10px"><input type="text" id="cn-filtro" autocomplete="off" placeholder="Cerca per numero, nome o cliente" value="${esc(listaCantieri.q || '')}" aria-label="Cerca un cantiere"></div><div id="cn-elenco"></div>`;
   if (inv.length) h += '<details class="cn-recenti" style="margin-top:6px"><summary class="giorno" style="cursor:pointer;margin:14px 0 8px">Inviate di recente (' + inv.length + ')</summary>' + inv.map(riga).join('') + '</details>';
   box.innerHTML = h;
@@ -9073,7 +9083,7 @@ function disegnaCantiere(){
     ${tipi.length ? `<div class="campo"><label for="cn-tipo">Tipo di ore</label><select id="cn-tipo"><option value=""${!r.tipo ? ' selected' : ''}>— nessuno (nessuna voce dell'elenco) —</option>${tipi.map(t => `<option value="${esc(t)}"${t === r.tipo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
     <div id="cn-col">${cnColHtml(r)}</div>`, true)}
     ${cnDet(r, 'rel', 'Cosa hai fatto', cnSomm(r).rel, `<div class="campo"><label for="cn-rel" style="display:none">Cosa hai fatto</label><div class="cbox"><textarea id="cn-rel" rows="5" maxlength="2500" placeholder="Lavori eseguiti in questa giornata (puoi dettare con il microfono)" style="padding-right:56px">${esc(r.relazione)}</textarea>${bottoneMic('cn:rel')}</div>${vocPossibile() ? `<div style="margin-top:8px"><label style="display:block;margin:0 0 4px;font-weight:700">Messaggio vocale per l'ufficio</label>${vocaleHtml('cn:' + r.id)}</div>` : ''}</div>`, true)}
-    <details class="passo rcee-blocco" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="cn-port-n" class="aiuto">${esc(contaPortato(r).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
+    <details class="passo rcee-blocco" id="cn-port-d" data-rid="${esc(r.id)}"${(portApr[r.id] !== undefined ? portApr[r.id] : !(r.portato || []).length) ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="cn-port-n" class="aiuto">${esc(contaPortato(r).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista di stamattina: poi tocchi quello che installi.</p>${nA ? `<div class="cbox"><input type="text" id="cn-pcerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('cnpcerca')}</div><div id="cn-pcerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-port-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="cn-port-scan" style="margin:0 8px 8px 0">Scansiona</button><button class="btn chiaro piccolo" type="button" id="cn-port-stampa" style="margin:0 8px 8px 0">Stampa la lista</button></div><input type="file" id="cn-port-foto-in" accept="image/*" capture="environment" hidden><div id="cn-port">${righePortato(r)}</div></details>
     ${cnDet(r, 'mat', 'Materiali usati', cnSomm(r).mat, `${nA ? `<div class="cbox"><input type="text" id="cn-cerca" autocomplete="off" placeholder="Cerca tra i tuoi articoli (${nA})" aria-label="Cerca un articolo" style="padding-right:56px">${bottoneMic('cncerca')}</div><div id="cn-cerca-ris"></div>` : ''}<div id="cn-mat">${righeMatCn(r)}</div><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-scan-mat" style="margin:0 8px 8px 0">Scansiona codice a barre</button><button class="btn sec piccolo" type="button" id="cn-mat-agg" style="margin:0 8px 8px 0">Aggiungi un materiale a mano</button><button class="btn piccolo" type="button" id="cn-mat-voce" style="margin:0 8px 8px 0">${ICONA_MIC} Detta i materiali</button></div>`, true)}
     ${cnDet(r, 'foto', 'Foto', cnSomm(r).foto, `<div id="cn-foto">${fotoCn(r)}</div><input type="file" id="cn-foto-in" accept="image/*" multiple hidden><input type="file" id="cn-foto-cam" accept="image/*" capture="environment" hidden><div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="cn-foto-scatta" style="margin:0 8px 8px 0">Scatta una foto</button><button class="btn sec piccolo" type="button" id="cn-foto-agg" style="margin:0 8px 8px 0">Dalla galleria</button></div><p class="aiuto" id="cn-foto-msg" role="status" style="margin:4px 0 0"></p>`, (r.foto || []).length > 0)}
     ${cnDet(r, 'firma', 'Firma (facoltativa)', cnSomm(r).firma, `<div class="campo"><label for="cn-firmanome">Nome di chi firma <span class="aiuto">(facoltativo)</span></label><input id="cn-firmanome" type="text" autocomplete="off" value="${esc(r.firmaNome || '')}"></div>
