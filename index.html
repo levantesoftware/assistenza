@@ -951,6 +951,13 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
   </div>
 
   <!-- SCHEDA INTERVENTO -->
+  <section id="v-portato" class="view">
+    <header class="barra fissa">
+      <button class="btn chiaro piccolo" id="b-indietro-portato" type="button">Indietro</button>
+      <h1>Materiale portato</h1>
+    </header>
+    <div id="pt-solo" style="margin-top:12px"></div>
+  </section>
   <section id="v-scheda" class="view">
     <header class="barra fissa">
       <button class="btn chiaro piccolo" id="b-indietro-scheda" type="button">Indietro</button>
@@ -1777,6 +1784,12 @@ function vaiIndietro(){      // usata dal tasto indietro del telefono e come rip
     if (corrente) apriDettaglio(corrente.id, false); else { mostra('agenda', false); disegnaAgenda(); }
     return;
   }
+  if (vistaCorrente === 'portato') {
+    if (timer) { clearTimeout(timer); salvaBozza(); }
+    ptSolo = false;
+    if (corrente) apriDettaglio(corrente.id, false); else { mostra('agenda', false); disegnaAgenda(); }
+    return;
+  }
   if (vistaCorrente === 'scheda') {
     if (timer) { clearTimeout(timer); salvaBozza(); }
     if (corrente) apriDettaglio(corrente.id, false); else { mostra('agenda', false); disegnaAgenda(); }
@@ -2081,7 +2094,8 @@ function disegnaAgenda(){
   let html = '', giorno = '', prossimoFatto = false;
   elenco.forEach(a => {
     const g = isoGiorno(a.inizio);
-    if (g !== giorno) { html += `<h2 class="giorno">${esc(giornoLungo(a.inizio))}</h2>`; giorno = g; }
+    if (g !== giorno) { const nPt = appuntamenti.filter(x => isoGiorno(x.inizio) === g && !x.promemoria && vociPortato([x]).length).length;
+      html += `<h2 class="giorno">${esc(giornoLungo(a.inizio))}${nPt && !inUfficio ? `<button class="btn chiaro piccolo" type="button" data-stampa-giorno="${esc(g)}" style="float:right;margin:-4px 0 0" title="Stampa la lista del materiale da caricare per questo giorno">Stampa materiale (${nPt})</button>` : ''}</h2>`; giorno = g; }
     const st = stato(a.id);
     const nOp = opDaFare(a.r).length;
     const chips = [];
@@ -2491,7 +2505,7 @@ function apriDettaglio(id, push = true){
       ${c.e ? `<dt>Email</dt><dd>${esc(c.e)}</dd>` : ''}</dl></div>`;
   }
   if (libera) h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-trasforma" type="button">Trasforma in intervento (inizia adesso)</button></div></div>`;
-  else h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-inizia" type="button">${st === 'pdf' ? 'Rivedi la scheda' : (bozze[a.id] && bozze[a.id].inCorso) ? 'Continua l\'intervento (iniziato alle ' + esc(bozze[a.id].inizioOra || '') + ')' : st === 'bozza' ? 'Continua la scheda' : 'Inizia l\'intervento'}</button>${(bozze[a.id] && !bozze[a.id].inCorso && st !== '' && bozze[a.id].orari && bozze[a.id].orari.some(o => o.dal && o.al)) ? '<button class="btn sec" id="b-nuova-visita" type="button" style="margin-top:8px">Nuova visita: inizia adesso</button>' : ''}</div></div>`;
+  else h += `<div class="barra-azione"><div class="dentro"><button class="btn" id="b-inizia" type="button">${st === 'pdf' ? 'Rivedi la scheda' : (bozze[a.id] && bozze[a.id].inCorso) ? 'Continua l\'intervento (iniziato alle ' + esc(bozze[a.id].inizioOra || '') + ')' : st === 'bozza' ? 'Continua la scheda' : 'Inizia l\'intervento'}</button>${(st === 'pdf' || a.fatto) ? '' : '<button class="btn sec" id="b-portato" type="button" style="margin-top:8px">Materiale portato' + (bozze[a.id] && (bozze[a.id].portato || []).length ? ' (' + bozze[a.id].portato.length + ')' : '') + '</button>'}${(bozze[a.id] && !bozze[a.id].inCorso && st !== '' && bozze[a.id].orari && bozze[a.id].orari.some(o => o.dal && o.al)) ? '<button class="btn sec" id="b-nuova-visita" type="button" style="margin-top:8px">Nuova visita: inizia adesso</button>' : ''}</div></div>`;
   $('#v-dettaglio').innerHTML = h;
   $('#b-indietro-det').onclick = indietro;
   if (sola()) { const ba = $('#v-dettaglio .barra-azione'); if (ba) ba.innerHTML = '<div class="dentro"><p class="nota-sola">In ufficio l\'agenda è solo in visualizzazione: gli interventi li compilano i tecnici e arrivano da «Interventi in arrivo».</p></div>'; }
@@ -2508,6 +2522,7 @@ function apriDettaglio(id, push = true){
   });
   { const bi = $('#b-inizia'); if (bi) bi.onclick = () => { const b = bozze[a.id]; if (!b || b.stato === 'nuova') iniziaIntervento(a); else apriScheda(a); }; }
   const nv = $('#b-nuova-visita'); if (nv) nv.onclick = () => iniziaIntervento(a, true);
+  { const bp = $('#b-portato'); if (bp) bp.onclick = () => apriPortatoSolo(a); }
   { const bt = $('#b-trasforma'); if (bt) bt.onclick = () => trasformaChiamata(a);
     const bf = $('#b-fissa'); if (bf) bf.onclick = () => fissaChiamata(a);
     const bd = $('#b-disfissa'); if (bd) bd.onclick = () => { delete pianoCh[a.id]; salvaPianoCh(); appuntamenti = caricaAppuntamenti(); indietro(); disegnaAgenda(); }; }
@@ -3453,7 +3468,7 @@ document.addEventListener('click', e => {
   setTimeout(szAggiorna, 150);
 });
 function bozzaModificata(senzaInvalidare){      // senzaInvalidare: modifiche che non toccano i PDF gia' creati (come l'email)
-  if (!senzaInvalidare) lavoro.stato = 'bozza';
+  if (!senzaInvalidare && !(ptSolo && lavoro.stato === 'nuova')) lavoro.stato = 'bozza';
   lavoro.aggiornata = Date.now();
   clearTimeout(timer);
   timer = setTimeout(() => salvaBozza(senzaInvalidare), 400);
@@ -3516,7 +3531,7 @@ async function eliminaIntervento(){
 function salvaBozza(mantieniPannello){
   timer = null;
   if (!lavoro) return;
-  catturaFirma();
+  if (!ptSolo) catturaFirma();
   bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
   const s = $('#salvato'); if (s && !mantieniPannello) s.textContent = 'Bozza salvata su questo dispositivo';
   if (!mantieniPannello) { const p = $('#pdf-fatto'); if (p) p.hidden = true; }
@@ -7106,7 +7121,7 @@ function interpretaDaRighe(){
   $('#vm-aggiungi').disabled = !vmRighe.length; $('#vm-aggiungi').textContent = 'Aggiungi ' + vmRighe.length + (vmRighe.length === 1 ? ' materiale' : ' materiali');
 }
 /* ---- materiale portato (appuntamenti): la lista fatta in magazzino; a fine lavoro si tocca quello che si e' usato e passa in «Materiali» col prezzo del listino del cliente ---- */
-let ptApr = {}, matApr = {};
+let ptApr = {}, matApr = {}, ptSolo = false;          // ptSolo: lista del materiale portato aperta da sola (prima di iniziare l'intervento)
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'mat-d') matApr[ptKey()] = d.open; }, true);
 const ptKey = () => (lavoro && lavoro.id) || '';
 function ptConta(w){ const n = (w.portato || []).length, u = (w.portato || []).filter(p => portatoUsato(w, p)).length; return n ? ' · ' + n + (n === 1 ? ' articolo' : ' articoli') + (u ? ', usati ' + u : '') : ''; }
@@ -7115,13 +7130,13 @@ function righePortatoL(){
   const sp = document.getElementById('pt-n'); if (sp) sp.textContent = ptConta(w).replace(/^ · /, '');
   if (!w.portato.length) return '<p class="aiuto" style="margin:4px 0">Ancora nessun articolo. In magazzino fotografa l\'etichetta, scansiona o cerca qui sopra.</p>';
   const usati = w.portato.filter(p => portatoUsato(w, p)).length;
-  return `<p class="aiuto" style="margin:4px 0">${w.portato.length} articoli · usati ${usati}. A fine lavoro tocca il quadratino sui pezzi usati.</p>` + w.portato.map((p, i) => { const u = portatoUsato(w, p);
-    return `<div class="ptr${u ? ' usato' : ''}"><div class="ptc">${esc(p.codice || '')}</div><div class="ptd">${esc(p.descr || (p.codice ? '' : '—'))}${ptEtUso(w, p) ? `<span style="display:block;color:var(--tenue)">${esc(ptEtUso(w, p).slice(3))}</span>` : ''}</div><input type="text" inputmode="decimal" data-pt-q="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="ptu" type="button" data-pt-us="${i}" aria-pressed="${u}" aria-label="${u ? 'Usato: tocca per togliere' : 'Segna come usato'}">${u ? '✓' : ''}</button><button class="togli" type="button" data-pt-togli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
+  return `<p class="aiuto" style="margin:4px 0">${w.portato.length} articoli · usati ${usati}. ${ptSolo ? 'Quando inizi l\'intervento la lista è già nella scheda.' : 'A fine lavoro tocca il quadratino sui pezzi usati.'}</p>` + w.portato.map((p, i) => { const u = portatoUsato(w, p);
+    return `<div class="ptr${u ? ' usato' : ''}"><div class="ptc">${esc(p.codice || '')}</div><div class="ptd">${esc(p.descr || (p.codice ? '' : '—'))}${ptEtUso(w, p) ? `<span style="display:block;color:var(--tenue)">${esc(ptEtUso(w, p).slice(3))}</span>` : ''}</div><input type="text" inputmode="decimal" data-pt-q="${i}" value="${esc(p.qta)}" aria-label="Quantità portata"><button class="ptu" type="button" data-pt-us="${i}" aria-pressed="${u}"${ptSolo ? ' disabled tabindex="-1" style="visibility:hidden"' : ''} aria-label="${u ? 'Usato: tocca per togliere' : 'Segna come usato'}">${u ? '✓' : ''}</button><button class="togli" type="button" data-pt-togli="${i}" aria-label="Togli dalla lista">×</button></div>`; }).join('');
 }
 function portatoLHtml(){
   if (!lavoro) return '';
   const nA = leggiArticoli().length, w = lavoro, aperto = ptApr[ptKey()] !== undefined ? ptApr[ptKey()] : (w.portato || []).length > 0;
-  return `<details class="passo rcee-blocco" id="pt-d"${aperto ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="pt-n" class="aiuto">${esc(ptConta(w).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista che fai in magazzino: a fine lavoro tocchi quello che hai usato e passa nei materiali.</p>${nA ? `<div class="cbox"><input type="text" id="pt-cerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('ptcerca')}</div><div id="pt-cerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="pt-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="pt-scan" style="margin:0 8px 8px 0">Scansiona</button></div><input type="file" id="pt-foto-in" accept="image/*" capture="environment" hidden><div id="pt-lista">${righePortatoL()}</div></details>`;
+  return `<details class="passo rcee-blocco" id="pt-d"${aperto ? ' open' : ''}><summary><h2>Materiale portato</h2><span id="pt-n" class="aiuto">${esc(ptConta(w).replace(/^ · /, ''))}</span></summary><p class="aiuto" style="margin:2px 0 6px">La lista che fai in magazzino: a fine lavoro tocchi quello che hai usato e passa nei materiali.</p>${nA ? `<div class="cbox"><input type="text" id="pt-cerca" autocomplete="off" placeholder="Cerca e aggiungi alla lista" aria-label="Cerca un articolo da aggiungere alla lista" style="padding-right:56px">${bottoneMic('ptcerca')}</div><div id="pt-cerca-ris"></div>` : ''}<div style="display:flex;flex-wrap:wrap;margin-top:6px"><button class="btn piccolo" type="button" id="pt-foto" style="margin:0 8px 8px 0">Fotografa il codice</button><button class="btn sec piccolo" type="button" id="pt-scan" style="margin:0 8px 8px 0">Scansiona</button><button class="btn chiaro piccolo" type="button" id="pt-stampa" style="margin:0 8px 8px 0">Stampa la lista</button></div><input type="file" id="pt-foto-in" accept="image/*" capture="environment" hidden><div id="pt-lista">${righePortatoL()}</div></details>`;
 }
 function aggiungiPortatoL(a, q){
   q = q > 0 ? q : 1; const w = lavoro; if (!w) return; w.portato = w.portato || [];
@@ -7138,6 +7153,70 @@ function ptUsa(i, rigaEl){
   if (ix >= 0) { w.materiali.splice(ix, 1); fine(); return; }
   const metti = n => { w.materiali.unshift({descr: pp.descr, codice: pp.codice, qta: qtaTesto(n), um: pp.um || 'pz', prezzo: pp.art ? prezzoArtL(pp.art, listinoCorr()) : (pp.prezzo || '')}); fine(); };
   if (qNum(pp.qta) > 1) usoPannello(rigaEl, pp, metti); else metti(qNum(pp.qta) || 1);
+}
+/* ---- materiale portato PRIMA di iniziare l'intervento + stampa della lista ---- */
+function apriPortatoSolo(a){
+  if (sola() || !a || a.promemoria) return;
+  if (bozze[a.id] && bozze[a.id].passatoA) { mostraAvviso('Questo intervento è passato a un collega.'); return; }
+  if (timer) { clearTimeout(timer); salvaBozza(); }
+  corrente = a; lavoro = bozze[a.id] || nuovaScheda(a); ptSolo = true;
+  ptApr[ptKey()] = true;
+  const f = $('#form'); if (f) f.innerHTML = '';
+  const when = a.inizio ? giornoLungo(a.inizio) + ' · ' + hhmm(a.inizio) : '';
+  $('#pt-solo').innerHTML = `<p style="margin:0 0 4px"><b>${esc(lavoro.cliente || a.titolo || '')}</b></p><p class="aiuto" style="margin:0 0 10px">${esc([lavoro.indirizzo, when].filter(Boolean).join(' · '))}</p>${portatoLHtml()}<p class="aiuto" style="margin:10px 0 0">Questa lista non fa partire l'intervento né le ore: quando premi «Inizia l'intervento» la ritrovi nella scheda, sezione «Materiale portato».</p>`;
+  mostra('portato');
+}
+function vociPortato(lista){          // [{cliente, indirizzo, quando, portato[]}] dagli appuntamenti indicati (solo quelli con una lista)
+  return lista.map(a => { const b = bozze[a.id]; if (!b || !(b.portato || []).some(p => p.descr || p.codice)) return null;
+    return {cliente: b.cliente || a.titolo || '', indirizzo: b.indirizzo || '', quando: a.inizio ? hhmm(a.inizio) : '', num: (a.r && a.r.li) ? String(a.r.li) : '', portato: b.portato.filter(p => p.descr || p.codice)}; }).filter(Boolean);
+}
+function pdfListaPortato(voci, giorno){          // foglio da stampare: niente prezzi; casella da spuntare, codice, descrizione, quantita', note
+  const { jsPDF } = window.jspdf, doc = new jsPDF({unit:'mm', format:'a4', compress:true});
+  const M = 15, W = 210, CW = W - 2*M, FONDO = 275, INK = [20,35,43], PET = [14,90,107], GRIGIO = [91,109,117], RIGA = [211,220,223];
+  let y = M; const col = c => doc.setTextColor(c[0], c[1], c[2]), serve = h => { if (y + h > FONDO) { doc.addPage(); y = M; } };
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); col(INK); doc.text(impostazioni.azienda || 'Materiale da caricare', M, y + 5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); col(GRIGIO); doc.text('Materiale da caricare · ' + dataIT(giorno), W - M, y + 5, {align:'right'});
+  y += 9; doc.setDrawColor(PET[0], PET[1], PET[2]); doc.setLineWidth(0.6); doc.line(M, y, W - M, y); y += 6;
+  if (impostazioni.tecnico) { doc.setFont('helvetica','bold'); doc.setFontSize(12); col(PET); doc.text(impostazioni.tecnico, M, y + 4); y += 9; }
+  const c1 = 8, c2 = 28, c4 = 22, c5 = 36, c3 = CW - c1 - c2 - c4 - c5;
+  const intesta = () => { serve(9); doc.setFillColor(238,243,244); doc.rect(M, y, CW, 7, 'F'); doc.setFont('helvetica','bold'); doc.setFontSize(8.5); col(GRIGIO);
+    doc.text('OK', M + 2, y + 4.8); doc.text('Codice', M + c1 + 1, y + 4.8); doc.text('Descrizione', M + c1 + c2 + 1, y + 4.8); doc.text('Q.tà', M + c1 + c2 + c3 + 1, y + 4.8); doc.text('Note', M + c1 + c2 + c3 + c4 + 1, y + 4.8); y += 7; };
+  const riga = pp => { const dl = doc.splitTextToSize(pp.descr || '', c3 - 2), cl = doc.splitTextToSize(pp.codice || '', c2 - 2), h = Math.max(dl.length, cl.length, 1) * 4.6 + 4; serve(h);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); col(INK); doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.3); doc.rect(M + 1.5, y + 1.8, 4, 4);
+    doc.text(cl, M + c1 + 1, y + 4.8); doc.text(dl, M + c1 + c2 + 1, y + 4.8); doc.text(((pp.qta || '') + ' ' + (pp.um || '')).trim(), M + c1 + c2 + c3 + 1, y + 4.8);
+    y += h; doc.setDrawColor(RIGA[0], RIGA[1], RIGA[2]); doc.setLineWidth(0.2); doc.line(M, y, M + CW, y); doc.line(M + c1 + c2 + c3 + c4, y - h, M + c1 + c2 + c3 + c4, y); };
+  if (voci.length > 1) {          // totale per articolo: per caricare il furgone in un colpo solo
+    const somma = {};
+    voci.forEach(v => v.portato.forEach(pp => { const key = (pp.codice || pp.descr).toLowerCase(), q = qNum(pp.qta); if (!somma[key]) somma[key] = {codice: pp.codice, descr: pp.descr, um: pp.um, q: 0}; if (q) somma[key].q += q; }));
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); col(INK); doc.text('Totale da caricare', M, y + 3); y += 6; intesta();
+    Object.keys(somma).forEach(k => { const x = somma[k]; riga({codice: x.codice, descr: x.descr, um: x.um, qta: x.q ? qtaTesto(x.q) : ''}); });
+    y += 6; serve(14); doc.setFont('helvetica','bold'); doc.setFontSize(10.5); col(INK); doc.text('Dettaglio per appuntamento', M, y + 3); y += 7;
+  }
+  voci.forEach(v => {
+    serve(24); doc.setFont('helvetica','bold'); doc.setFontSize(10); col(GRIGIO);
+    doc.text(doc.splitTextToSize((v.quando ? v.quando + ' · ' : '') + (v.cliente || '') + (v.num ? ' · N. ' + v.num : '') + (v.indirizzo ? ' · ' + v.indirizzo : ''), CW)[0], M, y + 3); y += 5; intesta();
+    v.portato.forEach(riga); y += 5; });
+  const n = doc.getNumberOfPages(); for (let k = 1; k <= n; k++) { doc.setPage(k); doc.setFont('helvetica','normal'); doc.setFontSize(8); col(GRIGIO); doc.text('Pagina ' + k + ' di ' + n, W - M, 290, {align:'right'}); }
+  return doc.output('blob');
+}
+function stampaListaPortato(lista, giorno, nomeFile){
+  const voci = vociPortato(lista);
+  if (!voci.length) { mostraAvviso('Non c\'è ancora nessun articolo nella lista da stampare.'); return; }
+  try { scaricaBlob(pdfListaPortato(voci, giorno), nomeFile); }
+  catch(x) { mostraAvviso('Non sono riuscito a creare il PDF (' + ((x && x.message) || 'errore') + ').'); }
+}
+function avviaPortatoSolo(){
+  const ind = $('#b-indietro-portato'); if (ind) ind.onclick = indietro;
+  document.addEventListener('click', e => {
+    const t = e.target; if (!t || !t.closest) return;
+    if (t.closest('#pt-stampa')) {          // la lista dell'appuntamento aperto (da sola o dentro la scheda)
+      if (!lavoro) return; if (timer) { clearTimeout(timer); salvaBozza(true); }
+      const a = corrente || {id: lavoro.id, titolo: lavoro.cliente, inizio: new Date(lavoro.data + 'T00:00:00'), r: lavoro.r};
+      const g = lavoro.data || isoGiorno(new Date());
+      stampaListaPortato([Object.assign({}, a, {id: lavoro.id})], g, 'Materiale_' + slugNome(lavoro.cliente || 'appuntamento') + '_' + g + '.pdf'); return; }
+    const bg = t.closest('[data-stampa-giorno]');
+    if (bg) { const g = bg.dataset.stampaGiorno; stampaListaPortato(appuntamenti.filter(a => isoGiorno(a.inizio) === g && !a.promemoria).sort((x, y) => x.inizio - y.inizio), g, 'Materiale_da_caricare_' + g + '.pdf'); }
+  });
 }
 function avviaPortatoL(){
   document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'pt-d') ptApr[ptKey()] = d.open; }, true);
@@ -8362,7 +8441,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.108.3 (24/11/2026)';
+const VERSIONE_APP = '1.109.0 (25/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -11161,7 +11240,7 @@ function avvia(){
   setTimeout(() => { try { pulisciInviati(); } catch(e) {} }, 8000);
   { let ultimaPul = Date.now(); document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - ultimaPul > 6 * 3600000) { ultimaPul = Date.now(); try { pulisciInviati(); } catch(e) {} } }); }
   avviaServizio();
-  avviaPosta(); avviaArticoli(); avviaPortatoL(); avviaFoglio(); avviaPin(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 800);
+  avviaPosta(); avviaArticoli(); avviaPortatoL(); avviaPortatoSolo(); avviaFoglio(); avviaPin(); setTimeout(() => { if (!inUfficio) caricaListinoDaDb(); }, 800);
   $('#s-oggi').onclick = () => { periodo = 'oggi'; disegnaAgenda(); };
   $('#s-sett').onclick = () => { periodo = 'sett'; disegnaAgenda(); };
   $('#s-scorsa').onclick = () => { periodo = 'scorsa'; disegnaAgenda(); };
