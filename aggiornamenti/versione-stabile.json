@@ -1,13 +1,12 @@
 {
- "versione": "1.108.3",
+ "versione": "1.109.0",
  "canale": "stabile",
- "data": "2026-11-24",
+ "data": "2026-11-25",
  "novita": [
-  "Ora è possibile inserire in Bacheca l'elenco materiali e manodopera dall'app ufficio",
-  "Ora anche gli allegati possono essere inseriti automaticamente nell'intervento"
+  "inserita lista ' Materiale Portato' dall' appuntamento"
  ],
- "pacchetto": "aggiornamento_1.108.3.zip",
- "sha256": "7389c4cce9846dc6d1c914dbfc8fb0faa4be7534126170f81cd3b4947e7f2f33",
- "firma": "jRLSV_1J87FRTnxLfH4rqm541dv419MLm3Y4n4EuES_SzccQETGQRT54ePOmmp-0_3mwo6R3oFPJ-f2YqLyLBQ",
- "dimensione": 1506097
+ "pacchetto": "aggiornamento_1.109.0.zip",
+ "sha256": "c5311d2cbf325751de32b19fb208bd54bfc3c14ddd23eacb4fa628d2c62403c4",
+ "firma": "IMS88YYjvPvpYYME-5KeJn2YKENIeR5-vOLtLVnIw6ENUJuRkGift2-W6RDADhYt0z9ocgEZTJ9Gv7Be8HByAg",
+ "dimensione": 1508340
 }
