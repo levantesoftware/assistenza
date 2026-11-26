@@ -2669,6 +2669,10 @@ function apriScheda(a){
   lavoro = bozze[a ? a.id : ''] || nuovaScheda(a);
   if (a && !bozze[a.id]) lavoro = nuovaScheda(a);
   if (a && a.rc && a.rc.length && !(lavoro.rc && lavoro.rc.length)) lavoro.rc = JSON.parse(JSON.stringify(a.rc));
+  if (a && a.rc && a.rc.length && lavoro.rc && lavoro.rc.length) {          // allegati creati in Levante dopo l'apertura della scheda: si aggiungono quelli che mancano
+    const ci = lavoro.rc.map(x => x && x.ID != null ? String(x.ID) : '').filter(Boolean);
+    a.rc.forEach(x => { if (x && x.ID != null && ci.indexOf(String(x.ID)) < 0) lavoro.rc.push(JSON.parse(JSON.stringify(x))); });
+  }
   ultimoPdf = null;
   disegnaScheda();
   mostra('scheda');
@@ -8450,7 +8454,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.2 (26/11/2026)';
+const VERSIONE_APP = '1.109.4 (26/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9556,12 +9560,12 @@ const passaggiAttivi = () => passaggi.filter(p => !p.nascosto && !passaggioArriv
 function passaggiHtml(){
   const L = passaggiAttivi();
   if (!L.length) return '';
-  const tecElenco = () => { let L = []; try { L = (sqReali() || []).map(x => sqNomeTec(x)); } catch(e) {} if (!L.length) { try { L = Object.values((datiLevante && datiLevante.tecnici) || {}); } catch(e) {} } return Array.from(new Set(L.filter(Boolean))); };
+  const tecElenco = () => { let L = []; try { L = (sqReali() || []).map(x => sqNomeTec(x)); } catch(e) {} if (!L.length) { try { L = Object.values((datiLevante && datiLevante.tecnici) || {}); } catch(e) {} } if (!L.length) { try { L = Object.keys(impostazioni.emailTecnici || {}).concat(passaggi.map(x => x.da), passaggi.map(x => x.a)); } catch(e) {} } return Array.from(new Set(L.filter(Boolean))); };
   const riga = (p, j) => !p.a ? `<div style="padding:6px 0;border-top:1px solid var(--riga);font-size:14px;line-height:1.35"><span style="font-weight:700">${esc(p.cliente || 'Intervento')}</span>${p.li ? ' · N. ' + esc(p.li) : ''} · passato da ${esc(p.da)} · ${esc(dataIT(isoGiorno(new Date(p.quando))))} ${esc(hhmm(new Date(p.quando)))} <span class="chip urg">Da assegnare</span>
       ${p.nota ? '<br><span class="aiuto" title="' + esc(p.nota) + '">' + esc(p.nota.replace(/\s+/g, ' ').slice(0, 110)) + (p.nota.length > 110 ? '…' : '') + '</span>' : ''}
       <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><select data-passsel="${j}" aria-label="Scegli il collega"><option value="">A chi lo passi?</option>${tecElenco().filter(n => normNome(n) !== normNome(p.da)).map(n => `<option>${esc(n)}</option>`).join('')}</select><button class="btn chiaro piccolo" type="button" data-passnasc="${j}">Nascondi</button></div></div>` : `<div style="padding:6px 0;border-top:1px solid var(--riga);font-size:14px;line-height:1.35"><span style="font-weight:700">${esc(p.cliente || 'Intervento')}</span>${p.li ? ' · N. ' + esc(p.li) : ''} · ${esc(p.da)} → <span style="font-weight:700">${esc(p.a)}</span> · ${esc(dataIT(isoGiorno(new Date(p.quando))))} ${esc(hhmm(new Date(p.quando)))}${p.via === 'uff' && !p.mandato ? ' <span class="chip urg">Da girare</span>' : ''}${p.mandato ? ' <span class="chip pdf">Inviato a ' + esc(p.mandato.a) + ' ' + esc(hhmm(new Date(p.mandato.quando))) + '</span>' : ''}${p.completo ? '' : ' <span class="aiuto">(solo avviso)</span>'}
       ${p.nota ? '<br><span class="aiuto" title="' + esc(p.nota) + '">' + esc(p.nota.replace(/\s+/g, ' ').slice(0, 110)) + (p.nota.length > 110 ? '…' : '') + '</span>' : ''}
-      <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${(p.via === 'uff' && p.completo && (p.src || []).length) ? (inUfficio && smtpPronto ? '<button class="btn piccolo solo-server" type="button" data-passmail="' + j + '">' + (p.mandato ? 'Invia di nuovo' : 'Invia per mail') + '</button>' : '') + '<button class="btn sec piccolo solo-server" type="button" data-passfile="' + j + '">Scarica il file</button>' : ''}<button class="btn chiaro piccolo" type="button" data-passnasc="${j}">Nascondi</button></div></div>`;
+      <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${(p.via === 'uff' && p.completo && (p.src || []).length) ? (inUfficio && smtpPronto ? '<button class="btn piccolo solo-server" type="button" data-passmail="' + j + '">' + (p.mandato ? 'Invia di nuovo' : 'Invia per mail') + '</button>' : '') + '<button class="btn sec piccolo solo-server" type="button" data-passfile="' + j + '">Scarica il file</button>' : ''}<button class="btn chiaro piccolo" type="button" data-passnasc="${j}">Nascondi</button>${!p.mandato ? `<select data-passsel="${j}" aria-label="Cambia il collega" style="max-width:190px"><option value="">Cambia collega…</option>${tecElenco().filter(n => normNome(n) !== normNome(p.da) && normNome(n) !== normNome(p.a)).map(n => `<option>${esc(n)}</option>`).join('')}</select>` : ''}</div></div>`;
   return `<details class="avviso" data-passbox="1" style="margin:0 0 12px"${passApertoUI ? ' open' : ''}><summary><span style="font-weight:700">Interventi passati tra tecnici (${L.length})</span> <span class="aiuto">in attesa del rapporto del collega</span></summary>${L.map(riga).join('')}</details>`;
 }
 async function passaggioMandaMail(j){          // l'ufficio gira il passaggio al collega per mail, senza scaricare e allegare a mano
