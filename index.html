@@ -7915,6 +7915,13 @@ function novitaChiamate(inv, id){
   const cn = novitaCantieri(inv, id);
   return {ha: !!(nuove.length || tolte.length) || cn.ha, testo: t.concat(cn.testo ? [cn.testo] : []).join(' · '), righe: (h || cn.righe) ? '<ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5">' + h + cn.righe + '</ul>' : ''};
 }
+function novitaExtra(id, per, inv){          // novita' che non sono appuntamenti: sezioni dell'app, schede di manutenzione, controlli ricevuti
+  const o = []; if (!inv) return o;
+  if ((inv.cfg === undefined ? 'null' : inv.cfg) !== JSON.stringify(cfgPer(id))) o.push('sezioni dell\'app cambiate');
+  if (inv.cmf !== undefined && inv.cmf !== cmFirma(id)) o.push('schede di manutenzione aggiornate');
+  if (inv.reg !== undefined && inv.reg !== ctrlRegFirma(per[id] || [])) o.push('nuovi controlli ricevuti sugli impianti');
+  return o;
+}
 function haNovita(id, per, inviati, oggi){
   const inv = inviati[id]; if (!inv) return true;
   if ((inv.cfg === undefined ? 'null' : inv.cfg) !== JSON.stringify(cfgPer(id))) return true;
@@ -8128,8 +8135,9 @@ function disegnaUfficio(){
     if (!inv && cantieriAttivi() && (datiLevante.cantieri || []).length) { const cc = datiLevante.cantieri; dettaglio = `<p class="aiuto" style="margin:6px 0 0"><b>Pronti da inviare: ${cc.length} ${cc.length === 1 ? 'cantiere' : 'cantieri'}</b> — ${esc(cc.slice(0, 6).map(c => (c.cod ? c.cod + ' ' : '') + titoloCn(c)).join(' · '))}${cc.length > 6 ? ' · …' : ''}</p>`; }
     if (inv) {
       const c = confrontaAgende(inv.apps, per[id], oggi, giaEseguitoInPosta), ora = hhmm(new Date(inv.quando)), cn = novitaChiamate(inv, id);
-      if (nessunaNovita(c) && !cn.ha) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
-      else { stato = `<span class="chip nov">Novità dall'ultimo invio (${ora}): ${esc([nessunaNovita(c) ? '' : riassuntoNovita(c), cn.testo].filter(Boolean).join(' · '))}</span>`; dettaglio = righeNovita(c, false) + cn.righe; etichetta = 'Invia gli aggiornamenti'; }
+      const ex = novitaExtra(id, per, inv);
+      if (nessunaNovita(c) && !cn.ha && !ex.length) { stato = `<span class="chip">Nessuna novità dall'ultimo invio (${ora})</span>`; primario = false; etichetta = 'Invia comunque'; }
+      else { stato = `<span class="chip nov">Novità dall'ultimo invio (${ora}): ${esc([nessunaNovita(c) ? '' : riassuntoNovita(c), cn.testo, ex.join(', ')].filter(Boolean).join(' · '))}</span>`; dettaglio = righeNovita(c, false) + cn.righe; etichetta = 'Invia gli aggiornamenti'; }
     }
     const nCh = chiamateAttive() ? chiamateDi(id).length : 0, nCa = cantieriAttivi() ? (datiLevante.cantieri || []).length : 0, riga = (soloOperaio(id) ? 'Operaio' : `${per[id].length} ${per[id].length === 1 ? 'appuntamento' : 'appuntamenti'}`) + `${nCh ? ' · ' + nCh + (nCh === 1 ? ' chiamata' : ' chiamate') : ''}${nCa ? ' · ' + nCa + (nCa === 1 ? ' cantiere' : ' cantieri') : ''}`;
     const blocco = `<div class="sez" style="margin-top:${compatto ? 4 : 16}px">${compatto ? '' : `<h2>${esc(nome)}<small>${soloOperaio(id) ? 'Operaio' : per[id].length + (per[id].length === 1 ? ' appuntamento' : ' appuntamenti')}${nCa ? ' · ' + nCa + (nCa === 1 ? ' cantiere' : ' cantieri') : ''}${chiamateAttive() && chiamateDi(id).length ? ' · ' + chiamateDi(id).length + (chiamateDi(id).length === 1 ? ' chiamata' : ' chiamate') : ''}</small></h2>
@@ -8462,7 +8470,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.7 (27/11/2026)';
+const VERSIONE_APP = '1.109.8 (27/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
