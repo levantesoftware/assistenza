@@ -119,6 +119,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 #avviso-prot[hidden]{display:none}
 .seg button.nuovo:not([aria-pressed="true"]){border-color:var(--fiamma);color:#9a4a00;background:#FFF4E5}
 .giorno{font-size:15px;font-weight:700;margin:20px 0 8px}
+details.imp-sez{margin-top:14px}
+details.imp-sez>summary{cursor:pointer;padding:10px 12px;background:var(--petrolio-c);border-radius:10px;list-style-position:inside;min-height:44px}
+details.imp-sez>summary h2{display:inline;font-size:20px;font-weight:800;letter-spacing:-.01em;margin:0;color:var(--petrolio-s)}
+details.imp-sez[open]>summary{margin-bottom:10px}
+details.imp-sez>summary .imp-dot{color:var(--fiamma);margin-left:6px}
 .giorno small{font-weight:400;color:var(--tenue);margin-left:6px}
 
 /* agenda: l'ora e' la colonna portante */
@@ -8454,7 +8459,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.4 (26/11/2026)';
+const VERSIONE_APP = '1.109.6 (27/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -11279,6 +11284,18 @@ function avvia(){
   ['#inc-per', '#inc-tec'].forEach(q => { $(q).onchange = disegnaIncassi; });
   $('#b-inc-csv').onclick = scaricaIncassi;
   $('#b-pdf').onclick = creaPdf;
+  /* impostazioni: le sezioni principali si aprono e chiudono col triangolino (all'inizio chiuse) */
+  const IMP_SEZ = ['Protezione dei file', 'Voci predefinite della ricevuta', 'Tipi di intervento', 'Sezioni dell\'app dei tecnici', 'Schede di manutenzione', 'Squadre', 'Numero delle ricevute', 'Funzioni per i tecnici', 'Pulizia dei file vecchi', 'Postazioni in rete', 'Licenza', 'Aggiornamenti del programma', 'Copia di sicurezza', 'Ufficio', 'Agenda in ufficio', 'Backup completo', 'Bacheca di Levante'];
+  (function impSezioni(){
+    const v = document.getElementById('v-impostazioni'); if (!v) return;
+    Array.prototype.slice.call(v.querySelectorAll('h2.giorno')).forEach(h => {
+      const nome = h.textContent.trim(); if (IMP_SEZ.indexOf(nome) < 0 || h.closest('details.imp-sez')) return;
+      const det = document.createElement('details'); det.className = 'imp-sez'; det.setAttribute('data-imp', nome);
+      const sum = document.createElement('summary'); h.parentNode.insertBefore(det, h); det.appendChild(sum); sum.appendChild(h); h.style.marginTop = '0';
+      while (det.nextSibling && !(det.nextSibling.nodeType === 1 && det.nextSibling.matches && det.nextSibling.matches('h2.giorno'))) det.appendChild(det.nextSibling);
+    });
+  })();
+  const impApri = nome => { const d = document.querySelector('#v-impostazioni details.imp-sez[data-imp="' + nome + '"]'); if (d) d.open = true; };
   $('#b-impostazioni').onclick = () => {
     try { aggiornaImpPin(); } catch(e) {}
     $('#chk-cantieri').checked = cantieriAttivi(); $('#chk-chiamate').checked = chiamateAttive(); { const pg = $('#pass-giorni'); if (pg) pg.value = passGiorni(); }
@@ -11294,6 +11311,7 @@ function avvia(){
     document.querySelectorAll('input[name="foto-q"]').forEach(r => r.checked = (r.value === (FOTO_LIVELLI[impostazioni.fotoQualita] ? impostazioni.fotoQualita : 'leggera')));
     document.querySelectorAll('input[name="foto-pp"]').forEach(r => r.checked = (+r.value === ([1, 2, 4, 6].indexOf(+impostazioni.fotoPerFoglio) >= 0 ? +impostazioni.fotoPerFoglio : 4)));
     mostra('impostazioni'); aggiornaTile(); preparaFirmaTec(); disegnaVociPred(); tentativiStato = 0; aggiornaStatoApp();
+    { const bi = $('#b-impostazioni'), ni = document.querySelector('[data-nav="impostazioni"]'), cl = x => !!(x && x.classList); if (cl(bi) && bi.classList.contains('agg-nuovo') || cl(ni) && ni.classList.contains('agg-nuovo')) impApri('Aggiornamenti del programma'); if (cl(bi) && bi.classList.contains('prot-manca') || cl(ni) && ni.classList.contains('prot-manca')) impApri('Protezione dei file'); }
   };
   const salvaStampa = () => { const r = document.querySelector('input[name="stampa-formato"]:checked'), d = document.querySelector('input[name="stampa-dpi"]:checked'); impostazioni.stampa = {formato: r ? r.value : 'pdf', bn: $('#stampa-bn').checked, dpi: d ? +d.value : 200}; salvaImpostazioni(); aggiornaTile(); };
   document.querySelectorAll('input[name="stampa-formato"],input[name="stampa-dpi"]').forEach(r => r.onchange = salvaStampa); $('#stampa-bn').onchange = salvaStampa;
