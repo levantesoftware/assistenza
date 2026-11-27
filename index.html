@@ -1861,7 +1861,8 @@ function disegnaAvvisoProt(){
 function chipEsito(b){ return b && b.esito === 'concluso' ? '<span class="chip pdf">Concluso</span>' : b && b.esito === 'da_completare' ? '<span class="chip bozza">Da completare</span>' : b && b.esito === 'non_eseguito' ? '<span class="chip urg">Non eseguito</span>' : ''; }
 function chipInvio(b){
   if (!b || b.stato !== 'pdf') return '';
-  return b.inviatoUff ? '<span class="chip pdf">Inviato in ufficio · ' + esc(hhmm(new Date(b.inviatoUff))) + '</span>' : '<span class="chip urg">Non ancora inviato in ufficio</span>';
+  return (b.inviatoUff ? '<span class="chip pdf">Inviato in ufficio · ' + esc(hhmm(new Date(b.inviatoUff))) + '</span>' : '<span class="chip urg">Non ancora inviato in ufficio</span>')
+    + (b.inviatoCli ? ' <span class="chip pdf">Inviato al cliente · ' + esc(hhmm(new Date(b.inviatoCli))) + '</span>' : ' <span class="chip bozza">Da inviare al cliente</span>');
 }
 /* interventi senza appuntamento gia' inviati in ufficio (ultimi 10 giorni, poi si tolgono da soli): restano in elenco come gli altri, con la spunta «Nascondi» */
 const manualiInviati = () => inUfficio ? [] : Object.values(bozze).filter(b => b && b.manuale && b.stato === 'pdf' && b.inviatoUff && Date.now() - (b.inviatoUff || 0) < 10 * 86400000).sort((x, y) => y.inviatoUff - x.inviatoUff);
@@ -3348,6 +3349,12 @@ const minFascia = o => o && o.dal && o.al ? Math.max(0, minuti(o.dal, o.al) - pa
 const pausaTesto = o => { const m = pausaMin(o); return m ? (o.pdal && o.pal ? o.pdal + '–' + o.pal + ', ' : '') + m + ' min' : ''; };
 const fmtOre = m => Math.floor(m/60) + ' h' + (m % 60 ? ' ' + pad(m % 60) + ' min' : '');
 function oreDaFasce(){ return lavoro.orari.reduce((s, o) => s + minFascia(o), 0); }
+/* ore scritte a mano (senza una fascia completa dal-al): nel rapporto vanno solo le ore, non l'ora di arrivo messa in automatico all'inizio */
+function orariDaMostrare(w){
+  const o = (w && w.orari) || [];
+  if (!o.some(x => minFascia(x) > 0) && numOre(w.oreMan) > 0) return [];
+  return o.filter(x => x.dal || x.al);
+}
 function oreTotali(){ const t = oreDaFasce(); return t > 0 ? t : Math.round(numOre(lavoro.oreMan) * 60); }
 let orApr = {};
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'or-d') orApr[ptKey()] = d.open; }, true);
@@ -3807,7 +3814,7 @@ function costruisciPdf(w, ctx){
 
   let tot = w.orari.reduce((s, o) => s + minFascia(o), 0); if (!(tot > 0)) tot = Math.round(numOre(w.oreMan) * 60);
   titolo('Orari');
-  w.orari.filter(o => o.dal || o.al).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—') + (pausaMin(o) ? ' (pausa ' + pausaTesto(o) + ')' : ''), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
+  orariDaMostrare(w).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—') + (pausaMin(o) ? ' (pausa ' + pausaTesto(o) + ')' : ''), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
   if (!ctx.perCliente) w.orari.forEach(o => {
     const L = [[o.p_dal, 'Apri la posizione di arrivo in Google Maps'], [o.p_al, 'Apri la posizione di fine in Google Maps']].filter(x => x[0]);
     if (!L.length) return;
@@ -4893,8 +4900,10 @@ function creaPdf(){
   if (!lavoro.cliente.trim()) { alert('Scrivi il nome del cliente prima di creare il PDF.'); const dc = $('#chi-d'); if (dc) dc.open = true; $('#f-cliente').focus(); return; }
   if (!lavoro.esito) { alert('Scegli l\'esito dell\'intervento.'); return; }
   if (!lavoro.firma && !confirm('Manca la firma del cliente. Creo il PDF lo stesso?')) return;
+  const mantieniInvii = lavoro.stato === 'pdf' && (lavoro.inviatoUff || lavoro.inviatoCli);
   const ultOra = lavoro.orari[lavoro.orari.length - 1];                       // ora di fine mancante: si propone "adesso" solo se si compila lo stesso giorno
-  if (ultOra && ultOra.dal && !ultOra.al && ultOra.data === isoGiorno(new Date()) && minuti(ultOra.dal, hhmm(new Date())) > 0) {
+  const fineAuto = !!(ultOra && ultOra.dal && !ultOra.al && ultOra.data === isoGiorno(new Date()) && minuti(ultOra.dal, hhmm(new Date())) > 0 && !(numOre(lavoro.oreMan) > 0));          // se hai scritto le ore a mano non si inventa l'ora di fine
+  if (fineAuto) {
     ultOra.al = hhmm(new Date()); const inp = document.querySelector('[data-orario="' + (lavoro.orari.length - 1) + '"][data-c="al"]'); if (inp) inp.value = ultOra.al; aggiornaOre();
     mostraAvviso('Ora di fine impostata alle ' + ultOra.al + ': se non è giusta correggila e rifai il PDF.', '', null, 8000);
   }
@@ -4910,7 +4919,8 @@ function creaPdf(){
     try { files.push({blob: costruisciRcee(lavoro), nome: nomeRcee(lavoro), titolo: 'RCEE'}); }
     catch(e) { alert('Non sono riuscito a creare l\'RCEE: ' + e.message + '\nIl rapportino è stato creato.'); }
   }
-  lavoro.stato = 'pdf'; lavoro.inviatoUff = 0; lavoro.inviatoCli = 0; lavoro.aggiornata = Date.now(); bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
+  if (!mantieniInvii) { lavoro.inviatoUff = 0; lavoro.inviatoCli = 0; }          // PDF rifatto senza modifiche (per esempio per il cliente): gli invii gia' fatti restano
+  lavoro.stato = 'pdf'; lavoro.aggiornata = Date.now(); bozze[lavoro.id] = lavoro; salvaBozze(); aggiornaElencoSeLargo();
   ultimoPdf = files;
   if (modificaUff()) registraInUfficio(lavoro, files);
   $('#pdf-lista').innerHTML = files.map((f, n) => `<p style="margin:0 0 8px"><strong>${f.titolo}</strong> · ${esc(f.nome)} <button class="btn sec piccolo" type="button" data-apri="${n}">Apri</button> <button class="btn piccolo" type="button" data-stampa="${n}">Stampa</button></p>`).join('');
@@ -8470,7 +8480,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.8 (27/11/2026)';
+const VERSIONE_APP = '1.109.9 (27/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9621,7 +9631,7 @@ function datiIntervento(w, pdf){
   return {assist: 'intervento', v: 1, id: w.id, data: w.data, cliente: w.cliente, indirizzo: w.indirizzo || '', tecnico: w.tecnico || '', esito: w.esito,
     li: (w.levante && w.levante.li) || '', tipoInt: w.tipo || '', pratica: w.pratica ? {id: w.pratica.id, c: w.pratica.c || '', n: w.pratica.n || ''} : undefined,
     squadra: (w.squadra && (w.squadra.nome || (w.squadra.membri || []).some(m => m.p !== false))) ? {nome: w.squadra.nome || '', capoOp: w.squadra.capoOp != null ? w.squadra.capoOp : null, membri: (w.squadra.membri || []).filter(m => m.p !== false).map(m => ({n: m.n, dal: m.dal || '', al: m.al || '', ore: m.ore || '', op: m.op != null ? m.op : null}))} : undefined,
-    orari: (w.orari || []).filter(o => o.dal || o.al).map(o => { const x = {data: o.data || w.data, dal: o.dal || '', al: o.al || ''}; if (pausaMin(o)) { x.pausa = String(pausaMin(o)); if (o.pdal && o.pal) { x.pdal = o.pdal; x.pal = o.pal; } } return x; }), ore: w.oreMan || '',
+    orari: orariDaMostrare(w).map(o => { const x = {data: o.data || w.data, dal: o.dal || '', al: o.al || ''}; if (pausaMin(o)) { x.pausa = String(pausaMin(o)); if (o.pdal && o.pal) { x.pdal = o.pdal; x.pal = o.pal; } } return x; }), ore: w.oreMan || '',
     km: w.km || '', dc: !!w.dc, relazione: w.relazione || '', osservazioni: ossUnite(w, 'osservazioni'), raccomandazioni: ossUnite(w, 'raccomandazioni'), prescrizioni: ossUnite(w, 'prescrizioni'), note: w.note || '',
     materiali: (w.materiali || []).filter(m => m.descr || m.codice || m.qta).map(m => ({codice: m.codice || '', descr: m.descr || '', qta: m.qta || '', um: m.um || '', prezzo: m.prezzo || ''})),
     rcee: (w.rc ? Object.keys(w.rc).map(k => w.rc[k] && w.rc[k]._tipo).filter(Boolean) : []),
