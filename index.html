@@ -465,6 +465,8 @@ body.uff #tab-tec{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
 .tec-comp>summary:before{content:"▸";color:var(--acciaio-s)}
 .tec-comp[open]>summary:before{content:"▾"}
 .tec-comp>summary .n{opacity:.7;font-size:13px}
+.tec-comp.tec-nov{background:#FFF4E5;border-color:var(--fiamma)}
+.tec-comp .tec-nv{background:#9A5800;color:#fff;font-size:12px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;padding:2px 9px;border-radius:99px}
 .riga-tec{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;margin-bottom:8px;text-align:left}
 .riga-tec .n{font-weight:700;opacity:.8;white-space:nowrap}
 /* tablet in verticale e telefoni grandi in orizzontale */
@@ -8116,7 +8118,7 @@ function disegnaUfficio(){
     else h += '<p class="aiuto" style="margin-top:14px">Per mandare i file ai tecnici con un clic, imposta la posta in uscita nella scheda <button class="btn chiaro piccolo" type="button" data-uff-tab="imp">Impostazioni</button> («Invio dei file per mail ai tecnici») e scrivi l\'email di ogni tecnico.</p>';
   }
   if (inUfficio) h += riquadroSquadre();
-  const compatto = moltiTecnici(), nomeTec = id => id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
+  const compatto = moltiTecnici() || Object.keys(per).length > 1, nomeTec = id => id ? (datiLevante.tecnici[id] || 'Tecnico ' + id) : 'Senza tecnico';
   let ordineTec = Object.keys(per);
   if (compatto) { const nv = {}; ordineTec.forEach(id => { nv[id] = haNovita(id, per, inviati, oggi) ? 0 : 1; }); ordineTec.sort((a, b) => nv[a] - nv[b] || nomeTec(a).localeCompare(nomeTec(b))); h += `<p class="aiuto" style="margin:16px 0 0">${ordineTec.filter(id => !nv[id]).length} ${ordineTec.filter(id => !nv[id]).length === 1 ? 'tecnico con novità' : 'tecnici con novità'} da inviare (in cima). Per mandarli tutti usa il pulsante qui sopra; tocca un nome per vedere i dettagli o inviare a uno solo.</p>`; }
   ordineTec.forEach(id => {
@@ -8136,7 +8138,8 @@ function disegnaUfficio(){
       ${inUfficio ? `<div class="campo" style="margin:8px 0 0"><label for="em-${esc(id)}">Email di ${esc(nome)}</label><input id="em-${esc(id)}" type="email" data-email="${esc(nome)}" value="${esc(emailTecnico(nome))}" autocomplete="off" autocapitalize="none" placeholder="nome@esempio.it"></div>` : ''}
       <div class="azioni" style="margin-top:10px">${inUfficio && smtpPronto ? `<button class="btn${primario ? '' : ' sec'}" type="button" data-mail="${esc(id)}">${etichetta} per mail</button>` : ''}<button class="btn${primario && !(inUfficio && smtpPronto) ? '' : ' sec'}" type="button" data-invia="${esc(id)}">${inUfficio && smtpPronto ? 'Condividi' : etichetta}</button><button class="btn sec" type="button" data-scarica="${esc(id)}">Scarica</button></div></div>`;
     if (compatto) { const ap = !!apertiInv[id];
-      h += `<details class="tec-comp" data-tid="${esc(id)}"${ap ? ' open' : ''}><summary><b>${esc(nome)}</b><span class="n">${riga}</span>${stato}</summary>${blocco}</details>`; }
+      const nvT = haNovita(id, per, inviati, oggi);
+      h += `<details class="tec-comp${nvT ? ' tec-nov' : ''}" data-tid="${esc(id)}"${ap ? ' open' : ''}><summary><b>${esc(nome)}</b>${nvT ? '<span class="tec-nv">' + (inviati[id] ? 'Novità' : 'Da inviare') + '</span>' : ''}<span class="n">${riga}</span>${stato}</summary>${blocco}</details>`; }
     else h += blocco;
   });
   if (inUfficio) h += riquadroChiamate() + riquadroCantieri() + (!chiamateAttive() && !cantieriAttivi() ? '<p class="aiuto" style="margin:16px 0 0">Per i tecnici puoi attivare anche i <b>cantieri</b> e le <b>chiamate di assistenza</b>: Impostazioni › Funzioni per i tecnici.</p>' : '');
@@ -8459,7 +8462,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.6 (27/11/2026)';
+const VERSIONE_APP = '1.109.7 (27/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
