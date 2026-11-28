@@ -4957,7 +4957,7 @@ async function registraInUfficio(w, files){
   try { await vocCarica('int:' + w.id); } catch(e) {}
   /* intervento chiuso in ufficio (solo dal server, con l'opzione di emergenza): entra direttamente fra quelli ricevuti, visibili a tutte le postazioni */
   try {
-    const dd = datiIntervento(w, files.map(f => f.nome)); if (!dd.tecnico) dd.tecnico = (corrente && corrente.tecnico_nome) || impostazioni.tecnico || '';
+    const dd = datiIntervento(w, files.map(f => f.nome)); delete dd.cli; delete dd.cliMail; if (!dd.tecnico) dd.tecnico = (corrente && corrente.tecnico_nome) || impostazioni.tecnico || '';
     const dati = new File([JSON.stringify(dd)], nomeDati(w), {type: 'text/plain'});
     await leggiPosta([dati].concat(files.map(f => new File([f.blob], f.nome, {type: 'application/pdf'}))));
     w.inviatoUff = Date.now(); w.giaInviato = true; w.aggiornata = Date.now(); bozze[w.id] = w; salvaBozze(); aggiornaElencoSeLargo();
@@ -5378,7 +5378,8 @@ async function condividiPdf(){
   segnaInviato(cli);
   m.textContent = 'Ho scaricato ' + (fl.length === 1 ? 'il file' : 'i file') + ' e aperto la mail per ' + ind + ': allega ' + (fl.length === 1 ? 'il file scaricato' : 'i file scaricati') + '.';
 }
-function segnaInviato(cli){ if (!lavoro) return; lavoro[cli ? 'inviatoCli' : 'inviatoUff'] = Date.now(); if (!cli) lavoro.giaInviato = true; try { salvaBozza(true); } catch(e){} try { aggiornaPulsantiInvio(); } catch(e){} }
+function segnaInviato(cli){ if (!lavoro) return; lavoro[cli ? 'inviatoCli' : 'inviatoUff'] = Date.now(); if (!cli) lavoro.giaInviato = true; try { salvaBozza(true); } catch(e){} try { aggiornaPulsantiInvio(); } catch(e){}
+  if (!cli && !lavoro.inviatoCli) { try { mostraAvviso('Il cliente non ha ancora ricevuto il rapporto: l\'ufficio lo vedrà segnalato. Se vuoi, invialo tu al cliente.', '', null, 9000); } catch(e){} } }
 function slugNome(t){ return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'intervento'; }
 async function cancellaFotoInviate(){
   if (!confirm('Hai già inviato le foto? Le cancello da questo dispositivo (restano nel PDF e nei file che hai inviato).')) return;
@@ -8547,7 +8548,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.13 (28/11/2026)';
+const VERSIONE_APP = '1.109.14 (28/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9706,6 +9707,7 @@ function datiIntervento(w, pdf){
     ric: w.ric || undefined, voce: vocDati('int:' + w.id), ctrl: (w.ctrl || []).length ? ctrlDati(w) : undefined, fg: (w.fg || []).length ? fgDati(w) : undefined,
     portato: (w.portato || []).filter(pp => ptResto(w, pp) > 0 || !qNum(pp.qta) && !portatoUsato(w, pp)).map(pp => ({codice: pp.codice || '', descr: pp.descr || '', qta: qNum(pp.qta) ? qtaTesto(ptResto(w, pp)) : (pp.qta || ''), um: pp.um || ''})),
     storia: (w.storia || []).length ? w.storia : undefined, tecnicoOp: ((w.storia || []).length && datiReali && datiReali.meOp != null) ? datiReali.meOp : undefined,
+    cli: w.inviatoCli || 0, cliMail: !!String(w.email || '').trim(),
     file: pdf || [], inviato: Date.now()};
 }
 let posta = store.get('ass_posta', []);
@@ -9880,6 +9882,16 @@ function controlliIntervento(r){
   return c;
 }
 let codaOn = false, codaPos = 0;
+/* rapporto non inviato al cliente dal tecnico (il file dati lo dice al momento dell'invio): l'ufficio deve saperlo e scegliere */
+const cliAperto = r => !!r && !r.rich && !r.cant && r.cli === 0 && !r.cliUff;
+function cliHtml(r, i){
+  if (!r || r.rich || r.cant || r.cli === undefined) return '';
+  const hh = t => dataIT(isoGiorno(new Date(t))) + ' alle ' + hhmm(new Date(t));
+  if (r.cliUff) return `<p class="aiuto" style="margin:8px 0">Rapporto al cliente: ${r.cliUff.v === 'inviato' ? 'inviato dall\'ufficio' : 'l\'ufficio ha scelto di non inviarlo'} (${esc(hh(r.cliUff.q))}) · <button class="btn chiaro piccolo" type="button" data-cli="${i}|annulla">Annulla</button></p>`;
+  if (r.cli) return `<p class="aiuto" style="margin:8px 0">Rapporto al cliente: inviato dal tecnico (${esc(hh(r.cli))}).</p>`;
+  return `<div class="avviso rosso" style="margin:8px 0"><b>⚠ Non inviato al cliente dal tecnico</b>Quando il tecnico ha mandato il rapporto all'ufficio, al cliente non era ancora arrivato nulla${r.cliMail === false ? ' (e nell\'intervento non c\'era l\'email del cliente)' : ''}. Tocca all'ufficio inviarlo, oppure scegliere che non serve.
+    <div class="azioni" style="grid-template-columns:auto auto;justify-content:start;margin-top:8px"><button class="btn piccolo" type="button" data-cli="${i}|inviato">Inviato dall'ufficio</button><button class="btn chiaro piccolo" type="button" data-cli="${i}|nonserve">Non serve inviarlo</button></div></div>`;
+}
 function disegnaPosta(){
   etichettaPosta();
   const box = $('#posta-elenco'); if (!box) return;
@@ -9916,8 +9928,8 @@ function disegnaPosta(){
     const ctrlHtml = r.fatto || !ctrl.length ? '' : `<div class="avviso ${nGravi ? 'rosso' : 'info'}" style="margin:8px 0"><b>Da controllare prima di registrare (${ctrl.length})</b><ul style="margin:4px 0 0;padding-left:20px">${ctrl.map(x => '<li>' + esc(x.t) + '</li>').join('')}</ul></div>`;
     const ctrlChip = r.fatto || !ctrl.length ? '' : ` <span class="chip ${nGravi ? 'urg' : 'bozza'}">${ctrl.length} ${ctrl.length === 1 ? 'controllo' : 'controlli'}</span>`;
     const avanti = codaOn && !r.fatto ? `<button class="btn pieno" type="button" data-coda="avanti" data-i="${i}" style="margin-top:12px">Registrato in Levante: passa al prossimo</button>` : '';
-    return intest + `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.tipoInt ? ' <span class="chip info">' + esc(r.tipoInt) + '</span>' : ''}${r.pratica && r.pratica.c ? ' <span class="chip info">Cantiere ' + esc(r.pratica.c) + '</span>' : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
-      ${ctrlHtml}
+    return intest + `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b>${r.li ? ' · N. ' + esc(r.li) : ''} · ${esc(dataIT(r.data))} · ${esc(r.tecnico)} <span class="chip ${r.esito === 'concluso' ? 'pdf' : 'bozza'}">${esc(ESITI_BREVI[r.esito] || '')}</span>${r.tipoInt ? ' <span class="chip info">' + esc(r.tipoInt) + '</span>' : ''}${r.pratica && r.pratica.c ? ' <span class="chip info">Cantiere ' + esc(r.pratica.c) + '</span>' : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${cliAperto(r) ? ' <span class="chip urg">Non inviato al cliente</span>' : ''}${ctrlChip}</summary>
+      ${cliHtml(r, i)}${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo)}${r.li ? ' · appuntamento <b>N. ' + esc(r.li) + '</b>' : ''}</p>
       <p style="margin:8px 0"><b>Ore:</b> ${esc(fasce) || '—'}${h ? ' · totale <b>' + esc(h) + '</b> (' + esc(csvNum(min / 60, true)) + ' h)' : ''}${r.km ? ' · <b>Km:</b> ' + esc(r.km) : ''}${r.dc ? ' · <b>Diritto di chiamata</b>' : ''}</p>
       ${storiaHtml(r)}
@@ -10122,7 +10134,7 @@ async function leggiPosta(files){
   for (const {o} of lette) {
     const k = chiavePosta(o), i = posta.findIndex(x => chiavePosta(x) === k);
     o.src = Array.from(new Set((i >= 0 ? (posta[i].src || []) : []).concat(o._src || []))); delete o._src;
-    if (i >= 0) { o.ricevuto = posta[i].ricevuto; o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; if (posta[i].fgCom) o.fgCom = posta[i].fgCom; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { o.ricevuto = isoGiorno(new Date()); posta.push(o); if (o.rich) nuoviRq++; else nuovi++; }
+    if (i >= 0) { o.ricevuto = posta[i].ricevuto; o.arch = posta[i].arch && o.src.every(n => (posta[i].src || []).includes(n)); o.fatto = posta[i].fatto; if (posta[i].cliUff) o.cliUff = posta[i].cliUff; if (posta[i].fgCom) o.fgCom = posta[i].fgCom; o.file = Array.from(new Set((posta[i].file || []).concat(o.file || []))); posta[i] = o; agg++; } else { o.ricevuto = isoGiorno(new Date()); posta.push(o); if (o.rich) nuoviRq++; else nuovi++; }
   }
   salvaPosta();
   $('#posta-msg').textContent = (nuoviRq ? nuoviRq + (nuoviRq === 1 ? ' richiesta di chiamate' : ' richieste di chiamate') + ' (nella sezione Richieste dei tecnici), ' : '') + nuovi + (nuovi === 1 ? ' intervento nuovo' : ' interventi nuovi') + (agg ? ', ' + agg + ' aggiornati' : '') + (pdf ? ', ' + pdf + ' PDF caricati' : '') + (nZip ? ' (da ' + (nZip === 1 ? 'uno zip' : nZip + ' zip') + ')' : '') + (altri ? '. ' + altri + ' file non riconosciuti (ignorati)' : '') + '.' + (protetti ? ' ⚠ ' + protetti + (protetti === 1 ? ' file protetto non letto' : ' file protetti non letti') + ': ' + motivoProt + '.' : '');
@@ -10134,11 +10146,11 @@ async function leggiPosta(files){
 let archiviando = false;
 async function archiviaRegistrati(){
   if (!inUfficio || archiviando) return;
-  const cand = posta.filter(r => r.fatto && !r.arch && (r.src || []).length); if (!cand.length) return;
+  const cand = posta.filter(r => r.fatto && !r.arch && !cliAperto(r) && (r.src || []).length); if (!cand.length) return;
   archiviando = true;
   try {
     const nomi = new Set(); cand.forEach(r => r.src.forEach(n => nomi.add(n)));
-    const ok = [...nomi].filter(n => posta.filter(r => (r.src || []).includes(n)).every(r => r.fatto));     // un file con piu' interventi si archivia quando sono tutti registrati
+    const ok = [...nomi].filter(n => posta.filter(r => (r.src || []).includes(n)).every(r => r.fatto && !cliAperto(r)));     // un file con piu' interventi si archivia quando sono tutti registrati
     if (!ok.length) return;
     const r = await chiamaJson('posta-archivia', {nomi: ok});
     if (r && r.ok) {
@@ -10186,8 +10198,8 @@ function schedaCantiere(r, i){
   const pdf = (r.file || []).map(n => (pdfPosta[n] || allegatiSalvati.has(String(n).normalize('NFC'))) ? `<span class="pdf-trasc"><button class="btn sec piccolo" type="button" draggable="true" data-pdf="${esc(n)}" title="Trascina questo file dentro Levante">⠿ ${esc(n)}</button><button class="btn chiaro piccolo solo-server" type="button" data-mostra="${esc(n)}" title="Mostra il file nella cartella">Cartella</button></span>` : `<span class="chip">${esc(n)} (non caricato)</span>`).join(' ');
   const avanti = codaOn && !r.fatto ? `<button class="btn pieno" type="button" data-coda="avanti" data-i="${i}" style="margin-top:12px">Registrato in Levante: passa al prossimo</button>` : '';
   const rel = r.relazione ? `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>Cosa è stato fatto</b><button class="btn sec piccolo" type="button" data-copia="${i}|relazione">Copia</button></div><div style="white-space:pre-wrap">${esc(r.relazione)}</div></div>` : '';
-  return `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b> · ${esc(dataIT(r.data))} · ${esc(op ? op.n : (r.tecnico || ''))} <span class="chip tec">Cantiere</span>${ore ? ` <span class="chip">${esc(fmtOreDec(ore))} h</span>` : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${ctrlChip}</summary>
-      ${ctrlHtml}
+  return `<details${(aperte[chiavePosta(r)] || codaOn) ? ' open' : ''} data-pk="${esc(chiavePosta(r))}" class="avviso ${r.fatto ? 'info' : ''}${deOggi(r) ? ' oggi' : ''}" style="background:var(--foglio);border-color:var(--riga)"><summary>${deOggi(r) ? '<span class="chip oggi">Oggi</span> ' : ''}<b>${esc(r.cliente)}</b> · ${esc(dataIT(r.data))} · ${esc(op ? op.n : (r.tecnico || ''))} <span class="chip tec">Cantiere</span>${ore ? ` <span class="chip">${esc(fmtOreDec(ore))} h</span>` : ''}${r.fatto ? ' <span class="chip pdf">Registrato</span>' : ''}${cliAperto(r) ? ' <span class="chip urg">Non inviato al cliente</span>' : ''}${ctrlChip}</summary>
+      ${cliHtml(r, i)}${ctrlHtml}
       <p style="margin:8px 0">${esc(r.indirizzo || '')}</p>
       ${r.cantiere && r.cantiere.sub && r.cantiere.sub.n ? `<p style="margin:8px 0"><b>Sottocantiere:</b> ${esc(r.cantiere.sub.n)}</p>` : ''}
       <p style="margin:8px 0"><b>Ore:</b> ${ore ? '<b>' + esc(fmtOreDec(ore)) + ' h</b>' : '—'}${r.dal || r.al ? ' (' + esc(r.dal || '—') + ' – ' + esc(r.al || '—') + (r.pausa ? ', pausa ' + esc(r.pausa) + ' min' : '') + ')' : ''}${r.tipo ? ' · ' + esc(r.tipo) : ''}${mc ? ' · manodopera <b>' + esc(mc.cod) + '</b>' + (mc.desc ? ' (' + esc(mc.desc) + ')' : '') : (op ? ' · indice manodopera ' + esc(op.op) + ' (imposta i codici nel CSV per Levante)' : '')}</p>
@@ -10222,6 +10234,9 @@ function avviaPosta(){
   $('#csv-kmcod').value = c.kmCod; $('#csv-kmdesc').value = c.kmDesc; $('#csv-dccod').value = c.dcCod; $('#csv-dcdesc').value = c.dcDesc; $('#csv-um').value = c.um; $('#csv-virgola').checked = c.virgola; $('#csv-intest').checked = c.intest; $('#csv-prezzo').checked = c.prezzo !== false; $('#csv-win').checked = c.win;
   const salva = () => { impostazioni.csv = {man: [0, 1, 2, 3, 4].map(j => ({cod: $('[data-mc="' + j + '"]').value.trim(), desc: $('[data-md="' + j + '"]').value.trim()})), kmCod: $('#csv-kmcod').value.trim(), kmDesc: $('#csv-kmdesc').value.trim(), dcCod: $('#csv-dccod').value.trim(), dcDesc: $('#csv-dcdesc').value.trim(), um: $('#csv-um').value.trim(), virgola: $('#csv-virgola').checked, intest: $('#csv-intest').checked, prezzo: $('#csv-prezzo').checked, win: $('#csv-win').checked}; salvaImpostazioni(); };
   ['#csv-kmcod', '#csv-kmdesc', '#csv-dccod', '#csv-dcdesc', '#csv-um'].forEach(s => $(s).oninput = salva); $('#csv-man').addEventListener('input', salva); ['#csv-virgola', '#csv-intest', '#csv-prezzo', '#csv-win'].forEach(s => $(s).onchange = salva);
+  $('#posta-elenco').addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-cli]'); if (!b) return; const [i, v] = b.dataset.cli.split('|'), r = posta[+i]; if (!r) return;
+    if (v === 'annulla') delete r.cliUff; else r.cliUff = {v, q: Date.now()};
+    salvaPosta(); if (!cliAperto(r) && r.fatto) archiviaRegistrati(); disegnaPosta(); });
   $('#posta-elenco').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
     if (d.passmail !== undefined) { passaggioMandaMail(+d.passmail); return; }
