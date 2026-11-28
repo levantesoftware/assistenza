@@ -1,12 +1,12 @@
 {
- "versione": "1.109.14",
+ "versione": "1.109.16",
  "canale": "stabile",
  "data": "2026-11-28",
  "novita": [
-  "Bug Fix"
+  "Bug fix"
  ],
- "pacchetto": "aggiornamento_1.109.14.zip",
- "sha256": "cefbb5226a6485caefb7d220985207379f099fbbb89cea159cf207a8cd606018",
- "firma": "m-M3cE5vIYlX2XpOGOgJYruwrYnIhx02IRFqTI671aHsUw8C3Ylb16ZbOoeyIaxoQTTkGMryoR_A1vY16O7xAg",
- "dimensione": 1513737
+ "pacchetto": "aggiornamento_1.109.16.zip",
+ "sha256": "a6c894d0a73628070387632a3d0968c1a603c07822b3344192f953c0de3f9126",
+ "firma": "ljJicsKhUdAjPXQjj3PIDX0gl46F_EEoS-S1o5pkOm_UO_zbL_ohy8vqYcZ7mdnIXziW5ShMnNReH-IkoHtcDw",
+ "dimensione": 1517037
 }
