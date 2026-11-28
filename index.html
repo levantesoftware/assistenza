@@ -200,6 +200,9 @@ details.altre summary{cursor:pointer;color:var(--petrolio);font-weight:600;paddi
 /* scheda intervento */
 .passo{margin:24px 0 0}
 .passo>h2{font-size:18px;letter-spacing:-.01em;margin-bottom:4px}
+.rcee-sez{margin:10px 0 0;border-top:1px solid var(--riga)}
+.rcee-sez>summary{cursor:pointer;padding:10px 4px;min-height:44px;font-size:16px;font-weight:700;color:var(--petrolio-s);list-style-position:inside}
+.rcee-sez[open]>summary{margin-bottom:6px}
 .rcee-blocco>summary{cursor:pointer;padding:6px 0;list-style-position:inside}
 .rcee-blocco>summary h2{display:inline;font-size:18px;letter-spacing:-.01em;margin:0}
 .rcee-blocco>summary .aiuto{display:block;font-size:14px;color:var(--tenue);margin:2px 0 0}
@@ -732,8 +735,10 @@ button.pos{margin-top:4px;font-size:13px}
 #vm-modale .ed-fogli,#rq-modale .ed-fogli{max-height:88vh;overflow:auto}
 
 /* novita' */
-#nov-prog,#novita-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
-#nov-prog[hidden],#novita-modale[hidden]{display:none}
+#nov-prog,#agg-dlg,#novita-modale{position:fixed;top:0;right:0;bottom:0;left:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+#nov-prog[hidden],#agg-dlg[hidden],#novita-modale[hidden]{display:none}
+#agg-dlg{align-items:center;padding:16px;box-sizing:border-box}
+#agg-dlg .ed-fogli{border-radius:14px;max-width:520px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:88vh;overflow:auto}
 #nov-prog{align-items:center;padding:16px;box-sizing:border-box}
 #nov-prog .ed-fogli{border-radius:14px;max-width:520px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 #nov-prog .ed-fogli,#novita-modale .ed-fogli{max-height:88vh;overflow:auto}
@@ -923,6 +928,15 @@ details.passo.rcee-blocco>summary h2{font-size:21px;color:var(--petrolio-s)}
       <h2 id="novita-titolo" style="margin:0 0 4px">Novità dall'ufficio</h2>
       <div id="novita-corpo"></div>
       <div class="azioni" style="margin-top:14px"><button class="btn pieno" id="b-novita-ok" type="button" style="grid-column:1 / -1">Ho letto</button></div>
+    </div>
+  </div>
+  <div id="agg-dlg" hidden role="dialog" aria-modal="true" aria-labelledby="agg-dlg-titolo">
+    <div class="ed-fogli">
+      <h2 id="agg-dlg-titolo" style="margin:0 0 4px">È arrivato un aggiornamento</h2>
+      <p class="aiuto" id="agg-dlg-ver" style="margin:0 0 8px"></p>
+      <ul id="agg-dlg-nov" style="margin:0 0 10px;padding-left:20px"></ul>
+      <p class="aiuto" style="margin:0 0 4px">Durante l'installazione il programma si riavvia (un minuto circa).</p>
+      <div class="azioni" style="margin-top:14px"><button class="btn pieno" id="agg-dlg-ora" type="button">Aggiorna ora</button><button class="btn chiaro" id="agg-dlg-dopo" type="button">Ricordamelo più tardi</button></div>
     </div>
   </div>
   <div id="nov-prog" hidden role="dialog" aria-modal="true" aria-labelledby="nov-prog-titolo">
@@ -2960,7 +2974,7 @@ function sezioneRcee(){
   return sup.map(({r, i}) => {
     const mod = modelliRcee()[r._tpl], chiave = (lavoro.id || '') + ':' + i + ':' + r._tipo;
     if (r._man) return comprimiRcee(sezioneManuale(i, r, mod, window.MAPPE_RCEE[r._tipo]), chiave, true);
-    if (r._tipo !== 'RCEE1') return comprimiRcee(sezioneRceeGenerica(i, r, mod, window.MAPPE_RCEE[r._tipo]), chiave, false);
+    if (window.MAPPE_RCEE[r._tipo]) return comprimiRcee(sezioneManuale(i, r, mod, window.MAPPE_RCEE[r._tipo], sup.length > 1 ? i + 1 : 1), chiave, false);          // stessa scheda del modulo per tutti i tipi: sezioni A, B, C… con titolo
     const nome = [r.GENCAL_COSTRUTTORE, r.GENCAL_MODELLO].filter(Boolean).join(' ') || 'Generatore';
     return comprimiRcee(`<div class="passo rcee-blocco"><h2>Allegato RCEE${sup.length > 1 ? ' ' + (i + 1) : ''}</h2>
       <p class="aiuto">${esc(nome)}${r.GENCAL_MATRICOLA ? ' · matr. ' + esc(r.GENCAL_MATRICOLA) : ''}. Creato dall'ufficio e già compilato: correggi solo quello che serve.</p>
@@ -3349,25 +3363,31 @@ const minFascia = o => o && o.dal && o.al ? Math.max(0, minuti(o.dal, o.al) - pa
 const pausaTesto = o => { const m = pausaMin(o); return m ? (o.pdal && o.pal ? o.pdal + '–' + o.pal + ', ' : '') + m + ' min' : ''; };
 const fmtOre = m => Math.floor(m/60) + ' h' + (m % 60 ? ' ' + pad(m % 60) + ' min' : '');
 function oreDaFasce(){ return lavoro.orari.reduce((s, o) => s + minFascia(o), 0); }
-/* ore scritte a mano (senza una fascia completa dal-al): nel rapporto vanno solo le ore, non l'ora di arrivo messa in automatico all'inizio */
+/* ore scritte a mano: nel rapporto vanno solo quelle, senza orari di arrivo/fine (anche se messi in automatico) e senza posizione */
 function orariDaMostrare(w){
   const o = (w && w.orari) || [];
-  if (!o.some(x => minFascia(x) > 0) && numOre(w.oreMan) > 0) return [];
+  if (numOre(w.oreMan) > 0) return [];
   return o.filter(x => x.dal || x.al);
 }
-function oreTotali(){ const t = oreDaFasce(); return t > 0 ? t : Math.round(numOre(lavoro.oreMan) * 60); }
+function oreTotali(){ const m = Math.round(numOre(lavoro.oreMan) * 60); return m > 0 ? m : oreDaFasce(); }          // le ore scritte a mano vincono sugli orari
 let orApr = {};
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.id === 'or-d') orApr[ptKey()] = d.open; }, true);
 function orariSommario(){
   const w = lavoro; if (!w || !w.orari) return '';
   const u = w.orari.filter(o => o.dal), t = oreTotali();
+  if (numOre(w.oreMan) > 0) return fmtOre(t) + (w.km ? ' · ' + w.km + ' km' : '');
   if (!u.length) return t ? fmtOre(t) + (w.km ? ' · ' + w.km + ' km' : '') : 'Arrivo, fine e km percorsi';
   return 'dalle ' + u[0].dal + (u[u.length - 1].al ? ' alle ' + u[u.length - 1].al : ' (in corso)') + (t ? ' · ' + fmtOre(t) : '') + (w.km ? ' · ' + w.km + ' km' : '');
 }
 function aggiornaOre(){
   const da = oreDaFasce(), m = $('#ore-man'), h = $('#ore-man-h');
-  if (m) { if (da > 0) { const v = String(Math.round(da / 60 * 100) / 100).replace('.', ','); if (m.value !== v) m.value = v; m.readOnly = true; if (h) h.textContent = 'Calcolato dagli orari.'; }
-    else { const v = lavoro.oreMan || ''; if (m.readOnly) m.value = v; m.readOnly = false; if (h) h.textContent = 'Senza gli orari, scrivilo tu (per esempio 3,5).'; } }
+  if (m) {
+    const man = numOre(lavoro.oreMan) > 0, calc = da > 0 ? String(Math.round(da / 60 * 100) / 100).replace('.', ',') : '';
+    if (m.readOnly) m.readOnly = false;
+    if (m.value !== (lavoro.oreMan || '') && document.activeElement !== m) m.value = lavoro.oreMan || '';
+    m.placeholder = calc ? 'calcolate: ' + calc : 'es. 3,5';
+    if (h) h.textContent = man ? 'Ore scritte da te: nel rapporto compaiono solo queste, senza orari. Cancellale per usare gli orari.' : (da > 0 ? 'Calcolato dagli orari. Se scrivi qui le ore, nel rapporto compaiono solo quelle (senza orari).' : 'Senza gli orari, scrivilo tu (per esempio 3,5).');
+  }
   const sm = $('#or-sum'); if (sm) sm.textContent = orariSommario();
   document.querySelectorAll('[data-patot]').forEach(e => { const o = lavoro.orari[+e.dataset.patot]; if (o) e.textContent = pausaMin(o) ? 'Tolti ' + pausaMin(o) + ' min dalle ore.' : ''; });
 }
@@ -3616,8 +3636,9 @@ function collegaForm(){
     if (d.togliMan !== undefined) { if (confirm('Togliere questo rapporto?')) { lavoro.rc.splice(+d.togliMan, 1); const y = window.scrollY; ridisegnaRcee(); window.scrollTo(0, y); bozzaModificata(); } return; }
     if (d.man !== undefined) {
       const a = d.man.indexOf('|'), c = d.man.indexOf('|', a + 1), r = lavoro.rc[+d.man.slice(0, a)], col = d.man.slice(a + 1, c), val = d.man.slice(c + 1);
-      r[col] = r[col] === val ? '' : val;
-      b.closest('.controllo').querySelectorAll('[data-man]').forEach(x => { const on = r[col] === x.dataset.man.slice(x.dataset.man.indexOf('|', x.dataset.man.indexOf('|') + 1) + 1); x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on); });
+      const dm = descManuale(modelliRcee()[r._tpl], window.MAPPE_RCEE[r._tipo]), g = dm.gruppi.find(x => x.col === col), opz = g ? (g.tipo === 'chk' ? [{rule: g.rule, val: g.val, et: 'Sì'}] : g.opz) : [], o = opz.find(x => String(x.val) === val);
+      if (g && o) manScegli(r, g, o); else r[col] = r[col] === val ? '' : val;
+      b.closest('.controllo').querySelectorAll('[data-man]').forEach(x => { const v = x.dataset.man.slice(x.dataset.man.indexOf('|', x.dataset.man.indexOf('|') + 1) + 1), oo = opz.find(q => String(q.val) === v), on = g && oo ? manAcceso(r, g, oo) : r[col] === v; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on); });
       bozzaModificata(); return;
     }
     if (d.togliLib !== undefined) { if (confirm('Togliere questo rapporto?')) { lavoro.rc.splice(+d.togliLib, 1); const y = window.scrollY; disegnaLiberi(); window.scrollTo(0, y); bozzaModificata(); } return; }
@@ -3812,10 +3833,11 @@ function costruisciPdf(w, ctx){
     if (ol.length <= 1) { blocco('Osservazioni', ol.length ? ol[0].o : w.osservazioni); blocco('Raccomandazioni', ol.length ? ol[0].a : w.raccomandazioni); blocco('Prescrizioni', ol.length ? ol[0].p : w.prescrizioni); }
     else ol.forEach(x => { blocco('Osservazioni – ' + x.nome, x.o); blocco('Raccomandazioni – ' + x.nome, x.a); blocco('Prescrizioni – ' + x.nome, x.p); }); }
 
-  let tot = w.orari.reduce((s, o) => s + minFascia(o), 0); if (!(tot > 0)) tot = Math.round(numOre(w.oreMan) * 60);
+  const oreManuali = numOre(w.oreMan) > 0;
+  let tot = oreManuali ? Math.round(numOre(w.oreMan) * 60) : w.orari.reduce((s, o) => s + minFascia(o), 0);
   titolo('Orari');
   orariDaMostrare(w).forEach(o => coppia('Giorno ' + dataIT(o.data), (o.dal || '—') + ' – ' + (o.al || '—') + (pausaMin(o) ? ' (pausa ' + pausaTesto(o) + ')' : ''), !ctx.perCliente && (o.p_dal || o.p_al) ? 'Posizione registrata' : '', !ctx.perCliente && (o.p_dal || o.p_al) ? ((o.p_dal ? 'arrivo ' + o.p_dal.la + ', ' + o.p_dal.lo : '') + (o.p_al ? (o.p_dal ? ' · ' : '') + 'fine ' + o.p_al.la + ', ' + o.p_al.lo : '')) : ''));
-  if (!ctx.perCliente) w.orari.forEach(o => {
+  if (!ctx.perCliente && !oreManuali) w.orari.forEach(o => {
     const L = [[o.p_dal, 'Apri la posizione di arrivo in Google Maps'], [o.p_al, 'Apri la posizione di fine in Google Maps']].filter(x => x[0]);
     if (!L.length) return;
     serve(6 * L.length + 2); doc.setFont('helvetica','normal'); doc.setFontSize(9); colore(PET);
@@ -5459,6 +5481,11 @@ function acceso(regola, rec){
   if(e[0]==='=') return v.toLowerCase()===e.slice(1).toLowerCase();
   return v.toUpperCase()===e;
 }
+function accesoM(nome, mappa, rec){          // come acceso(), ma «Diretta» non accende anche «Indiretta»: vince la parola piu' lunga
+  const r = mappa[nome]; if (!acceso(r, rec)) return false;
+  if (r[1][0] === '~') { for (const k in mappa) { const q = mappa[k]; if (q !== r && q[0] === r[0] && q[1][0] === '~' && q[1].length > r[1].length && q[1].toLowerCase().indexOf(r[1].slice(1).toLowerCase()) > 0 && acceso(q, rec)) return false; } }
+  return true;
+}
 function formato(it, v){
   v=(v==null?'':String(v)).trim(); if(!v) return '';
   const m=it.mask||'';
@@ -5519,7 +5546,7 @@ function render(doc, tpl, rec, opz){
       doc.setLineDashPattern([],0);
     } else if(it.t==='label'){
       const isX=it.text.toLowerCase()==='x';
-      if(isX){ if(acceso(mappa[it.name],rec)) testo('x',it); continue; }
+      if(isX){ if(accesoM(it.name,mappa,rec)) testo('x',it); continue; }
       if(it.enabled===false) continue;
       if(it.fill && it.fill.toUpperCase()!=='#FFFFFF'){ doc.setFillColor(...col(it.fill)); doc.rect(it.x,it.y,it.w,it.h,'F'); }
       testo(it.text,it,it.wrap||(it.h>=it.font.size*1.6&&piuLungoDelBox(it.text,it)));
@@ -5626,6 +5653,9 @@ function descrizioneLibera(tpl){
     const l = testi.filter(t => t.y > b.y - 3 && t.y < b.y + b.h && t.x < b.x + 120).sort((p, q) => p.x - q.x)[0];
     return {y: b.y, titolo: libPulisci(l ? l.text : '')};
   });
+  testi.filter(t => t.x < 60 && /^[A-G]\.\s+\S/.test(String(t.text).trim()) && String(t.text).trim() === String(t.text).trim().toUpperCase()).forEach(t => {          // titoli senza la banda colorata (per esempio «C. Trattamento dell'acqua»)
+    const tit = libPulisci(t.text); if (!sezioni.some(x => x.titolo[0] === tit[0] && Math.abs(x.y - t.y) < 14)) sezioni.push({y: t.y - 1, titolo: tit}); });
+  sezioni.sort((p, q) => p.y - q.y); for (let k = sezioni.length - 1; k > 0; k--) if (sezioni[k].titolo === sezioni[k - 1].titolo) sezioni.splice(k, 1);
   const sezDi = y => { let s = ''; sezioni.forEach(t => { if (t.y <= y + 1) s = t.titolo; }); return s; };
   const lResp = testi.find(t => /^Responsabile/i.test(t.text)), lDitta = testi.find(t => /^Impresa manutentrice/i.test(t.text));
   const blocco = y => (lResp && y < lResp.y - 16) ? 'imp' : (lDitta && y < lDitta.y - 16) ? 'resp' : 'ditta';
@@ -5744,12 +5774,18 @@ function nuovoRapportoLibero(tipo){
 }
 /* ---- la scheda ---- */
 const chipLib = (i, k, testo, on) => `<button type="button" class="tri${on ? ' sel' : ''}" data-tog="${i}|${k}" aria-pressed="${on ? 'true' : 'false'}">${esc(testo)}</button>`;
+const titoloSezL = t => { const m = /^([A-Z])\.\s/.exec(String(t || '')); let s = titoloSez(t).replace(/identicativi/i, 'identificativi').replace(/\s+-?\s*(gf|gt)$/i, (m, x) => ' (' + x.toUpperCase() + ')'); return (m ? m[1] + '. ' : '') + s; };
 const titoloSez = t => { const s = String(t || '').replace(/^[A-Z]\.\s*/, '').replace(/\s*[(][^)]*[)]\s*$/, '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); };
+/* ogni sezione A, B, C… del modulo si apre e chiude col triangolino (lo stato si ricorda finche' la scheda e' aperta) */
+function rcSez(i, r, titolo, corpo, aperto){
+  const k = (lavoro.id || '') + ':' + i + ':' + (r._tipo || '') + ':' + String(titolo).slice(0, 2), st = rcApr[k], open = st !== undefined ? st : aperto;
+  return `<details class="rcee-sez" data-rcd="${esc(k)}"${open ? ' open' : ''}><summary>${esc(titolo)}</summary>${corpo}</details>`;
+}
 function sezioneLibera(i, r){
   const tpl = modelloLibero(r);
   if (!tpl) return `<div class="passo rcee-blocco"><h2>Allegato ${esc(r._tipo)}</h2><p class="aiuto">Il modello di questo rapporto non è disponibile su questo dispositivo.</p>
     <button class="btn sec piccolo" type="button" data-togli-lib="${i}">Togli</button></div>`;
-  ossAssegnata = false; const dovevo = true;
+  ossAssegnata = false; const dovevo = true; let esitoG = null;
   const d = descrizioneLibera(tpl), mods = modelliLiberi(r._tipo), nomiMod = Object.keys(mods), apps = (lavoro.r && lavoro.r.a) || [];
   const input = (c, v) => `<div class="campo${c.w > 150 ? ' largo' : ''}"><label>${esc(c.et)}</label><input type="text" ${c.num ? 'inputmode="decimal" ' : ''}data-rcl="${i}|${esc(c.field)}" value="${esc(v || '')}"></div>`;
   const riga = g => {
@@ -5774,17 +5810,18 @@ function sezioneLibera(i, r){
       const altri = campi.filter(c => !c.blk);
       if (altri.length) b += `<div class="due" style="margin-top:8px">${altri.map(c => input(c, r[c.field])).join('')}</div>`;
       gr.forEach(g => { b += riga(g); });
-      h += `<details class="altre"><summary>${esc(titoloSez(s.titolo))} (già compilati)</summary>${b}</details>`;
+      h += rcSez(i, r, titoloSezL(s.titolo) + ' (già compilati)', b, false);
       return;
     }
     const voci = [].concat(campi.map(c => ({y: c.y, x: c.x, c})), gr.map(g => ({y: g.y, x: g.x, g}))).sort((a, z) => (Math.round(a.y / 6) - Math.round(z.y / 6)) || (a.x - z.x));
     let blocco = [];
     const chiudi = () => { if (blocco.length) { b += '<div class="tre">' + blocco.map(c => input(c, r[c.field])).join('') + '</div>'; blocco = []; } };
-    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (/funzionare/i.test(v.g.titolo || '')) b += ossProssima(i); b += riga(v.g); } });
+    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (/funzionare/i.test(v.g.titolo || '')) esitoG = v.g; else b += riga(v.g); } });
     chiudi();
-    h += `<h3 class="sottotit">${esc(titoloSez(s.titolo))}</h3>${b}`;
+    if (!b) return;
+    h += rcSez(i, r, titoloSezL(s.titolo), b, /osserv/i.test(s.titolo));
   });
-  if (dovevo && !ossAssegnata) h += ossProssima(i);
+  h += rcSez(i, r, 'Osservazioni, raccomandazioni ed esito', ossProssima(i) + (esitoG ? riga(esitoG) : ''), true);
   h += `<div style="margin-top:12px"><button class="btn sec piccolo" type="button" data-togli-lib="${i}">Togli questo rapporto</button></div></div>`;
   return h;
 }
@@ -5844,6 +5881,9 @@ function descManuale(tpl, mappa){
   const testi = tpl.items.filter(i => i.t === 'label' && i.enabled !== false && String(i.text).trim() && String(i.text).trim().toLowerCase() !== 'x');
   const bande = tpl.items.filter(i => i.t === 'shape' && i.fill === '#D7D7FF' && i.h < 12).sort((a, b) => a.y - b.y);
   const sezioni = bande.map(b => { const l = testi.filter(t => t.y > b.y - 3 && t.y < b.y + b.h && t.x < b.x + 120).sort((p, q) => p.x - q.x)[0]; return {y: b.y, titolo: libPulisci(l ? l.text : '')}; }).filter(x => /^[A-G]\.\s/.test(x.titolo));
+  testi.filter(t => t.x < 60 && /^[A-G]\.\s+\S/.test(String(t.text).trim()) && String(t.text).trim() === String(t.text).trim().toUpperCase()).forEach(t => {          // titoli senza la banda colorata (per esempio «C. Trattamento dell'acqua»)
+    const tit = libPulisci(t.text); if (!sezioni.some(x => x.titolo[0] === tit[0] && Math.abs(x.y - t.y) < 14)) sezioni.push({y: t.y - 1, titolo: tit}); });
+  sezioni.sort((p, q) => p.y - q.y); for (let k = sezioni.length - 1; k > 0; k--) if (sezioni[k].titolo === sezioni[k - 1].titolo) sezioni.splice(k, 1);
   const sezDi = y => { let s = ''; sezioni.forEach(t => { if (t.y <= y + 1) s = t.titolo; }); return s; };
   const sinistra = it => {
     let m = null, dist = 1e9;
@@ -5862,18 +5902,27 @@ function descManuale(tpl, mappa){
     const L = perCol[col].sort((a, b) => (Math.round(a.it.y / 6) - Math.round(b.it.y / 6)) || (a.it.x - b.it.x)), first = L[0].it;
     const stato = L.every(x => /^[TFN]$/.test(x.rule));
     let g;
-    if (stato && L.length === 1) g = {tipo: 'chk', val: L[0].rule, titolo: MAN_TIT[col] || destra(first) || sinistra(first)};
+    if (stato && L.length === 1) g = {tipo: 'chk', val: L[0].rule, rule: L[0].rule, titolo: MAN_TIT[col] || destra(first) || sinistra(first)};
     else if (stato) {
       const ord = {T: 0, F: 1, N: 2};
-      const opz = L.map(x => { const m = x.it.name.match(/_(SI|NO|NC|NA)$/i), sf = m ? m[1].toUpperCase() : ''; return {val: x.rule, et: sf === 'SI' ? 'Sì' : sf === 'NO' ? 'No' : (sf === 'NC' || sf === 'NA') ? 'Nc' : {T: 'Sì', F: 'No', N: 'Nc'}[x.rule]}; })
+      const opz = L.map(x => { const m = x.it.name.match(/_(SI|NO|NC|NA)$/i), sf = m ? m[1].toUpperCase() : ''; return {rule: x.rule, val: x.rule, et: sf === 'SI' ? 'Sì' : sf === 'NO' ? 'No' : (sf === 'NC' || sf === 'NA') ? 'Nc' : {T: 'Sì', F: 'No', N: 'Nc'}[x.rule]}; })
         .sort((a, b) => ((a.et === 'Sì') ? 0 : (a.et === 'No') ? 1 : 2) - ((b.et === 'Sì') ? 0 : (b.et === 'No') ? 1 : 2));
       g = {tipo: 'opz', opz, titolo: MAN_TIT[col] || sinistra(first)};
-    } else g = {tipo: 'opz', opz: L.map(x => ({val: x.rule.slice(1), et: destra(x.it) || x.rule.slice(1)})), titolo: MAN_TIT[col] || sinistra(first)};
+    } else g = {tipo: 'opz', opz: L.map(x => ({rule: x.rule, val: x.rule.slice(1), et: destra(x.it) || x.rule.slice(1)})), titolo: MAN_TIT[col] || sinistra(first)};
     if (!g.titolo) g.titolo = MAN_FB[col] || etManuale(col);
     gruppi.push(Object.assign(g, {col, y: first.y, x: first.x, sez: sezDi(first.y)}));
   });
+  /* misure in tabella (analisi fumi, circuiti frigo…): l'etichetta e' l'intestazione stampata sopra la casella */
+  const sopra = it => {
+    const cx = it.x + (it.w || 0) / 2, cand = testi.filter(t => { const w = t.w || 30, ov = Math.min(t.x + w, it.x + (it.w || 30) + 6) - Math.max(t.x, it.x - 6);
+      return t.y < it.y + 2 && it.y - t.y < 34 && ov > 0 && ov >= 0.5 * Math.min(w, (it.w || 30) + 12) && t.text.trim().length < 26 && !LIB_INTEST.test(t.text.trim()) && !/^[°%(\s]*(°?c|kw|ppm|%)[)\s]*$/i.test(t.text.trim()); });
+    if (!cand.length) return '';
+    const y0 = Math.max.apply(null, cand.map(t => t.y)), riga = cand.filter(t => y0 - t.y < 11).sort((a, b) => a.y - b.y || Math.abs(a.x - cx) - Math.abs(b.x - cx));
+    return riga.map(t => libPulisci(t.text)).join(' ').trim().replace(/\s*[(][0-9]+[)]\s*$/, '');
+  };
+  const frigo = !!mappa.Check_UsoRaffrescam;
   const visti = {}, campi = [];
-  tpl.items.filter(i => i.t === 'db' && !MAN_SALTA.test(i.field)).forEach(i => { if (visti[i.field]) return; visti[i.field] = 1; campi.push({field: i.field, et: etManuale(i.field), x: i.x, y: i.y, w: i.w, sez: sezDi(i.y + 7), data: /DATA/.test(i.field)}); });
+  tpl.items.filter(i => i.t === 'db' && !MAN_SALTA.test(i.field)).forEach(i => { if (visti[i.field]) return; visti[i.field] = 1; campi.push({field: i.field, et: (frigo || !RCEE_ANALISI.some(x => x[0] === i.field)) && CAMPI_MISURA.test(i.field) && sopra(i) || etManuale(i.field), x: i.x, y: i.y, w: i.w, sez: sezDi(i.y + 7), data: /DATA/.test(i.field)}); });
   const res = {sezioni, gruppi, campi};
   _manCache.set(tpl, res);
   return res;
@@ -5904,22 +5953,39 @@ function nuovoRapportoManuale(tipo){
   ridisegnaRcee(); bozzaModificata();
   rcSoloNuovo('#rcee');
 }
-function sezioneManuale(i, r, tpl, mappa){
+/* scelte del modulo: una voce e' accesa se il valore del rapporto corrisponde alla sua regola (come nella stampa); i valori che arrivano da Levante sono testi, non solo la parola chiave */
+function manAcceso(r, g, o){
+  const v = String(r[g.col] == null ? '' : r[g.col]).trim(), rl = o.rule || o.val || '';
+  if (rl[0] === '~') { const f = o.val.toLowerCase(); if (!v || v.toLowerCase().indexOf(f) < 0) return false;
+    return !(g.opz || []).some(q => q !== o && q.rule && q.rule[0] === '~' && q.val.length > o.val.length && q.val.toLowerCase().indexOf(o.val.toLowerCase()) >= 0 && v.toLowerCase().indexOf(q.val.toLowerCase()) >= 0); }
+  if (rl[0] === '=') return v.toLowerCase() === o.val.toLowerCase();
+  return v.toUpperCase() === String(o.val).toUpperCase();
+}
+function manScegli(r, g, o){
+  const rl = o.rule || '', on = manAcceso(r, g, o);
+  if (rl[0] === '~') {
+    const et = (o.et && o.et.toLowerCase().indexOf(o.val.toLowerCase()) >= 0) ? o.et : o.val;
+    if (/^TH2O_TRATT/.test(g.col)) { let p = String(r[g.col] || '').split(/\s*[,;]\s*/).filter(Boolean); if (on) p = p.filter(x => x.toLowerCase().indexOf(o.val.toLowerCase()) < 0); else p.push(et); r[g.col] = p.join(', '); }
+    else r[g.col] = on ? '' : et;
+  } else r[g.col] = on ? '' : o.val;
+}
+function sezioneManuale(i, r, tpl, mappa, levante){
   const d = descManuale(tpl, mappa), apps = (lavoro.r && lavoro.r.a) || [];
   const input = c => `<div class="campo${c.w > 150 ? ' largo' : ''}"><label>${esc(c.et)}</label><input type="${c.data ? 'date' : 'text'}" ${/POTENZ|DURE|ANFUMI|TEMP|CONSUMO|LETTURA|QTA|NUMCIRC/.test(c.field) && !c.data ? 'inputmode="decimal" ' : ''}data-rcl="${i}|${esc(c.field)}" value="${esc(r[c.field] || '')}"></div>`;
-  const chip = (g, o) => `<button type="button" class="tri${r[g.col] === o.val ? ' sel' : ''}" data-man="${i}|${esc(g.col)}|${esc(o.val)}" aria-pressed="${r[g.col] === o.val}">${esc(o.et)}</button>`;
+  const chip = (g, o) => { const on = manAcceso(r, g, o); return `<button type="button" class="tri${on ? ' sel' : ''}" data-man="${i}|${esc(g.col)}|${esc(o.val)}" aria-pressed="${on}">${esc(o.et)}</button>`; };
   const riga = g => g.tipo === 'chk'
     ? `<div class="controllo"><span>${esc(g.titolo)}</span><span class="tris">${chip(g, {val: g.val, et: 'Sì'})}</span></div>`
     : (g.opz.length <= 3 && g.opz.every(o => /^(Sì|No|Nc)$/.test(o.et)))
       ? `<div class="controllo"><span>${esc(g.titolo)}</span><span class="tris">${g.opz.map(o => chip(g, o)).join('')}</span></div>`
       : `<div class="controllo" style="align-items:flex-start;flex-direction:column"><span>${esc(g.titolo)}</span><span class="chips">${g.opz.map(o => chip(g, o)).join('')}</span></div>`;
-  let h = `<div class="passo rcee-blocco"><h2>Allegato RCEE ${esc(TIPI_MAN[r._tipo] || r._tipo)}</h2>
-    <p class="aiuto">Dati di cliente, impianto e azienda già inseriti: controllali e completa il resto. Data, orari, tecnico e firme si compilano da soli.</p>
+  const nomeGen = [r.GENCAL_COSTRUTTORE, r.GENCAL_MODELLO].filter(Boolean).join(' ') || 'Generatore';
+  let h = `<div class="passo rcee-blocco"><h2>${levante ? 'Allegato ' + (r._tipo === 'RCEE1' ? 'RCEE' : esc(r._tipo)) + (levante > 1 ? ' ' + levante : '') : 'Allegato RCEE ' + esc(TIPI_MAN[r._tipo] || r._tipo)}</h2>
+    <p class="aiuto">${levante ? esc(nomeGen) + (r.GENCAL_MATRICOLA ? ' · matr. ' + esc(r.GENCAL_MATRICOLA) : '') + '. Creato dall\'ufficio e già compilato: correggi solo quello che serve. Sezioni A, B, C… come nel modulo stampato.' : 'Dati di cliente, impianto e azienda già inseriti: controllali e completa il resto. Data, orari, tecnico e firme si compilano da soli.'}</p>
     ${tpl.verificato ? '' : '<div class="avviso"><b>Modello non ancora confrontato con un PDF di Levante</b>Controlla bene il PDF prima di farlo firmare.</div>'}`;
   const vm = modelliDelTipo(r._tipo), nm = Object.keys(vm);
-  if (nm.length > 1) h += `<div class="campo"><label>Modulo (regione)</label><select data-manmod="${i}">${nm.map(k => `<option value="${esc(k)}"${k === r._tpl ? ' selected' : ''}>${esc(etichettaModello(k))}</option>`).join('')}</select></div>`;
-  if (apps.length) h += `<div class="campo"><label>Apparecchio (riempie fabbricante, modello, matricola, potenza)</label><select data-manapp="${i}"><option value="">— scrivo io —</option>${apps.map(a => `<option value="${esc(a.id)}"${a.id === r._app ? ' selected' : ''}>${esc([a.c, a.m, a.s ? 'matr. ' + a.s : ''].filter(Boolean).join(' · ') || 'Apparecchio')}</option>`).join('')}</select></div>`;
-  ossAssegnata = false; const dovevo = true;
+  if (!levante && nm.length > 1) h += `<div class="campo"><label>Modulo (regione)</label><select data-manmod="${i}">${nm.map(k => `<option value="${esc(k)}"${k === r._tpl ? ' selected' : ''}>${esc(etichettaModello(k))}</option>`).join('')}</select></div>`;
+  if (!levante && apps.length) h += `<div class="campo"><label>Apparecchio (riempie fabbricante, modello, matricola, potenza)</label><select data-manapp="${i}"><option value="">— scrivo io —</option>${apps.map(a => `<option value="${esc(a.id)}"${a.id === r._app ? ' selected' : ''}>${esc([a.c, a.m, a.s ? 'matr. ' + a.s : ''].filter(Boolean).join(' · ') || 'Apparecchio')}</option>`).join('')}</select></div>`;
+  ossAssegnata = false; const dovevo = true; let esitoG = null;
   const titoli = d.sezioni.map(s => s.titolo); if (titoli.indexOf('') < 0) titoli.unshift('');
   titoli.forEach(t => {
     const campi = d.campi.filter(c => c.sez === t), gr = d.gruppi.filter(g => g.sez === t);
@@ -5927,13 +5993,14 @@ function sezioneManuale(i, r, tpl, mappa){
     const voci = [].concat(campi.map(c => ({y: c.y, x: c.x, c})), gr.map(g => ({y: g.y, x: g.x, g}))).sort((a, z) => (Math.round(a.y / 6) - Math.round(z.y / 6)) || (a.x - z.x));
     let b = '', blocco = [];
     const chiudi = () => { if (blocco.length) { b += '<div class="tre">' + blocco.map(input).join('') + '</div>'; blocco = []; } };
-    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (v.g.col === 'IMPPUOFUNZIONARE') b += ossProssima(i); b += riga(v.g); } });
+    voci.forEach(v => { if (v.c) blocco.push(v.c); else { chiudi(); if (v.g.col === 'IMPPUOFUNZIONARE') esitoG = v.g; else b += riga(v.g); } });
     chiudi();
     const anag = /^A\.|DATI IDENT/i.test(t);
-    h += anag ? `<details class="altre"><summary>${esc(titoloSez(t))} (già compilati)</summary>${b}</details>` : `<h3 class="sottotit">${esc(titoloSez(t) || 'Dati')}</h3>${b}`;
+    if (!b) return;
+    h += anag ? rcSez(i, r, titoloSezL(t) + ' (già compilati)', b, false) : rcSez(i, r, titoloSezL(t) || 'Dati', b, !t || /osserv/i.test(t));
   });
-  if (dovevo && !ossAssegnata) h += ossProssima(i);
-  h += `<div style="margin-top:12px"><button class="btn sec piccolo" type="button" data-togli-man="${i}">Togli questo rapporto</button></div></div>`;
+  h += rcSez(i, r, 'Osservazioni, raccomandazioni ed esito', ossProssima(i) + (esitoG ? riga(esitoG) : ''), true);
+  h += levante ? '</div>' : `<div style="margin-top:12px"><button class="btn sec piccolo" type="button" data-togli-man="${i}">Togli questo rapporto</button></div></div>`;
   return h;
 }
 function sezioneAggiungiLibero(){
@@ -8480,7 +8547,7 @@ async function caricaPacchetto(file){
    Il file sw.js (accanto a index.html) memorizza l'app sul dispositivo; qui si registra, si controlla
    che sia tutto pronto e si offre l'installazione sulla schermata Home.
    ================================================================== */
-const VERSIONE_APP = '1.109.9 (27/11/2026)';
+const VERSIONE_APP = '1.109.13 (28/11/2026)';
 { const v = document.getElementById('vers-app'); if (v) v.textContent = 'v' + VERSIONE_APP.split(' ')[0]; }
 let richiestaInstalla = null;
 let erroreSW = '', tentativiStato = 0, timerStato = null;
@@ -9423,8 +9490,8 @@ function passatiAttivi(){
   return store.get(PASS_PASSATI, []).filter(p => p && p.id && (p.passatoQuando || 0) > lim);
 }
 function passaggioMinuti(s){          // minuti di un tratto della storia: orari dal-al, altrimenti le ore scritte a mano
-  const t = (s.orari || []).reduce((m, o) => m + minFascia(o), 0);
-  return t > 0 ? t : Math.round((numOre(s.ore) || 0) * 60);
+  const man = Math.round((numOre(s.ore) || 0) * 60); if (man > 0) return man;
+  return (s.orari || []).reduce((m, o) => m + minFascia(o), 0);
 }
 function passaggioFasce(s){ return (s.orari || []).filter(o => o.dal || o.al).map(o => (o.dal || '?') + '–' + (o.al || '?') + (pausaMin(o) ? ' (pausa ' + pausaMin(o) + ' min)' : '')).join(', '); }
 const passaggioColleghi = w => ((typeof datiReali !== 'undefined' && datiReali && datiReali.colleghi) || []).filter(c => c && c.n && normNome(c.n) !== normNome((w && w.tecnico) || impostazioni.tecnico));
@@ -9720,7 +9787,7 @@ function ripartizione(r){
   if (sp) return sp.map(x => ({c: codiceDi(c, x.op) || (man[0] || {cod: 'M0'}).cod, o: x.min ? csvNum(Math.round(x.min / 60 * 100) / 100, true) : '', p: x.n}));
   return [{c: (man[0] || {cod: 'M0'}).cod, o: tot ? csvNum(tot, true) : ''}];
 }
-function minutiTotali(r){ const t = (r.orari || []).reduce((s, o) => s + minFascia(o), 0); return t > 0 ? t : Math.round(numOre(r.ore) * 60); }
+function minutiTotali(r){ const man = Math.round(numOre(r.ore) * 60); return man > 0 ? man : (r.orari || []).reduce((s, o) => s + minFascia(o), 0); }
 function csvNum(v, virg){
   let s = String(v == null ? '' : v).trim(); if (!s) return '';
   const n = parseFloat(s.replace(',', '.')); if (isNaN(n) || !/^[\d.,\s]+$/.test(s)) return s.replace(/[;\r\n]+/g, ' ');
@@ -10680,8 +10747,27 @@ async function aggiornaAgg(){
   if (!aggiornaAgg.fatto) { aggiornaAgg.fatto = true; $('#ag-canale').value = st.canale; $('#ag-url').value = st.url || ''; $('#ag-auto').checked = !!st.auto; }
   document.querySelectorAll('[data-nav="impostazioni"], #b-impostazioni').forEach(b => b.classList.toggle('agg-nuovo', !!agg));
   try { novitaProgramma(st); } catch(e) {}
+  aggUltimo = st; try { offriAgg(); } catch(e) {}
   return st;
 }
+/* Finestra «è arrivato un aggiornamento»: una volta per versione, al massimo una volta al giorno se si sceglie «più tardi»;
+   non compare mentre si sta lavorando su una scheda/cantiere o con un'altra finestra aperta. */
+let aggUltimo = null;
+function offriAgg(){
+  const st = aggUltimo, agg = st && st.disponibile; if (!agg || st.in_corso || agInstall || !inUfficio || inRemoto) return;
+  const dlg = $('#agg-dlg'); if (!dlg || !dlg.hidden) return;
+  if (['scheda', 'dettaglio', 'cantiere'].indexOf(vistaCorrente) >= 0) return;
+  if (document.querySelector('#nov-prog:not([hidden]), #novita-modale:not([hidden])')) return;
+  let r = {}; try { r = JSON.parse(localStorage.getItem('agg_dlg') || '{}') || {}; } catch(e) {}
+  if (r.v === agg.versione && Date.now() < (r.fino || 0)) return;
+  try { localStorage.setItem('agg_dlg', JSON.stringify({v: agg.versione, fino: Date.now() + 864e5})); } catch(e) {}
+  $('#agg-dlg-ver').textContent = 'Nuova versione ' + agg.versione + (agg.data ? ' (' + dataIT(agg.data) + ')' : '') + ' · installata ora: ' + st.versione;
+  $('#agg-dlg-nov').innerHTML = (agg.novita || []).map(x => '<li>' + esc(x) + '</li>').join(''); $('#agg-dlg-nov').hidden = !(agg.novita && agg.novita.length);
+  dlg.hidden = false;
+  $('#agg-dlg-dopo').onclick = () => { dlg.hidden = true; };
+  $('#agg-dlg-ora').onclick = () => { dlg.hidden = true; try { localStorage.removeItem('agg_dlg'); } catch(e) {} mostra('impostazioni'); try { impApri('Aggiornamenti del programma'); } catch(e) {} const b = $('#ag-installa'); if (b && !b.hidden) b.click(); };
+}
+setInterval(() => { try { offriAgg(); } catch(e) {} }, 60000);
 /* Novita' del programma: dopo un aggiornamento compare una finestra con le novita' (una volta sola). Il testo viaggia dentro il pacchetto
    (app\novita.json, scritto da Pubblica_aggiornamento). Una nuova installazione non mostra niente. */
 let novProgFatto = false;
